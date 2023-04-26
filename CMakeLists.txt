@@ -8,6 +8,10 @@ project(
 set(CMAKE_INSTALL_MESSAGE LAZY CACHE STRING "")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "")
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
 option(nncv_enable_cuda "Enable CUDA Device will involve cuh file to op" ON)
 option(nncv_enable_opencv "Eanbel opencv for image preprocessing" OFF)
 option(nncv_enable_stb_image "Enable std image for read/write image, preprocessing is limited" ON)
@@ -59,21 +63,6 @@ if(nncv_enable_stb_image)
 # TODO
 endif(nncv_enable_stb_image)
 
-if(nncv_build_examples)
-    message(STATUS "Building NNCV Examples")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/examples)
-endif(nncv_build_examples)
-
-if(nncv_build_test)
-    message(STATUS "Building NNCV Tests Module")
-    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
-endif(nncv_build_test)
-
-if(nncv_build_python_toolset)
-    message(STATUS "Building NNCV Python Toolset")
-# TODO
-endif()
-
 if(nncv_build_dynamic_lib)
     file(GLOB_RECURSE nncv_srcs_cpp ${PROJECT_SOURCE_DIR}/src/nncv/*.cpp)
     file(GLOB_RECURSE nncv_srcs_hpp ${PROJECT_SOURCE_DIR}/include/nncv/*.hpp)
@@ -90,6 +79,7 @@ if(nncv_enable_cuda)
     )
     add_compile_options(--cuda-gpu-arch=sm_20) # TODO change it.
     target_link_libraries(libnncv-cuda ${CUDA_LIBRARIES} ${nncv_link_lib_lists})
+    include_directories(libnncv-cuda ${PROJECT_SOURCE_DIR}/include/)
 else()
     message(STATUS "Building NNCV Dynamic lib for CPU on X86")
     add_library(libnncv-cpu SHARED
@@ -98,5 +88,21 @@ else()
         ${nncv_include_lists}
     )
     target_link_libraries(libnncv-cpu ${nncv_link_lib_lists})
+    include_directories(libnncv-cpu ${PROJECT_SOURCE_DIR}/include/)
 endif(nncv_enable_cuda)
 endif(nncv_build_dynamic_lib)
+
+if(nncv_build_examples)
+    message(STATUS "Building NNCV Examples")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/examples)
+endif(nncv_build_examples)
+
+if(nncv_build_test)
+    message(STATUS "Building NNCV Tests Module")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
+endif(nncv_build_test)
+
+if(nncv_build_python_toolset)
+    message(STATUS "Building NNCV Python Toolset")
+    # TODO
+endif()

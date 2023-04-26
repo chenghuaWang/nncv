@@ -11,7 +11,8 @@ Neural Networks Inference Computing Framework for Computer Vision(NNCV) is a Hig
     * etc
 3. Highly optimized operation kernel.
 4. Carefully and efficient memory management.
-5. A Perf tool for testing your networks performance.
+5. A Perf tool for testing your networks' performance.
+6. Code generation for highly optimized operator.
 
 *Supporting:*
 
@@ -19,6 +20,16 @@ Neural Networks Inference Computing Framework for Computer Vision(NNCV) is a Hig
 |:-:|:-:|:-:|
 |win64(x86)| yes | yes |
 |ubuntu 20.04(wsl2 x86)| yes | yes |
+
+
+## Learning
+
+* 常见框架的实现方式
+* 算子融合+代码生成的方式
+* 图优化的种类和方式，实现
+
+## Road Map
+
 
 
 ## citing
