@@ -1,5 +1,0 @@
-#ifndef NNCV_ALLOC_CUDA_CUH
-#define NNCV_ALLOC_CUDA_CUH
-
-
-#endif  //! NNCV_ALLOC_CUDA_CUH

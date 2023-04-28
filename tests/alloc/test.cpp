@@ -1,5 +1,3 @@
-#include "nncv/cuda/alloc_cuda.cuh"
+#include "nncv/core/common/maybe.hpp"
 
-int main() {
-
-}
+int main() {}

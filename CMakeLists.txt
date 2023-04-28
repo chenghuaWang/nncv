@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.20)
 project(
     nncv
-    LANGUAGES CXX CUDA
+    LANGUAGES C CXX CUDA
     VERSION 0.0.1
 )
 
@@ -19,6 +19,8 @@ option(nncv_build_dynamic_lib "Build the dynamic lib of nncv" ON)
 option(nncv_build_examples "Build Examples" OFF)
 option(nncv_build_test "Build Test module" ON)
 option(nncv_build_python_toolset "Build Python toolset for quickly test" OFF)
+option(nncv_build_model_compiler "Build model compiler for optimize kernel" ON)
+option(nncv_build_vm "Build Virtual machine for execute networks" ON)
 # Reference:
 # https://medium.com/@alasher/colored-c-compiler-output-with-ninja-clang-gcc-10bfe7f2b949
 option(nccv_force_colored_diagnostics "Always produce ANSI-colored diagnostics (GNU/Clang only)." ON)
@@ -45,7 +47,9 @@ if(nncv_enable_cuda)
 endif(nncv_enable_cuda)
 
 include(cmake/check_simd.cmake)
+include(cmake/check_statement_expr.cmake)
 CHECK_SIMD()
+# CHECK_STATEMENT_EXPR()
 
 set(nncv_include_lists)
 set(nncv_link_lib_lists)
@@ -64,12 +68,12 @@ if(nncv_enable_stb_image)
 endif(nncv_enable_stb_image)
 
 if(nncv_build_dynamic_lib)
-    file(GLOB_RECURSE nncv_srcs_cpp ${PROJECT_SOURCE_DIR}/src/nncv/*.cpp)
-    file(GLOB_RECURSE nncv_srcs_hpp ${PROJECT_SOURCE_DIR}/include/nncv/*.hpp)
+    file(GLOB_RECURSE nncv_srcs_cpp ${PROJECT_SOURCE_DIR}/src/nncv/core/*.cpp)
+    file(GLOB_RECURSE nncv_srcs_hpp ${PROJECT_SOURCE_DIR}/include/nncv/core/*.hpp)
 if(nncv_enable_cuda)
     message(STATUS "Building NNCV Dynamic lib for CUDA Device")
-    file(GLOB_RECURSE nncv_srcs_cu ${PROJECT_SOURCE_DIR}/src/nncv/*.cu)
-    file(GLOB_RECURSE nncv_srcs_cuh ${PROJECT_SOURCE_DIR}/include/nncv/*.cuh)
+    file(GLOB_RECURSE nncv_srcs_cu ${PROJECT_SOURCE_DIR}/src/nncv/core/*.cu)
+    file(GLOB_RECURSE nncv_srcs_cuh ${PROJECT_SOURCE_DIR}/include/nncv/core/*.cuh)
     add_library(libnncv-cuda SHARED
         ${nncv_srcs_cpp}
         ${nncv_srcs_hpp}
@@ -105,4 +109,14 @@ endif(nncv_build_test)
 if(nncv_build_python_toolset)
     message(STATUS "Building NNCV Python Toolset")
     # TODO
-endif()
+endif(nncv_build_python_toolset)
+
+if(nncv_build_model_compiler)
+    message(STATUS "Building NNCV Virtual Machine")
+    # TODO harry
+endif(nncv_build_model_compiler)
+
+if(nncv_build_model_compiler)
+    message(STATUS "Building NNCV Modle Compiler")
+    # TODO harry
+endif(nncv_build_model_compiler)

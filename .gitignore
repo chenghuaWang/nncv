@@ -1,6 +1,7 @@
 .vscode/
 .idea/
 .vs/
+.cache/
 cmake-build-debug/
 cmake-build-release/
 build_win.bat
