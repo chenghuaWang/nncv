@@ -11,9 +11,7 @@
 #ifndef NNCV_MAYBE_HPP
 #define NNCV_MAYBE_HPP
 
-#if defined(__clang__) and defined(_MSC_VER)
-
-#endif
+#pragma once
 
 /**
  * Error checker.

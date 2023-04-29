@@ -2,3 +2,10 @@ CompileFlags:
   Remove:
     - -forward-unknown-to-host-compiler
     - --generate-code*
+  Add:
+    [
+        '--cuda-gpu-arch=sm_35',
+        '--cuda-path=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6',
+        '-LC:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\lib\x64',
+        '-IC:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\include'
+    ]

@@ -41,8 +41,19 @@ endif(APPLE)
 
 if(nncv_enable_cuda)
     enable_language(CUDA)
-    message(STATUS "cuda version: " ${CUDA_VERSION_STRING})
-    include_directories(${CUDA_INCLUDE_DIRS})
+    find_package(CUDAToolkit)
+    message ( STATUS  "CUDAToolkit_FOUND=${CUDAToolkit_FOUND}" )
+    message ( STATUS  "CUDAToolkit_VERSION=${CUDAToolkit_VERSION}" )
+    message ( STATUS  "CUDAToolkit_VERSION_MAJOR=${CUDAToolkit_VERSION_MAJOR}" )
+    message ( STATUS  "CUDAToolkit_VERSION_MINOR=${CUDAToolkit_VERSION_MINOR}" )
+    message ( STATUS  "CUDAToolkit_VERSION_PATCH=${CUDAToolkit_VERSION_PATCH}" )
+    message ( STATUS  "CUDAToolkit_BIN_DIR=${CUDAToolkit_BIN_DIR}" )
+    message ( STATUS  "CUDAToolkit_INCLUDE_DIRS=${CUDAToolkit_INCLUDE_DIRS}" )
+    message ( STATUS  "CUDAToolkit_LIBRARY_DIR=${CUDAToolkit_LIBRARY_DIR}" )
+    message ( STATUS  "CUDAToolkit_LIBRARY_ROOT=${CUDAToolkit_LIBRARY_ROOT}" )
+    message ( STATUS  "CUDAToolkit_TARGET_DIR=${CUDAToolkit_TARGET_DIR}" )
+    message ( STATUS  "CUDAToolkit_NVCC_EXECUTABLE=${CUDAToolkit_NVCC_EXECUTABLE}" )
+    include_directories(${CUDAToolkit_INCLUDE_DIRS})
     add_definitions(-DNNCV_ENABLE_CUDA=1)
 endif(nncv_enable_cuda)
 
@@ -81,8 +92,7 @@ if(nncv_enable_cuda)
         ${nncv_srcs_cuh}
         ${nncv_include_lists}
     )
-    add_compile_options(--cuda-gpu-arch=sm_20) # TODO change it.
-    target_link_libraries(libnncv-cuda ${CUDA_LIBRARIES} ${nncv_link_lib_lists})
+    target_link_libraries(libnncv-cuda ${nncv_link_lib_lists})
     include_directories(libnncv-cuda ${PROJECT_SOURCE_DIR}/include/)
 else()
     message(STATUS "Building NNCV Dynamic lib for CPU on X86")
@@ -111,10 +121,28 @@ if(nncv_build_python_toolset)
     # TODO
 endif(nncv_build_python_toolset)
 
-if(nncv_build_model_compiler)
+if(nncv_build_vm)
     message(STATUS "Building NNCV Virtual Machine")
-    # TODO harry
-endif(nncv_build_model_compiler)
+    file(GLOB_RECURSE nncv_vm_srcs_cpp ${PROJECT_SOURCE_DIR}/src/nncv/vm/*.cpp)
+    file(GLOB_RECURSE nncv_vm_srcs_hpp ${PROJECT_SOURCE_DIR}/include/nncv/vm/*.hpp)
+if(nncv_enable_cuda)
+    file(GLOB_RECURSE nncv_vm_srcs_cu ${PROJECT_SOURCE_DIR}/src/nncv/vm/*.cu)
+    file(GLOB_RECURSE nncv_vm_srcs_cuh ${PROJECT_SOURCE_DIR}/include/nncv/vm/*.cuh)
+    add_executable(nncv-vm-cuda
+        ${nncv_vm_srcs_cpp}
+        ${nncv_vm_srcs_hpp}
+        ${nncv_vm_srcs_cu}
+        ${nncv_vm_srcs_cuh}
+    )
+    target_link_libraries(nncv-vm-cuda libnncv-cuda)
+else()
+    add_executable(nncv-vm-cpu
+        ${nncv_vm_srcs_cpp}
+        ${nncv_vm_srcs_hpp}
+    )
+    target_link_libraries(nncv-vm-cpu libnncv-cpu)
+endif(nncv_enable_cuda)
+endif(nncv_build_vm)
 
 if(nncv_build_model_compiler)
     message(STATUS "Building NNCV Modle Compiler")
