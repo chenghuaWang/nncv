@@ -1,4 +1,4 @@
-#include "nncv/vm/memory/alloc.hpp"
+#include "nncv/vm/cuda/vm_alloc_cuda.cuh"
 
 namespace nncv {
 namespace vm {}

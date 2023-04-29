@@ -1,6 +1,8 @@
 #ifndef NNCV_DEVICE_HPP
 #define NNCV_DEVICE_HPP
 
+#pragma once
+
 #include "nncv/core/base.hpp"
 
 #include <string>

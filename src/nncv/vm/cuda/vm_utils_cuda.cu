@@ -1,6 +1,9 @@
 #include "nncv/core/base.hpp"
 #include "nncv/vm/cuda/vm_utils_cuda.cuh"
 
+namespace nncv {
+namespace vm {
+
 extern "C" void PrintCudaDevicesInfo() {
   int device_cnt;
   cudaGetDeviceCount(&device_cnt);
@@ -11,3 +14,12 @@ extern "C" void PrintCudaDevicesInfo() {
   }
   printf("Info: found cuda device %d\n", device_cnt);
 }
+
+extern "C" void GetCudaDeviceProperty(CudaDeviceProperty_t& cdp, int idx) {
+  cudaDeviceProp device_prop;
+  cudaGetDeviceProperties(&device_prop, idx);
+  // TODO
+}
+
+}  // namespace vm
+}  // namespace nncv

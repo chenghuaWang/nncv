@@ -1,6 +1,8 @@
 #ifndef NNCV_BASE_HPP_
 #define NNCV_BASE_HPP_
 
+#pragma once
+
 #include <cstdio>
 #include <cstdlib>
 

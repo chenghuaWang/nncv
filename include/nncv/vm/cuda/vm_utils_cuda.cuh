@@ -4,10 +4,14 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
+#include "nncv/core/common/data_types.hpp"
+
 namespace nncv {
 namespace vm {
 
 extern "C" void PrintCudaDevicesInfo();
+
+extern "C" void GetCudaDeviceProperty(CudaDeviceProperty_t& cdp, int idx = 0);
 
 }  // namespace vm
 }  // namespace nncv

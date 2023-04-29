@@ -9,5 +9,9 @@ void DebugPrintDeviceInfo() {
 #endif
 }
 
+void GetHostDeviceProperty(HostDeviceProperty_t& hdp) {
+  // TODO
+}
+
 }  // namespace vm
 }  // namespace nncv
