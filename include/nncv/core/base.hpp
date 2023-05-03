@@ -12,11 +12,14 @@
 
 #ifdef WIN32
 #ifdef WIN32_EXPORTS
-#define EXPORT_DLL __declspec(dllexport)
+#define NNCV_EXPORT_DLL __declspec(dllexport)
 #else
 #define IMPORT_DLL __declspec(dllimport)
 #endif
 #endif
+
+#define NNCV_FORCE_INLINE __attribute__((always_inline))
+#define NNCV_TRY_INLINE inline
 
 /**
  * Load from cmake. The basic settings of nncv

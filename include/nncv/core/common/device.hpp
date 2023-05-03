@@ -20,7 +20,7 @@ enum DeviceType : int {
   kSelfDefined = 2,
 };
 
-struct EXPORT_DLL Device {
+struct NNCV_EXPORT_DLL Device {
   Device() = default;
   Device(const DeviceType& dt);
   DeviceType Type;
@@ -29,7 +29,7 @@ struct EXPORT_DLL Device {
   int GlobalIdx;
 };
 
-class EXPORT_DLL DevicePool {
+class NNCV_EXPORT_DLL DevicePool {
  public:
   ~DevicePool() = default;
   DevicePool();

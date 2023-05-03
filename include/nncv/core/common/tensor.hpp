@@ -1,7 +1,8 @@
 #ifndef NNCV_TENSOR_HPP
 #define NNCV_TENSOR_HPP
-
 #pragma once
+
+#include <iostream>
 
 #include "nncv/core/common/device.hpp"
 
@@ -11,54 +12,88 @@ enum TensorDataLayoutType : int {
   kNCHW = 0,
 };
 
-template<int dims = 4>
-struct EXPORT_DLL Shape {
-  Shape(Shape&& _lhs) : m_last_dim(std::move(_lhs.m_last_dim)), m_data(std::move(_lhs.m_data)) {}
-  int m_last_dim = -1;
-  int m_data[dims];
+struct NNCV_EXPORT_DLL Shape {
+  Shape(Shape&& _lhs)
+      : n(std::move(_lhs.n)), c(std::move(_lhs.c)), h(std::move(_lhs.h)), w(std::move(_lhs.w)) {}
+  Shape(int _w) : n(-1), c(-1), h(-1), w(_w), dims(1) {}
+  Shape(int _h, int _w) : n(-1), c(-1), h(_h), w(_w), dims(2) {}
+  Shape(int _c, int _h, int _w) : n(-1), c(_c), h(_h), w(_w), dims(3) {}
+  Shape(int _n, int _c, int _h, int _w) : n(_n), c(_c), h(_h), w(_w), dims(4) {}
+
+  std::ostream& operator<<(std::ostream& output) {
+    output << "Tensor Shape[" << n << ", " << c << ", " << h << ", " << w << "], dims=" << dims
+           << "\n";
+    return output;
+  }
+
+  int operator[](int idx) {
+    switch (idx) {
+      case 0: return n;
+      case 1: return c;
+      case 2: return h;
+      case 3: return w;
+      default: return -1;
+    }
+  }
+
+  int n, c, h, w;
+  int dims;
 };
 
-template<typename value_type, int dims = 4, DeviceType device_type = DeviceType::kHost>
-class EXPORT_DLL Tensor {
- public:
-  Tensor() : m_data_ptr(nullptr), m_shape(dims), m_device_type(device_type) {}
+/**
+ * @brief Tensor is just a abstraction here. True memory alloc is in VM stage.
+ *
+ */
+class NNCV_EXPORT_DLL Tensor {
+  NNCV_FORCE_INLINE Tensor(int _w, size_t _size, const Device& _device = Device(DeviceType::kHost))
+      : m_shape(_w), m_element_size(_size), m_device(_device) {}
+
+  NNCV_FORCE_INLINE Tensor(int _h, int _w, size_t _size,
+                           const Device& _device = Device(DeviceType::kHost))
+      : m_shape(_h, _w), m_element_size(_size), m_device(_device) {}
+
+  NNCV_FORCE_INLINE Tensor(int _c, int _h, int _w, size_t _size,
+                           const Device& _device = Device(DeviceType::kHost))
+      : m_shape(_c, _h, _w), m_element_size(_size), m_device(_device) {}
+
+  NNCV_FORCE_INLINE Tensor(int _n, int _c, int _h, int _w, size_t _size,
+                           const Device& _device = Device(DeviceType::kHost))
+      : m_shape(_n, _c, _h, _w), m_element_size(_size), m_device(_device) {}
+
+  NNCV_FORCE_INLINE void to(const std::string& _device_str) {
+    // TODO
+    // using device pool, to search if there has such device.
+    // if has. Device = DevicePool.find(_device_str);
+  }
+
+  NNCV_FORCE_INLINE void RefIncrease() { (*m_ref)++; }
+  NNCV_FORCE_INLINE bool RefDecrease() {
+    (*m_ref)--;
+    if (*m_ref == 0)
+      return true;  //! if m_ref == 0, this tensor should be freed by VM's memory manager
+    return false;
+  }
+
+  template<typename T>
+  NNCV_FORCE_INLINE operator T*() {
+    if (m_data_ptr == nullptr) return nullptr;
+    return (T*)m_data_ptr;
+  }
+
+  template<typename T>
+  NNCV_FORCE_INLINE operator const T*() const {
+    if (m_data_ptr == nullptr) return nullptr;
+    return (const T*)m_data_ptr;
+  }
 
  private:
-  value_type* m_data_ptr;
-  Shape<dims> m_shape;
-  DeviceType m_device_type;
-  TensorDataLayoutType m_layout = TensorDataLayoutType::kNCHW;
+  int* m_ref;
+  size_t m_element_size;
+  void* m_data_ptr;
+  Shape m_shape;
+  Device m_device;
+  TensorDataLayoutType m_layout;
 };
-
-template<int dims>
-EXPORT_DLL Shape<dims> MakeShape2D(int _1, int _2) {
-  Shape<dims> ans;
-  ans.m_last_dim = _2;
-  ans.m_data[0] = _1;
-  ans.m_data[1] = _2;
-  return ans;
-}
-
-template<int dims>
-EXPORT_DLL Shape<dims> MakeShape3D(int _1, int _2, int _3) {
-  Shape<dims> ans;
-  ans.m_last_dim = _3;
-  ans.m_data[0] = _1;
-  ans.m_data[1] = _2;
-  ans.m_data[2] = _3;
-  return ans;
-}
-
-template<int dims>
-EXPORT_DLL Shape<dims> MakeShape4D(int _1, int _2, int _3, int _4) {
-  Shape<dims> ans;
-  ans.m_last_dim = _4;
-  ans.m_data[0] = _1;
-  ans.m_data[1] = _2;
-  ans.m_data[2] = _3;
-  ans.m_data[3] = _4;
-  return ans;
-}
 
 }  // namespace nncv
 
