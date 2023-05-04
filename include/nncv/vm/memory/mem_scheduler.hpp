@@ -13,8 +13,16 @@
 #ifndef NNCV_MEM_SCHEDULER_HPP
 #define NNCV_MEM_SCHEDULER_HPP
 
+#include "nncv/vm/memory/alloc.hpp"
+
 namespace nncv {
-namespace vm {}
+namespace vm {
+class MemScheduler {
+ public:
+ private:
+  MemPool m_mem_pool;
+};
+}  // namespace vm
 }  // namespace nncv
 
 #endif

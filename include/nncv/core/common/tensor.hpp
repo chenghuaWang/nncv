@@ -46,20 +46,21 @@ struct NNCV_EXPORT_DLL Shape {
  *
  */
 class NNCV_EXPORT_DLL Tensor {
+ public:
   NNCV_FORCE_INLINE Tensor(int _w, size_t _size, const Device& _device = Device(DeviceType::kHost))
-      : m_shape(_w), m_element_size(_size), m_device(_device) {}
+      : m_shape(_w), m_element_size(_size), m_device(_device), m_ref(nullptr) {}
 
   NNCV_FORCE_INLINE Tensor(int _h, int _w, size_t _size,
                            const Device& _device = Device(DeviceType::kHost))
-      : m_shape(_h, _w), m_element_size(_size), m_device(_device) {}
+      : m_shape(_h, _w), m_element_size(_size), m_device(_device), m_ref(nullptr) {}
 
   NNCV_FORCE_INLINE Tensor(int _c, int _h, int _w, size_t _size,
                            const Device& _device = Device(DeviceType::kHost))
-      : m_shape(_c, _h, _w), m_element_size(_size), m_device(_device) {}
+      : m_shape(_c, _h, _w), m_element_size(_size), m_device(_device), m_ref(nullptr) {}
 
   NNCV_FORCE_INLINE Tensor(int _n, int _c, int _h, int _w, size_t _size,
                            const Device& _device = Device(DeviceType::kHost))
-      : m_shape(_n, _c, _h, _w), m_element_size(_size), m_device(_device) {}
+      : m_shape(_n, _c, _h, _w), m_element_size(_size), m_device(_device), m_ref(nullptr) {}
 
   NNCV_FORCE_INLINE void to(const std::string& _device_str) {
     // TODO
@@ -69,8 +70,8 @@ class NNCV_EXPORT_DLL Tensor {
 
   NNCV_FORCE_INLINE void RefIncrease() { NNCV_ATOMIC_ADD(m_ref, 1); }
   NNCV_FORCE_INLINE bool RefDecrease() {
-    (*m_ref)--;
-    if (*m_ref == 0)
+    NNCV_ATOMIC_ADD(m_ref, -1);
+    if (m_ref == 0)
       return true;  //! if m_ref == 0, this tensor should be freed by VM's memory manager
     return false;
   }
@@ -88,7 +89,7 @@ class NNCV_EXPORT_DLL Tensor {
   }
 
  private:
-  atomic_int m_ref;
+  int* m_ref;
   size_t m_element_size;
   void* m_data_ptr;
   Shape m_shape;

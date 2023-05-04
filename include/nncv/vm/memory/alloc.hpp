@@ -1,8 +1,20 @@
 #ifndef NNCV_ALLOC_HPP
 #define NNCV_ALLOC_HPP
 
+#if defined(_WIN32)
+#include <corecrt_malloc.h>
+#elif defined(__unix__)
+#include <stdlib.h>
+#else
+#include <memory.h>
+#endif
+
 #include "nncv/core/base.hpp"
 #include "nncv/core/common/device.hpp"
+
+#ifdef NNCV_ENABLE_CUDA
+#include "nncv/vm/cuda/vm_alloc_cuda.cuh"
+#endif
 
 #pragma once
 
@@ -34,16 +46,132 @@
 #define NNCV_ALLOC_ALIGNED_BITS 16
 #endif
 
+#define NNCV_ALLOC_SAFEGUARD 0
+
 namespace nncv {
 namespace vm {
 
+/**
+ * @brief Aligns a pointer to the specified number of bytes
+ *
+ * @tparam _Tp
+ * @param ptr
+ * @param n Alignment size that must be a power of two
+ * @return _Tp*
+ * @ref https://github.com/Tencent/ncnn/blob/master/src/allocator.h
+ */
+template<typename _Tp>
+NNCV_FORCE_INLINE _Tp* AlignPtr(_Tp* ptr, int n = (int)sizeof(_Tp)) {
+  return (_Tp*)(((size_t)ptr + n - 1) & -n);
+}
+
+/**
+ * @brief Only for Debug purpose / Temp value alloc. The Stream mechanism will alloc memory in
+ * memory pool instead of using raw alloc function.
+ *
+ * For Host: Why udata: https://zhuanlan.zhihu.com/p/335774042, this trick is also used in OpenCV
+ * and MNN
+ *
+ * For CUDA device: Any address of a variable residing in global memory or returned by one of the
+ * memory allocation routines from the driver or runtime API is always aligned to at least 256
+ * bytes.
+ *
+ * @param _size
+ * @return void*
+ */
+NNCV_FORCE_INLINE void* MemAlloc(size_t _size, const Device& _device) {
+  switch (_device.Type) {
+    case kHost:
+#if defined(_MSC_VER)
+    {
+      return _aligned_malloc(_size, NNCV_ALLOC_ALIGNED_BITS);
+    }
+#elif defined(__unix__) && _POSIX_C_SOURCE >= 200112L
+    {
+      void* ptr = nullptr;
+      if (posix_memalign(&ptr, NNCV_ALLOC_ALIGNED_BITS, _size + NNCV_ALLOC_SAFEGUARD))
+        _ptr = nullptr;
+      return _ptr;
+    }
+#else
+    {
+      unsigned char* udata = (unsigned char*)malloc(_size + sizeof(void*) + NNCV_ALLOC_ALIGNED_BITS
+                                                    + NNCV_ALLOC_SAFEGUARD);
+      if (!udata) return nullptr;
+      unsigned char** _data = AlignPtr((unsigned char**)udata + 1, NNCV_ALLOC_ALIGNED_BITS);
+      _data[-1] = udata;
+      return _data;
+    }
+#endif
+    case kCuda: {
+      void* ptr = nullptr;
+      _VmCudaMallocWarper(&ptr, _size);
+      break;
+    }
+    case kSelfDefined: break;
+  }
+  return nullptr;
+}
+
+NNCV_FORCE_INLINE void MemFree(void* _ptr, const Device& _device) {
+  switch (_device.Type) {
+    case kHost:
+#if defined(_MSC_VER)
+    {
+      if (_ptr) {
+        _aligned_free(_ptr);
+        return;
+      }
+    }
+#elif defined(__unix__) && _POSIX_C_SOURCE >= 200112L
+    {
+      free(_ptr);
+      return;
+    }
+#else
+    {
+      unsigned char* udata = ((unsigned char**)ptr)[-1];
+      free(udata);
+    }
+#endif
+    case kCuda: {
+      _VmCudaFreeWarper(_ptr);
+    }
+    case kSelfDefined: break;
+  }
+}
+
 struct GlobalMemRegisterTable {};
 
-class MemPool {};
+class MemPool {
+ public:
+  virtual void* Alloc() { return nullptr; };
+  virtual void Free(){};
 
-class MemPoolHost final : public MemPool {};
+  virtual void __Raw(){};
 
-class MemPoolCuda final : public MemPool {};
+ private:
+};
+
+class MemPoolHost final : public MemPool {
+ public:
+  void* Alloc() override;
+  void Free() override;
+
+  void __Raw() override;
+
+ private:
+};
+
+class MemPoolCuda final : public MemPool {
+ public:
+  void* Alloc() override;
+  void Free() override;
+
+  void __Raw() override;
+
+ private:
+};
 }  // namespace vm
 }  // namespace nncv
 

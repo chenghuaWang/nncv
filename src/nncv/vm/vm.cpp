@@ -1,4 +1,5 @@
 #include "nncv/vm/vm.hpp"
+#include "nncv/core/common/tensor.hpp"
 
 VirtualMachine::~VirtualMachine() {
   // TODO before delete all device, make sure all memory on those device is released.
