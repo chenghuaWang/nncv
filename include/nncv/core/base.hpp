@@ -18,7 +18,12 @@
 #endif
 #endif
 
+#if (defined(__clang__) || defined (_GNU_)) && !(defined (_MSC_VER))
 #define NNCV_FORCE_INLINE __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#define NNCV_FORCE_INLINE __forceinline
+#endif
+
 #define NNCV_TRY_INLINE inline
 
 /**

@@ -7,3 +7,4 @@ cmake-build-release/
 build_win.bat
 build/
 bin/
+.clangd

@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include "nncv/core/common/atomic.hpp"
 #include "nncv/core/common/device.hpp"
 
 namespace nncv {
@@ -66,7 +67,7 @@ class NNCV_EXPORT_DLL Tensor {
     // if has. Device = DevicePool.find(_device_str);
   }
 
-  NNCV_FORCE_INLINE void RefIncrease() { (*m_ref)++; }
+  NNCV_FORCE_INLINE void RefIncrease() { NNCV_ATOMIC_ADD(m_ref, 1); }
   NNCV_FORCE_INLINE bool RefDecrease() {
     (*m_ref)--;
     if (*m_ref == 0)
@@ -87,7 +88,7 @@ class NNCV_EXPORT_DLL Tensor {
   }
 
  private:
-  int* m_ref;
+  atomic_int m_ref;
   size_t m_element_size;
   void* m_data_ptr;
   Shape m_shape;
