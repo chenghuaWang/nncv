@@ -1,7 +1,7 @@
 /**
  * @file vm_cuda_error.cuh
  * @author chenghua Wang (chenghua.wang.edu@gmail.com)
- * @brief This file will be included multiple times. Safe guard is no necessary !!!
+ * @brief This file will be included multiple times. Safe guard is not necessary !!!
  * @version 0.1
  * @date 2023-05-04
  *

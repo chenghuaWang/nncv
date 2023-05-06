@@ -1,6 +1,7 @@
 #ifndef NNCV_CONV2D_X86_HPP
 #define NNCV_CONV2D_X86_HPP
 
+#include "nncv/vm/op/op.hpp"
 #include "nncv/core/common/tensor.hpp"
 
 #if defined(NNCV_HAVE_SSE) || defined(NNCV_HAVE_AVX2) || defined(NNCV_HAVE_AVX512)
@@ -11,8 +12,8 @@
  * For Convolution operator impl. There is no need to consider about padding, memory re-alloc for
  * padding is already done before Convolution operator. The most common workflow is shown below:
  *
- * Padding(if has) -> Convolution -> BatchNorm -> ReLU, or
- * Padding(if has) -> Convolution+BatchNorm+ReLU(fused).
+ * Flatten(kernel, bias(if has)) -> Padding(if has) -> Convolution -> BatchNorm -> ReLU, or
+ * Flatten(kernel, bias(if has)) -> Padding(if has) -> Convolution+BatchNorm+ReLU(fused).
  *
  * !!! Remember, VM's memory manager plays quite vital role in padding operator !!!
  * For example, if there is a expression: Out = Conv(A * B), and this Conv has padding. When
@@ -32,20 +33,18 @@ Shape CalculateDstShapeAfterConv2d(int src_n, int src_c, int src_h, int src_w, i
 
 template<typename T>
 void conv2d_naive_x86(const Tensor& src, Tensor& dst, const Tensor& kernel, const Tensor& bias,
-                      const TensorDataLayoutType& layout, int in_channel, int out_channel, int k,
-                      int stride, int padding, int dilation);
+                      const TensorDataLayoutType& layout, int in_channel, int out_channel, int k_h,
+                      int k_w, int stride_h, int stride_w, int dilation_h, int dilation_w);
 template<typename T>
 void conv2d_img2col_x86(const Tensor& src, Tensor& dst, const Tensor& kernel, const Tensor& bias,
-                        const TensorDataLayoutType& layout, int in_channel, int out_channel, int k,
-                        int stride, int padding, int dilation);
+                        const TensorDataLayoutType& layout, int in_channel, int out_channel,
+                        int k_h, int k_w, int stride_h, int stride_w, int dilation_h,
+                        int dilation_w);
 template<typename T>
 void conv2d_winograd_x86(const Tensor& src, Tensor& dst, const Tensor& kernel, const Tensor& bias,
-                         const TensorDataLayoutType& layout, int in_channel, int out_channel, int k,
-                         int stride, int padding, int dilation);
-template<typename T>
-void Conv2dX86(const Tensor& src, Tensor& dst, const Tensor& kernel, const Tensor& bias,
-               const TensorDataLayoutType& layout, int in_channel, int out_channel, int k,
-               int stride, int padding, int dilation, bool deterministic);
+                         const TensorDataLayoutType& layout, int in_channel, int out_channel,
+                         int k_h, int k_w, int stride_h, int stride_w, int dilation_h,
+                         int dilation_w);
 
 }  // namespace op
 }  // namespace vm

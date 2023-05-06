@@ -8,6 +8,8 @@
 #include "nncv/core/base.hpp"
 #include "nncv/core/common/data_types.hpp"
 
+#include <cpuid.h>
+
 namespace nncv {
 namespace vm {
 
