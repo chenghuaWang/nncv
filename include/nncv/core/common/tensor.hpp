@@ -7,6 +7,14 @@
 #include "nncv/core/common/atomic.hpp"
 #include "nncv/core/common/device.hpp"
 
+#define NNCV_FLOAT16 2
+#define NNCV_FLOAT32 4
+#define NNCV_FLOAT64 8
+#define NNCV_INT8 1
+#define NNCV_INT16 2
+#define NNCV_INT32 4
+#define NNCV_INT64 8
+
 namespace nncv {
 
 enum TensorDataLayoutType : int {
@@ -134,6 +142,11 @@ class NNCV_EXPORT_DLL Tensor {
 
   NNCV_FORCE_INLINE const Shape& GetConstShape() const { return m_shape; }
 
+  /**
+   * Operator overload Section.
+   *
+   */
+
   template<typename T>
   NNCV_FORCE_INLINE operator T*() {
     if (m_data_ptr == nullptr) return nullptr;
@@ -162,7 +175,22 @@ class NNCV_EXPORT_DLL Tensor {
     return ((const float*)m_data_ptr)[idx];
   }
 
+  template<typename T>
+  NNCV_FORCE_INLINE Tensor& operator<<(T _value) {
+    ((T*)m_data_ptr)[__iter_pointer++] = _value;
+    return *this;
+  }
+
   NNCV_FORCE_INLINE bool Empty() const { return (m_data_ptr == nullptr) ? true : false; }
+
+  /**
+   * Slice Tensor Section
+   *
+   * Batch Wise, Channel wise, Column and Row wise.
+   *
+   * numpy like [a:b] slice functions.
+   *
+   */
 
   // TODO This function not work before copy move function of Tensor is setted.
   NNCV_FORCE_INLINE const Tensor Batch(int idx) const {
@@ -261,6 +289,8 @@ class NNCV_EXPORT_DLL Tensor {
   Shape m_shape;
   Device m_device;
   TensorDataLayoutType m_layout;
+  // for operator iter
+  int __iter_pointer = 0;
 };
 
 }  // namespace nncv
