@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
+
+# for Windows' users.
+SET(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+message( STATUS "CMAKE_TOOLCHAIN_FILE is setting to ${CMAKE_TOOLCHAIN_FILE}")
+
 project(
     nncv
     LANGUAGES C CXX CUDA
@@ -11,6 +16,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+find_package(Protobuf CONFIG REQUIRED)
+if(${Protobuf_FOUND})
+    # TODO add some args and include libs, etc.
+    message( STATUS "Found Protobuf at ${Protobuf_INCLUDE_DIRS}")
+    include_directories(Protobuf_INCLUDE_DIRS)
+else()
+    message( FATAL_ERROR "Protobuf not found")
+endif()
+
 
 option(nncv_enable_cuda "Enable CUDA Device will involve cuh file to op" ON)
 option(nncv_enable_opencv "Eanbel opencv for image preprocessing" OFF)
@@ -64,6 +79,8 @@ CHECK_SIMD()
 
 set(nncv_include_lists)
 set(nncv_link_lib_lists)
+set(nncv_3rd_src_list)
+set(nncv_3rd_include_list)
 
 if(nncv_enable_opencv)
     message(WARNING "As a light-weighted framework, OpenCV is too heavy, I not recommend you to use it.")
@@ -71,11 +88,20 @@ if(nncv_enable_opencv)
     find_package(opencv REQUIRED)
     include_directories(${OpenCV_INCLUDE_DIRS})
     list(APPEND nncv_link_lib_lists ${OpenCV_LIBS})
+    add_definitions(-DNNCV_ENABLE_OPENCV=1)
+else()
+    add_definitions(-DNNCV_ENABLE_OPENCV=0)
 endif(nncv_enable_opencv)
 
 if(nncv_enable_stb_image)
     message(STATUS "Using image io backend [stb]")
-# TODO
+    add_definitions(-DNNCV_ENABLE_STB_IMAGE=1)
+    list(APPEND nncv_include_lists ${PROJECT_SOURCE_DIR}/third_party/stb_image/stb_image.h)
+    list(APPEND nncv_3rd_include_list ${PROJECT_SOURCE_DIR}/third_party/stb_image/stb_image.h)
+    list(APPEND nncv_3rd_src_list ${PROJECT_SOURCE_DIR}/third_party/stb_image/stb_image.cpp)
+    include_directories(${PROJECT_SOURCE_DIR}/third_party/)
+else()
+    add_definitions(-DNNCV_ENABLE_STB_IMAGE=0)
 endif(nncv_enable_stb_image)
 
 if(nncv_build_dynamic_lib)
@@ -133,12 +159,16 @@ if(nncv_enable_cuda)
         ${nncv_vm_srcs_hpp}
         ${nncv_vm_srcs_cu}
         ${nncv_vm_srcs_cuh}
+        ${nncv_3rd_include_list}
+        ${nncv_3rd_src_list}
     )
     target_link_libraries(nncv-vm-cuda libnncv-cuda)
 else()
     add_executable(nncv-vm-cpu
         ${nncv_vm_srcs_cpp}
         ${nncv_vm_srcs_hpp}
+        ${nncv_3rd_include_list}
+        ${nncv_3rd_src_list}
     )
     target_link_libraries(nncv-vm-cpu libnncv-cpu)
 endif(nncv_enable_cuda)

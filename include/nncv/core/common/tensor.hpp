@@ -256,6 +256,7 @@ class NNCV_EXPORT_DLL Tensor {
    * created by VM, the memory pool maintained by VM will manage memory carefully(`m_force_no_ref`
    * is set to True).
    *
+   * But a Deconstructor is needed for Tensor !!! It's not users' responsibility.
    */
   NNCV_FORCE_INLINE static Tensor Create(int _w, size_t _size,
                                          const Device& _device = Device(DeviceType::kHost)) {}
@@ -280,6 +281,20 @@ class NNCV_EXPORT_DLL Tensor {
 
   NNCV_FORCE_INLINE static Tensor Create(int _n, int _c, int _h, int _w, size_t _size, void* ptr,
                                          const Device& _device = Device(DeviceType::kHost)) {}
+
+  NNCV_FORCE_INLINE static Tensor CreateWithPtrAndRefCount(
+      int _w, size_t _size, void* ptr, const Device& _device = Device(DeviceType::kHost)) {}
+
+  NNCV_FORCE_INLINE static Tensor CreateWithPtrAndRefCount(
+      int _h, int _w, size_t _size, void* ptr, const Device& _device = Device(DeviceType::kHost)) {}
+
+  NNCV_FORCE_INLINE static Tensor CreateWithPtrAndRefCount(
+      int _c, int _h, int _w, size_t _size, void* ptr,
+      const Device& _device = Device(DeviceType::kHost)) {}
+
+  NNCV_FORCE_INLINE static Tensor CreateWithPtrAndRefCount(
+      int _n, int _c, int _h, int _w, size_t _size, void* ptr,
+      const Device& _device = Device(DeviceType::kHost)) {}
 
  private:
   bool m_force_no_ref;  //! if set to true, it will ignore the m_ref's count

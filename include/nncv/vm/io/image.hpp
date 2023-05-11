@@ -7,15 +7,25 @@
 #include "nncv/core/common/tensor.hpp"
 
 namespace nncv {
-namespace vm{
-namespace io{
+namespace vm {
+namespace io {
 
-Tensor ImageRead(const std::string& _path);
+enum ImageProcessBackend : int { kOpenCV = 0, kStbImage = 1 };
 
-bool ImageWrite(const std::string& _path, const Tensor& _image);
+#if NNCV_ENABLE_OPENCV == 1
+static bool is_opencv_as_backend = true;
+#elif NNCV_ENABLE_STB_IMAGE == 1
+static bool is_opencv_as_backend = false;
+static bool is_stb_image_as_backend = true;
+#endif
 
-}
-}
-}
+Tensor ImageRead(const std::string& _path, const ImageProcessBackend& _backend = kStbImage);
 
-#endif //! NNCV_IO_IMAGE_HPP
+bool ImageWrite(const std::string& _path, const Tensor& _image,
+                const ImageProcessBackend& _backend = kStbImage);
+
+}  // namespace io
+}  // namespace vm
+}  // namespace nncv
+
+#endif  //! NNCV_IO_IMAGE_HPP
