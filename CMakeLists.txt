@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # for Windows' users.
-SET(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+set(CMAKE_TOOLCHAIN_FILE ${VCPKG_ROOT}/vcpkg/scripts/buildsystems/vcpkg.cmake)
 message( STATUS "CMAKE_TOOLCHAIN_FILE is setting to ${CMAKE_TOOLCHAIN_FILE}")
 
 project(
@@ -16,16 +16,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
-
-find_package(Protobuf CONFIG REQUIRED)
-if(${Protobuf_FOUND})
-    # TODO add some args and include libs, etc.
-    message( STATUS "Found Protobuf at ${Protobuf_INCLUDE_DIRS}")
-    include_directories(Protobuf_INCLUDE_DIRS)
-else()
-    message( FATAL_ERROR "Protobuf not found")
-endif()
-
 
 option(nncv_enable_cuda "Enable CUDA Device will involve cuh file to op" ON)
 option(nncv_enable_opencv "Eanbel opencv for image preprocessing" OFF)
@@ -176,5 +166,5 @@ endif(nncv_build_vm)
 
 if(nncv_build_model_compiler)
     message(STATUS "Building NNCV Modle Compiler")
-    # TODO harry
+    add_subdirectory(${PROJECT_SOURCE_DIR}/src/nncv/compiler)
 endif(nncv_build_model_compiler)
