@@ -63,6 +63,33 @@ else()
     message( FATAL_ERROR "Protobuf not found")
 endif()
 
-add_llvm_executable(nncv-c ${PROJECT_SOURCE_DIR}/src/nncv/compiler/main.cpp)
-target_link_libraries(nncv-c ${LLVM_LIBS})
+# Add Dialets into this project
+add_subdirectory(Dialects)
+
+# The compiler target
+add_llvm_executable(nncv-c 
+    # Cli Driver files
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/main.cpp
+
+    # Parser, Lexer and AST
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/TenLangLexer.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/TenLangParser.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/TenLangPreprocess.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangLexer.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangParser.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangPreprocess.hpp
+
+    DEPENDS
+    Dialect_AutoTen_Target
+)
+
+target_link_libraries(nncv-c PRIVATE
+    ${LLVM_LIBS}
+    MLIRAnalysis
+    MLIRIR
+    MLIRParser
+    MLIRPass
+    MLIRSideEffectInterfaces
+    MLIRTransforms
+)
 llvm_update_compile_flags(nncv-c)

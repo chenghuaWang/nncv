@@ -1,0 +1,4 @@
+site_name: NNCV Docs
+theme:
+  name: material
+# https://squidfunk.github.io/mkdocs-material/creating-your-site/#windows
