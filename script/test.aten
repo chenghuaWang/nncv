@@ -1,4 +1,4 @@
-# import "nn/Convolution.aten"
+import "nn.aten"
 
 @Kernel.AutoParallel
 func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
@@ -14,9 +14,9 @@ func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
 }
 
 func main() {
-    Tensor a<100, 100, float>;
-    Tensor b<100, 100, float>;
-    Tensor c<100, 100, float>;
+    Tensor a<100, 100, float32>;
+    Tensor b<100, 100, float32>;
+    Tensor c<100, 100, float32>;
     Gemm2D(&a, &b, &c);
     Print(c);
 }
