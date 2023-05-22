@@ -1,0 +1,22 @@
+# import "nn/Convolution.aten"
+
+@Kernel.AutoParallel
+func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
+    int w = _src_1.shape[1];
+    int h = _src_1.shape[2];
+
+    for (int i = 0; i < w; i++) {
+        # do something.
+        _src_1[1, 1]; # python-like indexing.
+    }
+
+    return false;
+}
+
+func main() {
+    Tensor a<100, 100, float>;
+    Tensor b<100, 100, float>;
+    Tensor c<100, 100, float>;
+    Gemm2D(&a, &b, &c);
+    Print(c);
+}

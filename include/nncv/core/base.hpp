@@ -10,15 +10,17 @@
 
 #define WIN32_EXPORTS true
 
-#ifdef WIN32
+#ifdef _WIN32
 #ifdef WIN32_EXPORTS
 #define NNCV_EXPORT_DLL __declspec(dllexport)
 #else
+#define NNCV_EXPORT_DLL
+#endif
+#else
 #define IMPORT_DLL __declspec(dllimport)
 #endif
-#endif
 
-#if (defined(__clang__) || defined (_GNU_)) && !(defined (_MSC_VER))
+#if (defined(__clang__) || defined(_GNU_)) && !(defined(_MSC_VER))
 #define NNCV_FORCE_INLINE __attribute__((always_inline))
 #elif defined(_MSC_VER)
 #define NNCV_FORCE_INLINE __forceinline

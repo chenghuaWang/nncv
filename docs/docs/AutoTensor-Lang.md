@@ -1,11 +1,17 @@
-# AutoTen
+AutoTen
+---
 
-## Grammar and Features
+# Grammar and Features
 
-## Preprocessor
+# Preprocessor
 
-## Lexer
+# Lexer
 
-## Parser
+# Parser
 
-## Dialects Design
+# Dialects Design
+
+# Reference
+
+* Programming Language Pragmatics 4th
+* [LLVM Pascal Scanner](https://github.com/FrozenGene/LLVMPascalCompiler/blob/master/LLVMPascal/LLVMPascal/scanner.cpp#L172)

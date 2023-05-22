@@ -17,7 +17,7 @@
   "author: chenghua.wang\n"
 
 #include "llvm/Support/CommandLine.h"
-// #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/MLIRContext.h"
 
 int main(int argc, char* argv[]) {
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
