@@ -1,10 +1,22 @@
 AutoTen
 ---
 
+AutoTensor is a very simple and easy to use programming language. You can use neted for loop to implement your logic and leave everything else to the compiler!!! The compiler will do the parallelization automatically for you!!!
+
 # Grammar and Features
 
 ```
-import "nn.aten"
+import "nn"
+# "nn" is not a file, this import works like a Compile Flag.
+# The Preprocessor will replace `import "nn"` with
+# `@Compiler.Ops.Extension.Enable`
+
+import "std"
+# Same as Compile Command `@Compiler.Std.Enable`
+
+# If you want to import files, the method shown below is recommended:
+# import "foo.aten"
+# import "nncv/api/autoTensor/core.aten"
 
 @Kernel.AutoParallel
 func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
@@ -20,11 +32,20 @@ func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
 }
 
 func main() {
+    # <> is constructor of builtin Types!!! Not template.
     Tensor a<100, 100, float32>;
     Tensor b<100, 100, float32>;
     Tensor c<100, 100, float32>;
+    var start_time = std.Time()
     Gemm2D(&a, &b, &c);
-    Print(c);
+    var end_time = std.Time();
+    std.Print('Time usage: ', std.TimeAsMliSec(start_time - end_time), '\n');
+    std.Print(c);
+
+    # Tensor* c = std.Alloc(Tensor<100, 100, 100, int16>);
+    # std.Free(c);
+    # c = null;
+    # Tensor* d = std.Clone(c);
 }
 ```
 
@@ -47,6 +68,8 @@ For the full list of Op that supported, Check the [AutoTen-lang Ops' Support Cha
 # Preprocessor
 
 # Lexer
+
+AutoTen-lang is not strictly follow $\text{LL(1)}$(It has `*` for multiplication and pointer).
 
 # Parser
 

@@ -1,4 +1,4 @@
-import "nn.aten"
+import "nn"
 
 @Kernel.AutoParallel
 func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
