@@ -87,6 +87,7 @@ enum AutoTenTokenValue : int {
   kChar = -20,
   kStruct = -21,
   kFile = -64,
+  kVar = -65,  /// Type is auto inferenced.
 
   // I/O
   kWrite = -22,

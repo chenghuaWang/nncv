@@ -14,6 +14,10 @@ import "nn"
 import "std"
 # Same as Compile Command `@Compiler.Std.Enable`
 
+import "io.aten"
+# import "std" will set `@Compiler.Io.Enable`
+# "io.aten" is a warpper of buildin "io" primitives.
+
 # If you want to import files, the method shown below is recommended:
 # import "foo.aten"
 # import "nncv/api/autoTensor/core.aten"
@@ -35,25 +39,38 @@ struct MyOp {
     Tensor *c;
 }
 
+# `&self` will be translate to `MyOp*`
 impl MyOp {
+    # Constructor
+    # This `new` function will return a class but without
+    # memory copy(using shallow copy).
+    # --
+    # If user use `std.Alloc(MyOp<args...>)` to create this class, `std.Alloc`
+    # will call new(...).
     func new() -> MyOp {
-        MyOp {
-            c = std.Alloc(Tensor<100, 100, int16>);
-        }
-        return MyOp;
+        MyOp ret;
+        ret.c = std.Alloc(Tensor<100, 100, int16>);
+        return ret;
     }
 
+    # deconstructor
     func delete(&self) -> void {
         # delete will be called when this function exists
     }
 
+    # overload a operator
+    func __equal__(&self, MyOp* _rhs) -> bool {
+        return (*self.c) == (*_rhs.c)
+    }
+
+    # user defind method
     func Mul(&self, Tensor* _rhs, Tensor* _to) -> void {
         Gemm2D(self.c, _rhs, _to);
     }
 }
 
 func main() {
-    # <> is constructor of builtin Types!!! Not template.
+    # <> is constructor of all Types!!! Not template.
     Tensor a<100, 100, float32>;
     Tensor b<100, 100, float32>;
     Tensor c<100, 100, float32>;
@@ -68,7 +85,9 @@ func main() {
     # c = null;
     # Tensor* d = std.Clone(c);
 
-    # MyOp o = MyOp.new();
+    # MyOp o = MyOp.new();  # This value will auto delete.
+    # o = MyOp<>;  # This scentence is same as MyOp.new()
+    # MyOp* foo = std.Alloc(MyOp<args...>);  # The pointer should free by user.
 }
 ```
 
