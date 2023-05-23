@@ -31,6 +31,27 @@ func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
     return false;
 }
 
+struct MyOp {
+    Tensor *c;
+}
+
+impl MyOp {
+    func new() -> MyOp {
+        MyOp {
+            c = std.Alloc(Tensor<100, 100, int16>);
+        }
+        return MyOp;
+    }
+
+    func delete(&self) -> void {
+        # delete will be called when this function exists
+    }
+
+    func Mul(&self, Tensor* _rhs, Tensor* _to) -> void {
+        Gemm2D(self.c, _rhs, _to);
+    }
+}
+
 func main() {
     # <> is constructor of builtin Types!!! Not template.
     Tensor a<100, 100, float32>;
@@ -46,6 +67,8 @@ func main() {
     # std.Free(c);
     # c = null;
     # Tensor* d = std.Clone(c);
+
+    # MyOp o = MyOp.new();
 }
 ```
 
@@ -57,9 +80,9 @@ I implemented lots of buildin Ops in compiler level. And thoes Ops is shared sam
 
 The Ops supported is briefly shown below:
 
-|Op Name|Describe|
-|:-:|:-:|
-|nn.Conv2d(...)|2d convolution|
+|    Op Name     |    Describe    |
+| :------------: | :------------: |
+| nn.Conv2d(...) | 2d convolution |
 
 ---
 
@@ -79,3 +102,4 @@ AutoTen-lang is not strictly follow $\text{LL(1)}$(It has `*` for multiplication
 
 * Programming Language Pragmatics 4th
 * [LLVM Pascal Scanner](https://github.com/FrozenGene/LLVMPascalCompiler/blob/master/LLVMPascal/LLVMPascal/scanner.cpp#L172)
+* [How to learn AI Compiler](https://www.zhihu.com/question/564620976/answer/2848127300)

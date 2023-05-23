@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include <stdint.h>
+
 namespace nncv {
 namespace compiler {
 namespace fronted {
@@ -41,27 +43,104 @@ struct Location {
 //===----------------------------------------------------------------------===//
 // The Token Lexer returned
 //===----------------------------------------------------------------------===//
-enum AutoTenToken : int {
-  // charater used.
-  kTokSemicolon = ';',
-  kTokParentheseOpen = '(',
-  kTokParentheseClose = ')',
-  kTokBracketOpen = '{',
-  kTokBracketClose = '}',
-  kTokSbracketOpen = '[',
-  kTokSbracketClose = ']',
-  kTokAt = '@',
+enum AutoTenTokenType : int {
+  kTypeInteger = 0,
+  kTypeReal,
+  kTypeBool,
+  kTypeChar,
+  kTypeString,
+  kTypeTensor,
 
-  // end of file
-  kTokEOF = -1,
+  kIdentifier,  // such as abc
+  kKeywords,    // such as if
+  kOperators,   // such as  + - * /
+  kDelimiter,   // such as ,
+  kEof,         // end of file
+  kTypeUnknow
+};
 
-  // command
-  kTokReturn = -2,
-  kTokFunc = -3,
+enum AutoTenTokenValue : int {
+  // Auto Tenser lang v 0.0.1
 
-  // primary
-  kTokIdentifier = -4,
-  kTokNumber = -5
+  // Control
+  kAnd = -1,      /// logical &&
+  kOr = -2,       /// logical ||
+  kNot = -3,      /// logical !
+  kFor = -4,      /// Control Flow for(...){} loop
+  kDo = -5,       /// Control Flow do{...}while(...) loop
+  kIf = -6,       /// Control Flow if(...) {}
+  kElse = -7,     /// Control Flow if(...) {} else {}
+  kWhile = -8,    /// Control Flow while(...) {}
+  kFunc = -9,     /// Function define
+  kImpl = -10,    /// The Implementation of funcs for Structure
+  kReturn = -11,  /// Return something
+
+  // Built in types
+  kTensor = -12,
+  kInt8 = -13,
+  kInt16 = -14,
+  kInt32 = -15,
+  kFloat32 = -16,
+  kFloat64 = -17,
+  kBool = -18,
+  kString = -19,
+  kChar = -20,
+  kStruct = -21,
+  kFile = -64,
+
+  // I/O
+  kWrite = -22,
+  kRead = -23,
+
+  // Normal Symbols
+  kSemicolon = ';',
+  kParentheseOpen = '(',
+  kParentheseClose = ')',
+  kBracketOpen = '{',
+  kBracketClose = '}',
+  kSbracketOpen = '[',
+  kSbracketClose = ']',
+  kAt = '@',
+  kComma = ',',
+  kColon = ':',
+  kPeriod = '.',
+  kPlus = '+',
+  kMinus = '-',
+  kMultiplyOrDeReference = '*',
+  kReference = '&',
+  kDivide = '/',
+
+  // Compare symbols
+  kLessOrEqual = -24,     // <=
+  kLessThen = -25,        // <
+  kGreaterOrEqual = -26,  // >=
+  kGreaterThen = -27,     // >
+  kEqual = -28,           // ==
+  kNotEqual = -29,        // !
+  kValueUnknow
+};
+
+struct AutoTenToken {
+  inline AutoTenToken();
+  inline AutoTenToken(AutoTenTokenType type, AutoTenTokenValue value, const Location& location,
+                      const std::string& name, int symbolPrecedence) {}
+  inline AutoTenTokenType GetTokenType() const { return m_Type; }
+
+ private:
+  AutoTenTokenType m_Type;
+  AutoTenTokenValue m_Value;
+  Location m_Location;
+  std::string m_Name;
+  int m_SymbolPrecedence;
+
+  // constant value
+  int8_t m_kI8;
+  int16_t m_kI16;
+  int32_t m_kI32;
+  int64_t m_kI64;
+  float m_kF32;
+  double m_kF64;
+  std::string m_kString;
 };
 
 //===----------------------------------------------------------------------===//
