@@ -8,21 +8,25 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
 
 1. Compile Techniques:
 
-   * A simple Lexer and Parser(using Nested case statement)
-   * Multi Level Intermediate Representation(MLIR)
-     * Dialects
-     * Convert
-     * Lowering
-     * Some specific optimization tips(op-fusion, etc)
-     * CodeGen
-   * Polyhedral Compilation Technology
+    * A simple Lexer and Parser(using Nested case statement)
+
+    * Multi Level Intermediate Representation(MLIR)
+        * Dialects
+        * Convert
+        * Lowering
+        * Some specific optimization tips(op-fusion, etc)
+        * CodeGen
+    * Polyhedral Compilation Technology
+
 2. Auto Parallel
 
-   * Polyhedral Compilation Technology
-   * Affine in MLIR
-3. CUDA Programming
+    * Polyhedral Compilation Technology
+    * Affine in MLIR
 
-   * Kernel impl(Mul, GEMM, Conv(img2col, winograd), etc)
+3. CUDA Programming
+   
+    * Kernel impl(Mul, GEMM, Conv(img2col, winograd), etc)
+  
 4. Virtual Machine Design
 
 ## Contents of NNCV Docs
@@ -30,7 +34,7 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
 * [Preface: Introduction of NNCV](./index.md)
 * [Chapter 1: Overview of NNCV's Architecture]()
 * [Chapter 2: Auto Tensor Language](./AutoTensor-Lang.md)
-    * [2.1: Grammar in details]()
+    * [2.1: Grammar in details](./AutoTensor-Grammar.md)
     * [2.2: The front-end implementation]()
     * [2.3: Optimizations]()
         * [2.3.1: MLIR Based Backend]()
@@ -43,7 +47,7 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
     * [4.1: LLVM IR, SPIR-V IR and GPU IR]()
     * [4.2: AOT and JIT]()
     * [4.3: Using Virtual Machine]()
-* [Chapter 5: The NNCV's virtual machine]()
+* [Chapter 5: The NNCV's Virtual Machine]()
     * [5.1: Bytecode and Instruction Design]()
     * [5.2: Kernel as plugin]()
     * [5.3: Scheduling]()
@@ -57,27 +61,31 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
         * [7.1.3: Using Graphic Pipeline]()
     * [7.2: Inference on Single Node]()
     * [7.3: Multi-Node Scheduling]()
+* [Chapter 8: Builtin Kernel Optimization]()
+    * [8.1: Convolution]()
+    * [8.2: GEMM]()
+    * [8.3: Pooling]()
 
 ## Features
 
-# Arch
+## Arch
 
-# Third party packages' dependencies
+## Third party packages' dependencies
 
 * LLVM(mostly MLIR)
 * stb image
 * OpenCV
 
-# Build and Install
+## Build and Install
 
-# Routine
+## Routine
 
-|               Contents               |     Date     |   State   |
+|               Contents                |     Date     |   State    |
 | :-----------------------------------: | :----------: | :--------: |
 |     Lexer of Auto Tensor Language     | May 22, 2023 | On working |
 | Pre-processor of Auto Tensor Language | May 22, 2023 | On working |
 
-# Citing
+## Citing
 
 ```
 @software {nncv,
@@ -89,4 +97,4 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
 }
 ```
 
-# Contribute to this project
+## Contribute to this project

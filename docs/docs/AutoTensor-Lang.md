@@ -1,9 +1,6 @@
-AutoTen
----
-
 AutoTensor is a very simple and easy to use programming language. You can use neted for loop to implement your logic and leave everything else to the compiler!!! The compiler will do the parallelization automatically for you!!!
 
-# Grammar and Features
+## Grammar and Features
 
 ```
 import "nn"
@@ -91,7 +88,7 @@ func main() {
 }
 ```
 
-## Buildin Ops
+### Buildin Ops
 
 I implemented lots of buildin Ops in compiler level. And thoes Ops is shared same impl with NNCV-IR. Actually, the Auto Tensor-lang's IR will convert to NNCV-IR. And NNCV-IR will finally lowering to Affine-IR, Linag-IR, etc. 
 
@@ -107,17 +104,17 @@ The Ops supported is briefly shown below:
 
 For the full list of Op that supported, Check the [AutoTen-lang Ops' Support Chapter](AutoTensor-Ops-Supported.md)
 
-# Preprocessor
+## Preprocessor
 
-# Lexer
+## Lexer
 
 AutoTen-lang is not strictly follow $\text{LL(1)}$(It has `*` for multiplication and pointer).
 
-# Parser
+## Parser
 
-# Dialects Design
+## Dialects Design
 
-# Reference
+## Reference
 
 * Programming Language Pragmatics 4th
 * [LLVM Pascal Scanner](https://github.com/FrozenGene/LLVMPascalCompiler/blob/master/LLVMPascal/LLVMPascal/scanner.cpp#L172)

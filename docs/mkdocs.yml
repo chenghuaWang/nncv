@@ -1,13 +1,14 @@
 site_name: NNCV Docs
 repo_url: https://github.com/chenghuaWang/nncv
-repo_name: 'GitHub'
+repo_name: "GitHub"
 
 nav:
-  - 'Preface & Introduction': 'index.md'
-  - 'Chapter 2: Auto Tensor Language': 
-    - '2.0: Auto Tensor Language': 'AutoTensor-Lang.md'
-    - '2.A: Operators Auto Tensor now supported': 'AutoTensor-Ops-Supported.md'
-  - 'Chinese Version': 'zh-cn/index.md'
+  - "Preface & Introduction": "index.md"
+  - "Chapter 2: Auto Tensor Language":
+      - "2.0: Auto Tensor Language": "AutoTensor-Lang.md"
+      - "2.1: Grammar in details": "AutoTensor-Grammar.md"
+      - "2.A: Operators Auto Tensor now supported": "AutoTensor-Ops-Supported.md"
+  - "Chinese Version": "zh-cn/index.md"
 
 theme:
   name: material
@@ -20,5 +21,4 @@ extra_javascript:
   - javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
-
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/#windows

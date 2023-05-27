@@ -24,20 +24,12 @@ namespace compiler {
 namespace fronted {
 
 //===----------------------------------------------------------------------===//
-// Charater reserved
-//===----------------------------------------------------------------------===//
-static llvm::SmallVector<std::string, 12> __CharacterReserved__ = {
-    "func",    "return",  "Tensor", "int16", "int32", "float16",
-    "float32", "float64", "bool",   "for",   "while", "Print",
-};
-
-//===----------------------------------------------------------------------===//
 // Structure definition a location in a file.
 //===----------------------------------------------------------------------===//
 struct Location {
-  std::shared_ptr<std::string> file;  ///< filename.
-  int line;                           ///< line number.
-  int col;                            ///< column number.
+  std::shared_ptr<std::string> FileName;  ///< filename.
+  int Line;                               ///< line number.
+  int Col;                                ///< column number.
 };
 
 //===----------------------------------------------------------------------===//
