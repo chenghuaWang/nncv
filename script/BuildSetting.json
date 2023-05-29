@@ -1,0 +1,30 @@
+{
+    "platform": "x64-windows",
+    "build-tools": "Ninja",
+    "build-compiler-c++": "",
+    "build-compiler-c": "",
+    "build-compiler-cuda": "",
+    "build-interprter-python": "",
+    "build-variant": "Debug",
+    "with-cuda": true,
+    "build-with-threads": 4,
+    "dependencies": {
+        "vcpkg": "",
+        "mlir-dir": "",
+        "llvm-dir": "",
+        "protobuf-dir": "",
+        "image-backend": "stb_image",
+        "opencv-dir": ""
+    },
+    "cmake-build-bin-to-dir": "",
+    "cmake-build-lib-to-dir": "",
+    "build-components": {
+        "nncv-compiler": true,
+        "nncv-vm": true,
+        "nncv-core-lib": true,
+        "nncv-test": false,
+        "nncv-example": true,
+        "nncv-api-python": true,
+        "nncv-docs": true
+    }
+}

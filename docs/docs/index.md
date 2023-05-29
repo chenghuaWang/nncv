@@ -70,13 +70,61 @@ NNCV(**N**eural **N**etwork Inference and Compile Tool Chain for **C**omputer **
 
 ## Arch
 
-## Third party packages' dependencies
-
-* LLVM(mostly MLIR)
-* stb image
-* OpenCV
-
 ## Build and Install
+
+I have wrote a python script for you to build this project easily. But first, you should make sure some packages have been installed already:
+
+* CMake >= 3.20
+* Protobuf
+* LLVM(MLIR pre-build)
+* OpenCV (optional. The default image backend is stb_image)
+* Python >= 3.8 (optional. Only need if you want to build python-api)
+* Ninja (optional)
+* Vcpkg (optional. Only work on Windows)
+* CudaToolKit (optional for cuda distribution)
+
+After dependencies issues are solved. You should edit `./script/BuildSetting.json` to customize your own compile settings.
+
+```json
+{
+    "platform": "x64-windows",  // "x86-windows", "x64-linux"
+    "build-tools": "Ninja",     // "Ninja"(for win, linux), "MSBuild"(for windows only)
+    "build-compiler-c++": "",   // If empty, it will use default compiler.
+    "build-compiler-c": "",     // If empty, it will use default compiler.
+    "build-compiler-cuda": "",  // If empty, it will use default compiler.
+    "build-interprter-python": "",  // If empty, it will use default interprter.
+    "build-variant": "Debug",   // "Debug", "Release"
+    "with-cuda": true,          // true / false
+    "build-with-threads": 4,    // 4 is ok, 8 is recommend
+    "dependencies": {
+        "vcpkg": "",            // Only works on windows.
+        "mlir-dir": "",
+        "llvm-dir": "",
+        "protobuf-dir": "",
+        "image-backend": "stb_image", // "stb_image" or "OpenCV"
+        "opencv-dir": ""        // Only works when "image-backend": "OpenCV" is setted.
+    },
+    "cmake-build-bin-to-dir": "",
+    "cmake-build-lib-to-dir": "",
+    "build-components": {
+        "nncv-compiler": true,
+        "nncv-vm": true,
+        "nncv-core-lib": true,
+        "nncv-test": false,
+        "nncv-example": true,
+        "nncv-api-python": true,
+        "nncv-docs": true
+    }
+}
+```
+
+Then, just run 
+
+```shell
+python ./script/CMakeBuild.py
+```
+
+This script will do everything for you !!!
 
 ## Routine
 
