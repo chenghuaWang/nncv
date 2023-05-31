@@ -6,7 +6,7 @@ message( STATUS "CMAKE_TOOLCHAIN_FILE is setting to ${CMAKE_TOOLCHAIN_FILE}")
 
 project(
     nncv
-    LANGUAGES C CXX CUDA
+    LANGUAGES C CXX
     VERSION 0.0.1
 )
 

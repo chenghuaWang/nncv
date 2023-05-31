@@ -1,3 +1,5 @@
+#include "nncv/compiler//Utils/STrap.hpp"
+#include "nncv/compiler/Utils/CliFormatOutput.hpp"
 #include "nncv/compiler/Frontend/TenLangLexer.hpp"
 #include <stdexcept>
 
@@ -242,7 +244,7 @@ AutoTenToken AutoTenLexer::GetNextToken() {
           m_State = AutoTenLexerState::kIdentifier;
         } else if (std::isdigit(m_CurrentChar)) {
           m_State = AutoTenLexerState::kNumber;
-        } else if (m_CurrentChar == '"') {
+        } else if (m_CurrentChar == '\"') {
           m_State = AutoTenLexerState::kString;
         } else {
           m_State = AutoTenLexerState::kOperation;
@@ -288,18 +290,27 @@ void AutoTenLexer::HandleNumberState() {
 
     if (m_CurrentChar == '.') {
       if (IsFloat) {
-        // TODO Error float should just have one dots
+        utils::CliFormatOutput::ErrorAt(*m_FileName, m_Line, m_Column,
+                                        "Float type should have just onr dot, but found two.");
+        utils::TrapAt(utils::ErrorType::kLexerError);
       }
       if (IsExponent) {
-        // TODO Error Scientist number representation in AutoTen can not have dot.
+        utils::CliFormatOutput::ErrorAt(
+            *m_FileName, m_Line, m_Column,
+            "Scientist number representation in AutoTen can not have dot.");
+        utils::TrapAt(utils::ErrorType::kLexerError);
       }
       if (NumberSystem != 10) {
-        // TODO Error Float only support number system 10.
+        utils::CliFormatOutput::ErrorAt(*m_FileName, m_Line, m_Column,
+                                        "Float only support number system 10.");
+        utils::TrapAt(utils::ErrorType::kLexerError);
       }
       ThisNumberState = NumberState::kFloat;
     } else if (m_CurrentChar == 'E' || m_CurrentChar == 'e') {
       if (IsExponent) {
-        // TODO Scientist presentation can not have more than one e / E
+        utils::CliFormatOutput::ErrorAt(*m_FileName, m_Line, m_Column,
+                                        "Scientist presentation can not have more than one e / E");
+        utils::TrapAt(utils::ErrorType::kLexerError);
       }
       ThisNumberState = NumberState::kExponent;
     } else {
@@ -321,7 +332,9 @@ void AutoTenLexer::HandleDigit() {
 
 void AutoTenLexer::HandleFloat() {
   if (!std::isdigit(PeekChar())) {
-    // TODO Error "Fraction number part should be numbers");
+    utils::CliFormatOutput::ErrorAt(*m_FileName, m_Line, m_Column,
+                                    "Float number part should be numbers");
+    utils::TrapAt(utils::ErrorType::kLexerError);
   }
 
   AddToBuffer(m_CurrentChar);
@@ -331,6 +344,65 @@ void AutoTenLexer::HandleFloat() {
     AddToBuffer(m_CurrentChar);
     GetNextChar();
   }
+}
+
+void AutoTenLexer::HandleStringState() {
+  m_Loc = GetTokenLocation();
+  // eat "
+  GetNextChar();
+
+  while (true) {
+    if (m_CurrentChar == '\"') { break; }
+
+    AddToBuffer(m_CurrentChar);
+    GetNextChar();
+  }
+
+  // eat "
+  GetNextChar();
+
+  if (m_Buffer.size() == 1) {
+    CreateToken(AutoTenTokenType::kTypeChar, AutoTenTokenValue::kUnused, m_Loc, m_Buffer.at(0),
+                m_Buffer);
+  } else {
+    CreateToken(AutoTenTokenType::kTypeString, AutoTenTokenValue::kUnused, m_Loc, m_Buffer,
+                m_Buffer);
+  }
+}
+
+void AutoTenLexer::HandleOperationState() {
+  m_Loc = GetTokenLocation();
+  AddToBuffer(m_CurrentChar);
+  AddToBuffer(PeekChar());
+
+  if (m_Dictionary.HaveToken(m_Buffer)) {
+    GetNextChar();
+  } else {
+    ReduceBuffer();
+  }
+
+  auto TokenMeta = m_Dictionary.Lookup(m_Buffer);
+  CreateToken(std::get<0>(TokenMeta), std::get<1>(TokenMeta), m_Loc, m_Buffer,
+              std::get<2>(TokenMeta));
+  GetNextChar();
+}
+
+void AutoTenLexer::HandleIdentifierState() {
+  m_Loc = GetTokenLocation();
+
+  AddToBuffer(m_CurrentChar);
+  GetNextChar();
+
+  /// While current char is not '_', number or alpha.
+  while (std::isalnum(m_CurrentChar) || m_CurrentChar == '_') {
+    AddToBuffer(m_CurrentChar);
+    GetNextChar();
+  }
+
+  /// Check if this identifier is in KeyWords
+  auto TokenMeta = m_Dictionary.Lookup(m_Buffer);
+  CreateToken(std::get<0>(TokenMeta), std::get<1>(TokenMeta), m_Loc, m_Buffer,
+              std::get<2>(TokenMeta));
 }
 
 }  // namespace fronted

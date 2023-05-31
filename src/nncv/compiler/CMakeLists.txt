@@ -63,6 +63,8 @@ else()
     message( FATAL_ERROR "Protobuf not found")
 endif()
 
+find_package(fmt CONFIG REQUIRED)
+
 # Add Dialets into this project
 add_subdirectory(Dialects)
 
@@ -79,6 +81,10 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangParser.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangPreprocess.hpp
 
+    # Utils
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
+
     DEPENDS
     Dialect_AutoTen_Target
 )
@@ -91,5 +97,8 @@ target_link_libraries(nncv-c PRIVATE
     MLIRPass
     MLIRSideEffectInterfaces
     MLIRTransforms
+
+    # Third-party
+    fmt::fmt-header-only
 )
 llvm_update_compile_flags(nncv-c)

@@ -1,4 +1,4 @@
-#include "nncv/compiler/frontend/TenLangParser.hpp"
+#include "nncv/compiler/Frontend/TenLangParser.hpp"
 
 namespace nncv {
 namespace compiler {
