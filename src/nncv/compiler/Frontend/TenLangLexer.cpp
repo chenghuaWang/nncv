@@ -5,7 +5,7 @@
 
 namespace nncv {
 namespace compiler {
-namespace fronted {
+namespace frontend {
 
 AutoTenDictionary::AutoTenDictionary() {
   /// Operators
@@ -405,6 +405,6 @@ void AutoTenLexer::HandleIdentifierState() {
               std::get<2>(TokenMeta));
 }
 
-}  // namespace fronted
+}  // namespace frontend
 }  // namespace compiler
 }  // namespace nncv

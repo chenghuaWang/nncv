@@ -1,6 +1,8 @@
 # CMake For MLIR Based Compiler.
 set(CMAKE_CXX_STANDARD 17)
 
+option(nncv_compiler_use_antlr "Enable antlr for frontend" ON)
+
 unset(LLVM_DIR CACHE)
 if (NOT DEFINED MLIR_DIR)
   message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "

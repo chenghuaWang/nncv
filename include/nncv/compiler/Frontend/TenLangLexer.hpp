@@ -27,7 +27,7 @@
 
 namespace nncv {
 namespace compiler {
-namespace fronted {
+namespace frontend {
 
 //===----------------------------------------------------------------------===//
 // Structure definition a location in a file.
@@ -387,7 +387,7 @@ class AutoTenLexerBuffer : public AutoTenLexer {
  private:
 };
 
-}  // namespace fronted
+}  // namespace frontend
 }  // namespace compiler
 }  // namespace nncv
 
