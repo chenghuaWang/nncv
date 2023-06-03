@@ -186,6 +186,35 @@ Colon: ':';
 
 Dot: '.';
 
+fragment Hexquad:
+	HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT;
+
+fragment Universalcharactername:
+	'\\u' Hexquad
+	| '\\U' Hexquad Hexquad;
+
+Identifier:
+	/*
+	 Identifiernondigit | Identifier Identifiernondigit | Identifier DIGIT
+	 */
+	Identifiernondigit (Identifiernondigit | DIGIT)*;
+
+fragment Identifiernondigit: NONDIGIT | Universalcharactername;
+
+fragment NONDIGIT: [a-zA-Z_];
+
+fragment DIGIT: [0-9];
+
+DecimalLiteral: NONZERODIGIT ('\''? DIGIT)*;
+
+OctalLiteral: '0' ('\''? OCTALDIGIT)*;
+
+HexadecimalLiteral: ('0x' | '0X') HEXADECIMALDIGIT (
+		'\''? HEXADECIMALDIGIT
+	)*;
+
+BinaryLiteral: ('0b' | '0B') BINARYDIGIT ('\''? BINARYDIGIT)*;
+
 fragment NONZERODIGIT: [1-9];
 
 fragment OCTALDIGIT: [0-7];
@@ -193,6 +222,88 @@ fragment OCTALDIGIT: [0-7];
 fragment HEXADECIMALDIGIT: [0-9a-fA-F];
 
 fragment BINARYDIGIT: [01];
+
+Integersuffix:
+	Unsignedsuffix Longsuffix?
+	| Unsignedsuffix Longlongsuffix?
+	| Longsuffix Unsignedsuffix?
+	| Longlongsuffix Unsignedsuffix?;
+
+fragment Unsignedsuffix: [uU];
+
+fragment Longsuffix: [lL];
+
+fragment Longlongsuffix: 'll' | 'LL';
+
+fragment Cchar:
+	~ ['\\\r\n]
+	| Escapesequence
+	| Universalcharactername;
+
+fragment Escapesequence:
+	Simpleescapesequence
+	| Octalescapesequence
+	| Hexadecimalescapesequence;
+
+fragment Simpleescapesequence:
+	'\\\''
+	| '\\"'
+	| '\\?'
+	| '\\\\'
+	| '\\a'
+	| '\\b'
+	| '\\f'
+	| '\\n'
+	| '\\r'
+	| ('\\' ('\r' '\n'? | '\n'))
+	| '\\t'
+	| '\\v';
+
+fragment Octalescapesequence:
+	'\\' OCTALDIGIT
+	| '\\' OCTALDIGIT OCTALDIGIT
+	| '\\' OCTALDIGIT OCTALDIGIT OCTALDIGIT;
+
+fragment Hexadecimalescapesequence: '\\x' HEXADECIMALDIGIT+;
+
+fragment Fractionalconstant:
+	Digitsequence? '.' Digitsequence
+	| Digitsequence '.';
+
+fragment Exponentpart:
+	'e' SIGN? Digitsequence
+	| 'E' SIGN? Digitsequence;
+
+fragment SIGN: [+-];
+
+fragment Digitsequence: DIGIT ('\''? DIGIT)*;
+
+fragment Floatingsuffix: [flFL];
+
+fragment Encodingprefix: 'u8' | 'u' | 'U' | 'L';
+
+fragment Schar:
+	~ ["\\\r\n]
+	| Escapesequence
+	| Universalcharactername;
+
+fragment Rawstring: 'R"' (( '\\' ["()] )|~[\r\n (])*? '(' ~[)]*? ')'  (( '\\' ["()]) | ~[\r\n "])*? '"';
+
+UserDefinedIntegerLiteral:
+	DecimalLiteral Udsuffix
+	| OctalLiteral Udsuffix
+	| HexadecimalLiteral Udsuffix
+	| BinaryLiteral Udsuffix;
+
+UserDefinedFloatingLiteral:
+	Fractionalconstant Exponentpart? Udsuffix
+	| Digitsequence Exponentpart Udsuffix;
+
+UserDefinedStringLiteral: StringLiteral Udsuffix;
+
+UserDefinedCharacterLiteral: CharacterLiteral Udsuffix;
+
+fragment Udsuffix: Identifier;
 
 Whitespace: [ \t]+ -> skip;
 
