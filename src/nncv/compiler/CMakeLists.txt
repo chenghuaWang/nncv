@@ -3,6 +3,17 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(nncv_compiler_use_antlr "Enable antlr for frontend" ON)
 
+if (nncv_compiler_use_antlr)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/antlr)
+add_definitions(-DANTLR4CPP_STATIC)
+set(ANTLR_EXECUTABLE ${PROJECT_SOURCE_DIR}/third_party/antlr/antlr-4.13.0-complete.jar)
+set(ANTLR4_ZIP_REPOSITORY ${PROJECT_SOURCE_DIR}/third_party/antlr/antlr4-cpp-runtime-4.13.0-source.zip)
+include(ExternalAntlr4Cpp)
+include_directories(${ANTLR4_INCLUDE_DIRS})
+
+find_package(ANTLR REQUIRED)
+endif (nncv_compiler_use_antlr)
+
 unset(LLVM_DIR CACHE)
 if (NOT DEFINED MLIR_DIR)
   message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "

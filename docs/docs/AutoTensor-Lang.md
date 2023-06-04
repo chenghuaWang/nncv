@@ -2,7 +2,9 @@ AutoTensor is a very simple and easy to use programming language. You can use ne
 
 ## Grammar and Features
 
-```
+```aten
+@Package=main
+
 import "nn"
 # "nn" is not a file, this import works like a Compile Flag.
 # The Preprocessor will replace `import "nn"` with
@@ -66,7 +68,7 @@ impl MyOp {
     }
 }
 
-func main() {
+func main() -> void {
     # <> is constructor of all Types!!! Not template.
     Tensor a<100, 100, float32>;
     Tensor b<100, 100, float32>;
@@ -88,21 +90,43 @@ func main() {
 }
 ```
 
+### Use self defined packages
+
+```aten
+#! computerVision.aten !#
+@Package=cv
+
+func GetVersion() -> string {
+    return "computer version lib, v0.0.1";
+}
+```
+
+```aten
+@Package=main
+
+import "std"
+import "computerVision.aten"
+
+func main() -> void {
+    std.Print(cv.GetVersion());
+}
+```
+
 ### Buildin Ops
 
-I implemented lots of buildin Ops in compiler level. And thoes Ops is shared same impl with NNCV-IR. Actually, the Auto Tensor-lang's IR will convert to NNCV-IR. And NNCV-IR will finally lowering to Affine-IR, Linag-IR, etc. 
+I implemented lots of buildin Ops in compiler level. And thoes Ops is shared same impl with NNCV-IR. Actually, the Auto Tensor-lang's IR will convert to NNCV-IR. And NNCV-IR will finally lowering to Affine-IR, Linag-IR, etc.
 
 > **Before starting to use these Ops:** You should import "nn.aten", "nn.aten" is just a flag that tell compiler to use extented Op set.
 
 The Ops supported is briefly shown below:
 
-|    Op Name     |    Describe    |
+|    Op Name    |    Describe    |
 | :------------: | :------------: |
 | nn.Conv2d(...) | 2d convolution |
 
 ---
 
-For the full list of Op that supported, Check the [AutoTen-lang Ops' Support Chapter](AutoTensor-Ops-Supported.md)
+For the full list of Op that supported, Check the [AutoTen-lang Ops&#39; Support Chapter](AutoTensor-Ops-Supported.md)
 
 ## Preprocessor
 
