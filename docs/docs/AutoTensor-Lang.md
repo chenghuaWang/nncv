@@ -40,30 +40,24 @@ struct MyOp {
 
 # `&self` will be translate to `MyOp*`
 impl MyOp {
-    # Constructor
-    # This `new` function will return a class but without
-    # memory copy(using shallow copy).
-    # --
     # If user use `std.Alloc(MyOp<args...>)` to create this class, `std.Alloc`
     # will call new(...).
     func new() -> MyOp {
-        MyOp ret;
-        ret.c = std.Alloc(Tensor<100, 100, int16>);
-        return ret;
+        MyOp{c: nil};
     }
 
     # deconstructor
-    func delete(&self) -> void {
+    func delete(self) -> void {
         # delete will be called when this function exists
     }
 
     # overload a operator
-    func __equal__(&self, MyOp* _rhs) -> bool {
+    func __equal__(self, MyOp* _rhs) -> bool {
         return (*self.c) == (*_rhs.c)
     }
 
     # user defind method
-    func Mul(&self, Tensor* _rhs, Tensor* _to) -> void {
+    func Mul(self, Tensor* _rhs, Tensor* _to) -> void {
         Gemm2D(self.c, _rhs, _to);
     }
 }
@@ -81,7 +75,7 @@ func main() -> void {
 
     # Tensor* c = std.Alloc(Tensor<100, 100, 100, int16>);
     # std.Free(c);
-    # c = null;
+    # c = nil;
     # Tensor* d = std.Clone(c);
 
     # MyOp o = MyOp.new();  # This value will auto delete.

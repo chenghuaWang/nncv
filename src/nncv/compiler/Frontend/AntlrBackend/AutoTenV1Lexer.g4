@@ -1,26 +1,26 @@
 lexer grammar AutoTenV1Lexer;
 
+options {
+	language = Cpp;
+}
+
 IntegerLiteral:
 	DecimalLiteral Integersuffix?
 	| OctalLiteral Integersuffix?
 	| HexadecimalLiteral Integersuffix?
 	| BinaryLiteral Integersuffix?;
 
-CharacterLiteral:
-	('u' | 'U' | 'L')? '\'' Cchar+ '\'';
+CharacterLiteral: ('u' | 'U' | 'L')? '\'' Cchar+ '\'';
 
 FloatingLiteral:
 	Fractionalconstant Exponentpart? Floatingsuffix?
 	| Digitsequence Exponentpart Floatingsuffix?;
 
-StringLiteral:
-	Encodingprefix?
-    (Rawstring
-	|'"' Schar* '"');
+StringLiteral: Encodingprefix? (Rawstring | '"' Schar* '"');
 
 BooleanLiteral: False_ | True_;
 
-PointerLiteral: Nullptr;
+PointerLiteral: Nilptr;
 
 UserDefinedLiteral:
 	UserDefinedIntegerLiteral
@@ -186,6 +186,14 @@ Colon: ':';
 
 Dot: '.';
 
+DotStar: '.*';
+
+ArrowStar: '->*';
+
+At: '@';
+
+Semi: ';';
+
 fragment Hexquad:
 	HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT;
 
@@ -287,7 +295,11 @@ fragment Schar:
 	| Escapesequence
 	| Universalcharactername;
 
-fragment Rawstring: 'R"' (( '\\' ["()] )|~[\r\n (])*? '(' ~[)]*? ')'  (( '\\' ["()]) | ~[\r\n "])*? '"';
+fragment Rawstring:
+	'R"' (( '\\' ["()]) | ~[\r\n (])*? '(' ~[)]*? ')' (
+		( '\\' ["()])
+		| ~[\r\n "]
+	)*? '"';
 
 UserDefinedIntegerLiteral:
 	DecimalLiteral Udsuffix
@@ -309,6 +321,6 @@ Whitespace: [ \t]+ -> skip;
 
 Newline: ('\r' '\n'? | '\n') -> skip;
 
-BlockComment: '#!' .!? '!#' -> skip;
+BlockComment: '#!' .? '!#' -> skip;
 
-LineComment: '#' ~ [\r\n]! -> skip;
+LineComment: '#' ~ [\r\n] -> skip;
