@@ -1,4 +1,4 @@
-#include "nncv/compiler//Utils/STrap.hpp"
+#include "nncv/compiler/Utils/STrap.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
 #include "nncv/compiler/Frontend/TenLangLexer.hpp"
 #include <stdexcept>

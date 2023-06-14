@@ -102,7 +102,49 @@ functionBody: compoundStatement;
 //===----------------------------------------------------------------------===//
 // Identifier
 
-theTypeId:;
+originalNamespaceName: Identifier;
+
+namespaceAlias: Identifier;
+
+namespaceName: originalNamespaceName | namespaceAlias;
+
+nestedNameSpecifier:
+	(theTypeName | namespaceName)? Colon
+	| nestedNameSpecifier ( Identifier) Colon;
+
+theTypeId: typeSpecifierSeq abstractDeclarator?;
+
+typeSpecifierSeq: typeSpecifier+;
+
+typeSpecifier: trailingTypeSpecifier;
+
+trailingTypeSpecifier:
+	simpleTypeSpecifier
+	| elaboratedTypeSpecifier;
+
+elaboratedTypeSpecifier:
+	Struct (nestedNameSpecifier? Identifier);
+
+simpleTypeSpecifier:
+	nestedNameSpecifier? theTypeName
+	| String
+	| Tensor
+	| Char
+	| Bool
+	| Int8
+	| Int16
+	| Int32
+	| Int64
+	| Float32
+	| Float64
+	| Void
+	| Var;
+
+theTypeName: structName;
+
+structName: Identifier;
+
+abstractDeclarator:; /// Tensor<6, 8, 9, int>;
 
 //===----------------------------------------------------------------------===//
 // Attribute Declaration
