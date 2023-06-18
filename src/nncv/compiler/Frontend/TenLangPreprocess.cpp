@@ -1,4 +1,4 @@
-#include "nncv/compiler/frontend/TenLangPreprocess.hpp"
+#include "nncv/compiler/Frontend/TenLangPreprocess.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
 
 namespace nncv {

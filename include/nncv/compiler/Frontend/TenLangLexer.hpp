@@ -11,6 +11,18 @@
 #ifndef NNCV_COMPILER_TEN_LANG_LEXER_HPP_
 #define NNCV_COMPILER_TEN_LANG_LEXER_HPP_
 
+#ifdef NNCV_ENABLE_ANTLR
+
+#include "nncv/compiler/Frontend/AntlrBackend/AutoTenV1Lexer.h"
+
+namespace nncv {
+namespace compiler {
+namespace frontend {}
+}  // namespace compiler
+}  // namespace nncv
+
+#else
+
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -306,7 +318,7 @@ class AutoTenDictionary {
 
  private:
   /// token name, token value, token type, precedence.
-  std::map<std::string, std::tuple<AutoTenTokenValue, AutoTenTokenType, int>> m_Dictionary;
+  std::map<std::string, std::tuple<AutoTenTokenValue, AutoTenTokenType, int> > m_Dictionary;
 };
 
 //===----------------------------------------------------------------------===//
@@ -390,5 +402,7 @@ class AutoTenLexerBuffer : public AutoTenLexer {
 }  // namespace frontend
 }  // namespace compiler
 }  // namespace nncv
+
+#endif
 
 #endif  //! NNCV_COMPILER_TEN_LANG_LEXER_HPP_

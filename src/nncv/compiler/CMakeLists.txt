@@ -4,14 +4,24 @@ set(CMAKE_CXX_STANDARD 17)
 option(nncv_compiler_use_antlr "Enable antlr for frontend" ON)
 
 if (nncv_compiler_use_antlr)
+
+if (MSVC)
+    set(ANTLR4_WITH_STATIC_CRT OFF)
+endif()
+
+add_definitions(-DNNCV_ENABLE_ANTLR=1)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/antlr)
 add_definitions(-DANTLR4CPP_STATIC)
 set(ANTLR_EXECUTABLE ${PROJECT_SOURCE_DIR}/third_party/antlr/antlr-4.13.0-complete.jar)
-set(ANTLR4_ZIP_REPOSITORY ${PROJECT_SOURCE_DIR}/third_party/antlr/antlr4-cpp-runtime-4.13.0-source.zip)
+set(ANTLR4_ZIP_REPOSITORY ${PROJECT_SOURCE_DIR}/third_party/antlr/antlr4-4.13.0.zip)
 include(ExternalAntlr4Cpp)
-include_directories(${ANTLR4_INCLUDE_DIRS})
 
+include_directories(${ANTLR4_INCLUDE_DIRS})
+link_directories(${ANTLR4CPP_LIBS})
+
+message( STATUS "Antlr is set to ${ANTLR4_INCLUDE_DIRS}")
 find_package(ANTLR REQUIRED)
+
 endif (nncv_compiler_use_antlr)
 
 unset(LLVM_DIR CACHE)
@@ -94,6 +104,23 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangParser.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/TenLangPreprocess.hpp
 
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Lexer.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Parser.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseListener.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseVisitor.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserListener.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserVisitor.cpp
+
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Lexer.h
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Parser.h
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseListener.h
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseVisitor.h
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserListener.h
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserVisitor.h
+
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
+
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
@@ -102,7 +129,8 @@ add_llvm_executable(nncv-c
     Dialect_AutoTen_Target
 )
 
-target_link_libraries(nncv-c PRIVATE
+if (nncv_compiler_use_antlr)
+    target_link_libraries(nncv-c PRIVATE
     ${LLVM_LIBS}
     MLIRAnalysis
     MLIRIR
@@ -113,5 +141,23 @@ target_link_libraries(nncv-c PRIVATE
 
     # Third-party
     fmt::fmt-header-only
-)
+
+    # antlr4
+    antlr4_static
+    )
+else()
+    target_link_libraries(nncv-c PRIVATE
+        ${LLVM_LIBS}
+        MLIRAnalysis
+        MLIRIR
+        MLIRParser
+        MLIRPass
+        MLIRSideEffectInterfaces
+        MLIRTransforms
+
+        # Third-party
+        fmt::fmt-header-only
+    )
+endif()
+
 llvm_update_compile_flags(nncv-c)

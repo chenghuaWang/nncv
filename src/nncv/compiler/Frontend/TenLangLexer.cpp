@@ -1,3 +1,13 @@
+#ifdef NNCV_ENABLE_ANTLR
+
+namespace nncv {
+namespace compiler {
+namespace frontend {}
+}  // namespace compiler
+}  // namespace nncv
+
+#else
+
 #include "nncv/compiler/Utils/STrap.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
 #include "nncv/compiler/Frontend/TenLangLexer.hpp"
@@ -408,3 +418,5 @@ void AutoTenLexer::HandleIdentifierState() {
 }  // namespace frontend
 }  // namespace compiler
 }  // namespace nncv
+
+#endif

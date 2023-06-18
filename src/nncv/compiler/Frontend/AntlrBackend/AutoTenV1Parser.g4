@@ -5,195 +5,294 @@ options {
 	language = Cpp;
 }
 
-// translationUnit: declarationseq? EOF;
+sourceFile:
+	packageClause eos ((functionDecl | declaration) eos)* EOF;
 
-// primaryExpression: literal+ | This | LeftParen expression RightParen | idExpression |
-// lambdaExpression;
+packageClause: At Package packageName = StringLiteral;
 
-// idExpression: unqualifiedId | qualifiedId;
+// -- compile ctrl blok --
+compileFlags:
+	At Identifier (.Identifier)* (
+		Assign True_
+		| False_
+		| StringLiteral
+	)? Semi;
 
-//===----------------------------------------------------------------------===//
-// Statements collection And Expressions.
+// -- declaration --
+declaration: typeDecl | varDecl;
 
-unaryExpression:
-	(PlusPlus | MinusMinus | unaryOperator | Sizeof) unaryExpression
-	| Sizeof (LeftParen theTypeId RightParen);
+typeDecl:
+	Type (typeSpec | LeftParen (typeSpec eos)* RightParen);
 
-unaryOperator: Or | Star | And | Plus | Tilde | Minus | Not;
+typeSpec: Identifier Assign? type_;
 
-castExpression:
-	unaryExpression
-	| LeftParen theTypeId RightParen castExpression;
+// -- type --
+type_: typeName | typeLit | LeftParen type_ RightParen;
 
-pointerMemberExpression:
-	castExpression ((DotStar | ArrowStar) castExpression)*;
+typeName: qualifiedIdent | Identifier;
 
-multiplicativeExpression:
-	pointerMemberExpression (
-		(Star | Div | Mod) pointerMemberExpression
-	)*;
+typeLit:
+	arrayType
+	| structType
+	| pointerType
+	| functionType
+	| implType
+	| sliceType
+	| mapType;
 
-additiveExpression:
-	multiplicativeExpression (
-		(Plus | Minus) multiplicativeExpression
-	)*;
+arrayType: LeftBracket arrayLength RightBracket elementType;
 
-shiftExpression:
-	additiveExpression (shiftOperator additiveExpression)*;
+arrayLength: expression;
 
-shiftOperator: Greater Greater | Less Less;
+elementType: type_;
 
-relationalExpression:
-	shiftExpression (
-		(Less | Greater | LessEqual | GreaterEqual) shiftExpression
-	)*;
+pointerType: Star type_;
 
-equalityExpression:
-	relationalExpression (
-		(Equal | NotEqual) relationalExpression
-	)*;
+implType: Impl LeftBrace (Public? functionLit)* RightBrace;
 
-andExpression: equalityExpression (And equalityExpression)*;
+sliceType: LeftBracket RightBracket elementType;
 
-exclusiveOrExpression: andExpression (Caret andExpression)*;
+mapType: Map LeftBracket type_ RightBracket elementType;
 
-inclusiveOrExpression:
-	exclusiveOrExpression (Or exclusiveOrExpression)*;
+methodSpec:
+	Identifier parameters result
+	| Identifier parameters;
 
-logicalAndExpression:
-	inclusiveOrExpression (AndAnd inclusiveOrExpression)*;
+functionType: Function signature;
 
-logicalOrExpression:
-	logicalAndExpression (OrOr logicalAndExpression)*;
+varDecl: Var (varSpec | LeftParen (varSpec eos)* RightParen);
 
-assignmentExpression:
-	logicalOrExpression assignmentOperator initializerClause;
+varSpec:
+	identifierList (
+		type_ (Assign expressionList)?
+		| Assign expressionList
+	);
 
-assignmentOperator:
-	Assign
-	| StarAssign
-	| DivAssign
-	| ModAssign
-	| PlusAssign
-	| MinusAssign
-	| RightShiftAssign
-	| LeftShiftAssign
-	| AndAssign
-	| XorAssign
-	| OrAssign;
+// -- trivial --
+signature: parameters ArrowReturnType result | parameters;
 
-expression: assignmentExpression (Comma assignmentExpression)*;
+result: parameters | type_;
 
-expressionStatement: expression? Semi;
+parameters:
+	LeftParen (parameterDecl (Comma parameterDecl)* Comma?)? RightParen;
 
-statement:;
+index: LeftBracket expression RightBracket;
 
-initializerClause:;
+slice_:
+	LeftBracket (
+		expression? Colon expression?
+		| expression? Colon expression Colon expression
+	) RightBracket;
 
-//===----------------------------------------------------------------------===//
-// The function body
+typeAssertion: Dot LeftParen type_ RightParen;
 
-compoundStatement: LeftBrace statementSeq? RightBrace;
+arguments:
+	LeftParen (
+		(expressionList | nonNamedType (Comma expressionList)?) Ellipsis? Comma?
+	)? RightParen;
 
-statementSeq: statement+;
+methodExpr: nonNamedType Dot Identifier;
 
-functionBody: compoundStatement;
+parameterDecl: identifierList? Ellipsis? type_;
 
-//===----------------------------------------------------------------------===//
-// Identifier
+// -- expressions --
+expression:
+	primaryExpr
+	| unary_op = (Plus | Minus | Not | Caret | Star | And) expression
+	| expression mul_op = (
+		Star
+		| Div
+		| Mod
+		| LeftShift
+		| RightShift
+		| And
+	) expression
+	| expression add_op = (Plus | Minus | Or | Caret) expression
+	| expression rel_op = (
+		Equal
+		| NotEqual
+		| Less
+		| LessEqual
+		| Greater
+		| GreaterEqual
+	) expression
+	| expression AndAnd expression
+	| expression OrOr expression;
 
-originalNamespaceName: Identifier;
+primaryExpr:
+	operand
+	| conversion
+	| methodExpr
+	| primaryExpr (
+		Dot Identifier
+		| index
+		| slice_
+		| typeAssertion
+		| arguments
+	);
 
-namespaceAlias: Identifier;
+conversion: nonNamedType LeftParen expression Comma? RightParen;
 
-namespaceName: originalNamespaceName | namespaceAlias;
+nonNamedType: typeLit | LeftParen nonNamedType RightParen;
 
-nestedNameSpecifier:
-	(theTypeName | namespaceName)? Colon
-	| nestedNameSpecifier ( Identifier) Colon;
+operand:
+	literal
+	| operandName
+	| LeftParen expression RightParen;
 
-theTypeId: typeSpecifierSeq abstractDeclarator?;
+expressionList: expression (Comma expression)*;
 
-typeSpecifierSeq: typeSpecifier+;
+identifierList: Identifier (Comma Identifier)*;
 
-typeSpecifier: trailingTypeSpecifier;
+// -- literal --
+literal: basicLit | compositeLit | functionLit;
 
-trailingTypeSpecifier:
-	simpleTypeSpecifier
-	| elaboratedTypeSpecifier;
-
-elaboratedTypeSpecifier:
-	Struct (nestedNameSpecifier? Identifier);
-
-simpleTypeSpecifier:
-	nestedNameSpecifier? theTypeName
-	| String
-	| Tensor
-	| Char
-	| Bool
-	| Int8
-	| Int16
-	| Int32
-	| Int64
-	| Float32
-	| Float64
-	| Void
-	| Var;
-
-theTypeName: structName;
-
-structName: Identifier;
-
-abstractDeclarator:; /// Tensor<6, 8, 9, int>;
-
-//===----------------------------------------------------------------------===//
-// Attribute Declaration
-
-//===----------------------------------------------------------------------===//
-// The Lexer Part
-
-theOperator:
-	Plus
-	| Minus
-	| Star
-	| Div
-	| Mod
-	| Caret
-	| And
-	| Or
-	| Tilde
-	| Not
-	| Assign
-	| Greater
-	| Less
-	| GreaterEqual
-	| PlusAssign
-	| MinusAssign
-	| StarAssign
-	| ModAssign
-	| XorAssign
-	| AndAssign
-	| OrAssign
-	| Less Less
-	| Greater Greater
-	| RightShiftAssign
-	| LeftShiftAssign
-	| Equal
-	| NotEqual
-	| LessEqual
-	| AndAnd
-	| OrOr
-	| PlusPlus
-	| MinusMinus
-	| Comma
-	| LeftParen RightParen
-	| LeftBracket RightBracket;
-
-literal:
-	IntegerLiteral
-	| CharacterLiteral
-	| FloatingLiteral
+basicLit:
+	Nilptr
+	| IntegerLiteral
 	| StringLiteral
-	| BooleanLiteral
-	| PointerLiteral
-	| UserDefinedLiteral;
+	| FloatingLiteral
+	| CharacterLiteral;
+
+operandName: Identifier;
+
+qualifiedIdent: Identifier Dot Identifier;
+
+compositeLit: literalType literalValue;
+
+literalType:
+	structType
+	| arrayType
+	| elementType LeftBracket Ellipsis RightBracket
+	| sliceType
+	| mapType
+	| typeName;
+
+literalValue: LeftBrace (elementList Comma?)? RightBrace;
+
+elementList: keyedElement (Comma keyedElement)*;
+
+keyedElement: (key Colon)? element;
+
+key: expression | literalValue;
+
+element: expression | literalValue;
+
+// -- Struct / Impl --
+structType: Struct LeftBrace (fieldDecl eos)* RightBrace;
+
+fieldDecl: (identifierList type_ | embeddedField) tag = StringLiteral?;
+
+embeddedField: Star? typeName;
+
+// -- function --
+functionLit: compileFlags* Function signature block;
+
+functionDecl: Function Identifier signature block?;
+
+block: LeftBrace statementList? RightBrace;
+
+// -- statement --
+statementList: (Semi? statement eos)+;
+
+statement:
+	declaration
+	| labeledStmt
+	| simpleStmt
+	| returnStmt
+	| breakStmt
+	| continueStmt
+	| gotoStmt
+	| fallthroughStmt
+	| block
+	| ifStmt
+	| switchStmt
+	| forStmt
+	| whileStmt
+	| doWhileStmt;
+
+simpleStmt:
+	incDecStmt
+	| assignment
+	| expressionStmt
+	| shortVarDecl;
+
+expressionStmt: expression;
+
+incDecStmt: expression (PlusPlus | PlusPlus);
+
+assignment: expressionList assign_op expressionList;
+
+assign_op: (
+		Plus
+		| Minus
+		| Or
+		| Caret
+		| Star
+		| Div
+		| Mod
+		| LeftShift
+		| RightShift
+		| And
+	)? Equal;
+
+shortVarDecl: identifierList DeclareAssign expressionList;
+
+emptyStmt: Semi;
+
+labeledStmt: Identifier Colon statement?;
+
+returnStmt: Return expressionList?;
+
+breakStmt: Break Identifier?;
+
+continueStmt: Continue Identifier?;
+
+gotoStmt: Goto Identifier;
+
+fallthroughStmt: Fallthrough;
+
+ifStmt:
+	If LeftParen (
+		expression
+		| eos expression
+		| simpleStmt eos expression
+	) RightParen block (Else (ifStmt | block))?;
+
+switchStmt: exprSwitchStmt | typeSwitchStmt;
+
+exprSwitchStmt:
+	Switch LeftParen (expression? | simpleStmt? eos expression?) RightParen LeftBrace exprCaseClause
+		* RightBrace;
+
+exprCaseClause: exprSwitchCase Colon statementList?;
+
+exprSwitchCase: Case expressionList | Default;
+
+typeSwitchStmt:
+	Switch LeftParen (
+		typeSwitchGuard
+		| eos typeSwitchGuard
+		| simpleStmt eos typeSwitchGuard
+	) RightParen LeftBrace typeCaseClause* RightBrace;
+
+typeSwitchGuard: (Identifier DeclareAssign)? primaryExpr Dot LeftParen Type RightParen;
+
+typeCaseClause: typeSwitchCase Colon statementList?;
+
+typeSwitchCase: Case typeList | Default;
+
+typeList: (type_ | Nilptr) (Comma (type_ | Nilptr))*;
+
+forStmt:
+	For LeftParen (expression? | forClause) RightParen block;
+
+forClause:
+	initStmt = simpleStmt? eos expression? eos postStmt = simpleStmt?;
+
+whileStmt: While LeftParen (expression) RightParen block;
+
+doWhileStmt: Do block While LeftParen (expression) RightParen;
+
+// -- eos(end of sentence) --
+eos: Semi;

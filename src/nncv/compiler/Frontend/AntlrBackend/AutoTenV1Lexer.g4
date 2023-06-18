@@ -64,6 +64,12 @@ Nilptr: 'nil';
 
 Break: 'break';
 
+Continue: 'continue';
+
+Goto: 'goto';
+
+Fallthrough: 'fallthrough';
+
 If: 'if';
 
 While: 'while';
@@ -89,6 +95,10 @@ Return: 'return';
 /* Keywords: structure */
 
 Struct: 'struct';
+
+Type: 'type';
+
+Package: 'package';
 
 /* Keywords: impl */
 
@@ -138,33 +148,19 @@ Not: '!' | 'not';
 
 Assign: '=';
 
+DeclareAssign: ':=';
+
 Less: '<';
 
 Greater: '>';
 
-PlusAssign: '+=';
+LeftShift: '<<';
 
-MinusAssign: '-=';
-
-StarAssign: '*=';
-
-DivAssign: '/=';
-
-ModAssign: '%=';
-
-XorAssign: '^=';
-
-AndAssign: '&=';
-
-OrAssign: '|=';
-
-LeftShiftAssign: '<<=';
-
-RightShiftAssign: '>>=';
-
-Equal: '==';
+RightShift: '>>';
 
 NotEqual: '!=';
+
+Equal: '==';
 
 LessEqual: '<=';
 
@@ -193,6 +189,10 @@ ArrowStar: '->*';
 At: '@';
 
 Semi: ';';
+
+Map: 'map';
+
+Ellipsis: '...';
 
 fragment Hexquad:
 	HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT;

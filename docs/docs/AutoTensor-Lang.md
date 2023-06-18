@@ -3,17 +3,17 @@ AutoTensor is a very simple and easy to use programming language. You can use ne
 ## Grammar and Features
 
 ```aten
-@Package=main
+@Package = "main";
 
-import "nn"
+import "nn";
 # "nn" is not a file, this import works like a Compile Flag.
 # The Preprocessor will replace `import "nn"` with
 # `@Compiler.Ops.Extension.Enable`
 
-import "std"
+import "std";
 # Same as Compile Command `@Compiler.Std.Enable`
 
-import "io.aten"
+import "io.aten";
 # import "std" will set `@Compiler.Io.Enable`
 # "io.aten" is a warpper of buildin "io" primitives.
 
@@ -21,7 +21,8 @@ import "io.aten"
 # import "foo.aten"
 # import "nncv/api/autoTensor/core.aten"
 
-@Kernel.AutoParallel
+@Kernel.AutoParallel = true;
+@Kernel.Platform = "cuda";
 func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
     int w = _src_1.shape[1];
     int h = _src_1.shape[2];
@@ -36,18 +37,18 @@ func Gemm2D(Tensor* _src_1, Tensor* _src_2, Tensor* _dst) -> bool {
 
 struct MyOp {
     Tensor *c;
-}
+};
 
 # `&self` will be translate to `MyOp*`
 impl MyOp {
     # If user use `std.Alloc(MyOp<args...>)` to create this class, `std.Alloc`
     # will call new(...).
-    func new() -> MyOp {
+    func __new__() -> MyOp {
         MyOp{c: nil};
     }
 
     # deconstructor
-    func delete(self) -> void {
+    func __delete__(self) -> void {
         # delete will be called when this function exists
     }
 
@@ -60,7 +61,7 @@ impl MyOp {
     func Mul(self, Tensor* _rhs, Tensor* _to) -> void {
         Gemm2D(self.c, _rhs, _to);
     }
-}
+};
 
 func main() -> void {
     # <> is constructor of all Types!!! Not template.
@@ -73,22 +74,22 @@ func main() -> void {
     std.Print('Time usage: ', std.TimeAsMliSec(start_time - end_time), '\n');
     std.Print(c);
 
-    # Tensor* c = std.Alloc(Tensor<100, 100, 100, int16>);
-    # std.Free(c);
+    # Tensor* c = new Tensor<100, 100, 100, int16>;
+    # delete c;
     # c = nil;
     # Tensor* d = std.Clone(c);
 
     # MyOp o = MyOp.new();  # This value will auto delete.
     # o = MyOp<>;  # This scentence is same as MyOp.new()
-    # MyOp* foo = std.Alloc(MyOp<args...>);  # The pointer should free by user.
-}
+    # MyOp* foo = new MyOp<args...>;  # The pointer should free by user.
+};
 ```
 
 ### Use self defined packages
 
 ```aten
 #! computerVision.aten !#
-@Package=cv
+@Package = "cv";
 
 func GetVersion() -> string {
     return "computer version lib, v0.0.1";
@@ -96,10 +97,10 @@ func GetVersion() -> string {
 ```
 
 ```aten
-@Package=main
+@Package=main;
 
-import "std"
-import "computerVision.aten"
+import "std";
+import "computerVision.aten";
 
 func main() -> void {
     std.Print(cv.GetVersion());

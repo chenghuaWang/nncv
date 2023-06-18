@@ -11,3 +11,4 @@ bin/
 src/nncv/compiler/Frontend/AntlrBackend/.antlr
 third_party/antlr/antlr4-cpp-runtime-4.13.0-source.zip
 third_party/antlr/antlr-4.13.0-complete.jar
+third_party/antlr/antlr4-4.13.0.zip
