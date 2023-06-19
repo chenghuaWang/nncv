@@ -8,7 +8,7 @@ options {
 sourceFile:
 	packageClause eos ((functionDecl | declaration) eos)* EOF;
 
-packageClause: At Package packageName = StringLiteral;
+packageClause: At Package Assign StringLiteral;
 
 // -- compile ctrl blok --
 compileFlags:
@@ -27,7 +27,24 @@ typeDecl:
 typeSpec: Identifier Assign? type_;
 
 // -- type --
-type_: typeName | typeLit | LeftParen type_ RightParen;
+type_:
+	typeName
+	| typeLit
+	| LeftParen type_ RightParen
+	| builtinType;
+
+builtinType:
+	Int8
+	| Int16
+	| Int32
+	| Int64
+	| Float32
+	| Float64
+	| Bool
+	| String
+	| Char
+	| Tensor
+	| Void;
 
 typeName: qualifiedIdent | Identifier;
 

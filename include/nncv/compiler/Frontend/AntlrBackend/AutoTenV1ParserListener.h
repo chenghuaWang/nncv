@@ -37,6 +37,9 @@ public:
   virtual void enterType_(AutoTenV1Parser::Type_Context *ctx) = 0;
   virtual void exitType_(AutoTenV1Parser::Type_Context *ctx) = 0;
 
+  virtual void enterBuiltinType(AutoTenV1Parser::BuiltinTypeContext *ctx) = 0;
+  virtual void exitBuiltinType(AutoTenV1Parser::BuiltinTypeContext *ctx) = 0;
+
   virtual void enterTypeName(AutoTenV1Parser::TypeNameContext *ctx) = 0;
   virtual void exitTypeName(AutoTenV1Parser::TypeNameContext *ctx) = 0;
 

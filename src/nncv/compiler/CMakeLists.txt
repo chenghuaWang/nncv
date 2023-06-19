@@ -19,6 +19,8 @@ include(ExternalAntlr4Cpp)
 include_directories(${ANTLR4_INCLUDE_DIRS})
 link_directories(${ANTLR4CPP_LIBS})
 
+include_directories(${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/)
+
 message( STATUS "Antlr is set to ${ANTLR4_INCLUDE_DIRS}")
 find_package(ANTLR REQUIRED)
 

@@ -6,9 +6,9 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
-std::any AutoTenVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {
-  visit(ctx->packageClause());
-}
+void AutoTenListener::enterSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {}
+
+void AutoTenListener::exitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {}
 
 void AutoTenParser::dump() {}
 

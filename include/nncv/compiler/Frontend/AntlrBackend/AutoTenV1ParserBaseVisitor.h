@@ -45,6 +45,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitBuiltinType(AutoTenV1Parser::BuiltinTypeContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitTypeName(AutoTenV1Parser::TypeNameContext *ctx) override {
     return visitChildren(ctx);
   }

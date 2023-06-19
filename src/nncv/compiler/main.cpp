@@ -19,7 +19,17 @@
 #include "llvm/Support/CommandLine.h"
 #include "mlir/IR/MLIRContext.h"
 
+#include "nncv/compiler/Pipeline/Frontend.hpp"
+
+llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
+                                         llvm::cl::Required);
+
 int main(int argc, char* argv[]) {
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
+
+  // Pipeline - Frontend
+  nncv::compiler::pipeline::FrontendPipeline fr;
+  fr.SetFilePath(InputFilename.getValue());
+  fr.Do();
 }

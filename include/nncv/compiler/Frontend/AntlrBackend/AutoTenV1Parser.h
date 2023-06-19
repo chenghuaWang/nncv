@@ -36,27 +36,28 @@ public:
 
   enum {
     RuleSourceFile = 0, RulePackageClause = 1, RuleCompileFlags = 2, RuleDeclaration = 3, 
-    RuleTypeDecl = 4, RuleTypeSpec = 5, RuleType_ = 6, RuleTypeName = 7, 
-    RuleTypeLit = 8, RuleArrayType = 9, RuleArrayLength = 10, RuleElementType = 11, 
-    RulePointerType = 12, RuleImplType = 13, RuleSliceType = 14, RuleMapType = 15, 
-    RuleMethodSpec = 16, RuleFunctionType = 17, RuleVarDecl = 18, RuleVarSpec = 19, 
-    RuleSignature = 20, RuleResult = 21, RuleParameters = 22, RuleIndex = 23, 
-    RuleSlice_ = 24, RuleTypeAssertion = 25, RuleArguments = 26, RuleMethodExpr = 27, 
-    RuleParameterDecl = 28, RuleExpression = 29, RulePrimaryExpr = 30, RuleConversion = 31, 
-    RuleNonNamedType = 32, RuleOperand = 33, RuleExpressionList = 34, RuleIdentifierList = 35, 
-    RuleLiteral = 36, RuleBasicLit = 37, RuleOperandName = 38, RuleQualifiedIdent = 39, 
-    RuleCompositeLit = 40, RuleLiteralType = 41, RuleLiteralValue = 42, 
-    RuleElementList = 43, RuleKeyedElement = 44, RuleKey = 45, RuleElement = 46, 
-    RuleStructType = 47, RuleFieldDecl = 48, RuleEmbeddedField = 49, RuleFunctionLit = 50, 
-    RuleFunctionDecl = 51, RuleBlock = 52, RuleStatementList = 53, RuleStatement = 54, 
-    RuleSimpleStmt = 55, RuleExpressionStmt = 56, RuleIncDecStmt = 57, RuleAssignment = 58, 
-    RuleAssign_op = 59, RuleShortVarDecl = 60, RuleEmptyStmt = 61, RuleLabeledStmt = 62, 
-    RuleReturnStmt = 63, RuleBreakStmt = 64, RuleContinueStmt = 65, RuleGotoStmt = 66, 
-    RuleFallthroughStmt = 67, RuleIfStmt = 68, RuleSwitchStmt = 69, RuleExprSwitchStmt = 70, 
-    RuleExprCaseClause = 71, RuleExprSwitchCase = 72, RuleTypeSwitchStmt = 73, 
-    RuleTypeSwitchGuard = 74, RuleTypeCaseClause = 75, RuleTypeSwitchCase = 76, 
-    RuleTypeList = 77, RuleForStmt = 78, RuleForClause = 79, RuleWhileStmt = 80, 
-    RuleDoWhileStmt = 81, RuleEos = 82
+    RuleTypeDecl = 4, RuleTypeSpec = 5, RuleType_ = 6, RuleBuiltinType = 7, 
+    RuleTypeName = 8, RuleTypeLit = 9, RuleArrayType = 10, RuleArrayLength = 11, 
+    RuleElementType = 12, RulePointerType = 13, RuleImplType = 14, RuleSliceType = 15, 
+    RuleMapType = 16, RuleMethodSpec = 17, RuleFunctionType = 18, RuleVarDecl = 19, 
+    RuleVarSpec = 20, RuleSignature = 21, RuleResult = 22, RuleParameters = 23, 
+    RuleIndex = 24, RuleSlice_ = 25, RuleTypeAssertion = 26, RuleArguments = 27, 
+    RuleMethodExpr = 28, RuleParameterDecl = 29, RuleExpression = 30, RulePrimaryExpr = 31, 
+    RuleConversion = 32, RuleNonNamedType = 33, RuleOperand = 34, RuleExpressionList = 35, 
+    RuleIdentifierList = 36, RuleLiteral = 37, RuleBasicLit = 38, RuleOperandName = 39, 
+    RuleQualifiedIdent = 40, RuleCompositeLit = 41, RuleLiteralType = 42, 
+    RuleLiteralValue = 43, RuleElementList = 44, RuleKeyedElement = 45, 
+    RuleKey = 46, RuleElement = 47, RuleStructType = 48, RuleFieldDecl = 49, 
+    RuleEmbeddedField = 50, RuleFunctionLit = 51, RuleFunctionDecl = 52, 
+    RuleBlock = 53, RuleStatementList = 54, RuleStatement = 55, RuleSimpleStmt = 56, 
+    RuleExpressionStmt = 57, RuleIncDecStmt = 58, RuleAssignment = 59, RuleAssign_op = 60, 
+    RuleShortVarDecl = 61, RuleEmptyStmt = 62, RuleLabeledStmt = 63, RuleReturnStmt = 64, 
+    RuleBreakStmt = 65, RuleContinueStmt = 66, RuleGotoStmt = 67, RuleFallthroughStmt = 68, 
+    RuleIfStmt = 69, RuleSwitchStmt = 70, RuleExprSwitchStmt = 71, RuleExprCaseClause = 72, 
+    RuleExprSwitchCase = 73, RuleTypeSwitchStmt = 74, RuleTypeSwitchGuard = 75, 
+    RuleTypeCaseClause = 76, RuleTypeSwitchCase = 77, RuleTypeList = 78, 
+    RuleForStmt = 79, RuleForClause = 80, RuleWhileStmt = 81, RuleDoWhileStmt = 82, 
+    RuleEos = 83
   };
 
   explicit AutoTenV1Parser(antlr4::TokenStream *input);
@@ -83,6 +84,7 @@ public:
   class TypeDeclContext;
   class TypeSpecContext;
   class Type_Context;
+  class BuiltinTypeContext;
   class TypeNameContext;
   class TypeLitContext;
   class ArrayTypeContext;
@@ -184,11 +186,11 @@ public:
 
   class  PackageClauseContext : public antlr4::ParserRuleContext {
   public:
-    antlr4::Token *packageName = nullptr;
     PackageClauseContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *At();
     antlr4::tree::TerminalNode *Package();
+    antlr4::tree::TerminalNode *Assign();
     antlr4::tree::TerminalNode *StringLiteral();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -285,6 +287,7 @@ public:
     antlr4::tree::TerminalNode *LeftParen();
     Type_Context *type_();
     antlr4::tree::TerminalNode *RightParen();
+    BuiltinTypeContext *builtinType();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
     virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -294,6 +297,31 @@ public:
   };
 
   Type_Context* type_();
+
+  class  BuiltinTypeContext : public antlr4::ParserRuleContext {
+  public:
+    BuiltinTypeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *Int8();
+    antlr4::tree::TerminalNode *Int16();
+    antlr4::tree::TerminalNode *Int32();
+    antlr4::tree::TerminalNode *Int64();
+    antlr4::tree::TerminalNode *Float32();
+    antlr4::tree::TerminalNode *Float64();
+    antlr4::tree::TerminalNode *Bool();
+    antlr4::tree::TerminalNode *String();
+    antlr4::tree::TerminalNode *Char();
+    antlr4::tree::TerminalNode *Tensor();
+    antlr4::tree::TerminalNode *Void();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  BuiltinTypeContext* builtinType();
 
   class  TypeNameContext : public antlr4::ParserRuleContext {
   public:

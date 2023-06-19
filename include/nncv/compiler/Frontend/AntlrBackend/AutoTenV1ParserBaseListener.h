@@ -39,6 +39,9 @@ public:
   virtual void enterType_(AutoTenV1Parser::Type_Context * /*ctx*/) override { }
   virtual void exitType_(AutoTenV1Parser::Type_Context * /*ctx*/) override { }
 
+  virtual void enterBuiltinType(AutoTenV1Parser::BuiltinTypeContext * /*ctx*/) override { }
+  virtual void exitBuiltinType(AutoTenV1Parser::BuiltinTypeContext * /*ctx*/) override { }
+
   virtual void enterTypeName(AutoTenV1Parser::TypeNameContext * /*ctx*/) override { }
   virtual void exitTypeName(AutoTenV1Parser::TypeNameContext * /*ctx*/) override { }
 
