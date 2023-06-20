@@ -21,14 +21,10 @@ void FrontendPipeline::Do() {
   antlr4::CommonTokenStream tokens(&lexer);
   AutoTenV1Parser parser(&tokens);
   antlr4::tree::ParseTree* tree = parser.sourceFile();
-
-  antlr4::tree::ParseTreeWalker* walker = new antlr4::tree::ParseTreeWalker();
-  walker->walk(new frontend::AutoTenListener(), tree);
+  std::cout << tree->toString();
 
   ino.close();
   // TODO pass MLIR in AutoTenVisitor to next pipeline.
-
-  delete walker;
 #endif
 }
 

@@ -6,46 +6,35 @@ include "mlir/IR/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def ATen_Dialect : Dialect {
+def Aten_Dialect : Dialect {
     let name = "Aten";
-    let namespace = "::mlir::aten";
+    let cppNamespace = "::mlir::aten";
     let description = [{
         Aten(Auto tensor) is the dialects of Aten language. This language will translate to nncv.
-    }]
+    }];
     let hasConstantMaterializer = 1;
     let useDefaultTypePrinterParser = 1;
 }
 
 class Aten_Op<string mnemonic, list<Trait> traits = []> : Op<Aten_Dialect, mnemonic, traits>;
 
-def Aten_StructType :
-    DialectType<Aten_Dialect, CPred<"::llvm::isa<StructType>($_self)">,
-                "Aten struct type">;
+def Aten_StructType : DialectType<Aten_Dialect, CPred<"::llvm::isa<StructType>($_self)">, "Aten struct type">;
+def Aten_Bool : AnyTypeOf<[I1, I8], "boolean-storing type (1 or 8 -bit integer)">;
+def Aten_Char : AnyTypeOf<[I8], "charater-storing type(8 bit integer)">;
+def Aten_Element : AnyTypeOf<[AnyInteger, AnyFloat]>;
+def Aten_Tensor : TensorOf<[Aten_Element]>;
+def Aten_Primitive : AnyTypeOf<[Index, AnyInteger, AnyFloat]>;
+def Aten_FillPattern : AnyTypeOf<[AnyInteger, AnyFloat, Index]>;
+def Aten_Offset : TypeAlias<Index>;
+def Aten_Size : TypeAlias<Index>;
+def Aten_Range : AnyTypeOf<[Index, AnyInteger]>;
 
-def Aten_Type : AnyTypeOf<[F64Tensor, Aten_StructType]>; // TODO
+def Aten_Type : AnyTypeOf<[Aten_Bool, Aten_Char, Aten_Element, Aten_Tensor, Aten_Primitive, 
+                          Aten_Offset, Aten_Size, Aten_Range, Aten_StructType]>;
 
 //===----------------------------------------------------------------------===//
 // Aten Operations
 //===----------------------------------------------------------------------===//
 
-def AddOp : Aten_Op<"add",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "element-wise addition operation";
-  let description = [{
-    The "add" operation performs element-wise addition between two tensors.
-    The shapes of the tensor operands are expected to match.
-  }];
-
-  let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
-  let results = (outs F64Tensor);
-
-  // Indicate that the operation has a custom parser and printer method.
-  let hasCustomAssemblyFormat = 1;
-
-  // Allow building an AddOp with from the two input operands.
-  let builders = [
-    OpBuilder<(ins "Value":$lhs, "Value":$rhs)>
-  ];
-}
 
 #endif //! AUTOTEN_OPS_TD

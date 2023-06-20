@@ -1,5 +1,48 @@
 @package = "main";
 
-func main(arg int) -> void {
+var globalOs string = "win32";
 
+var globalPlatform [2]string;
+
+var kv map[string]int32;
+
+type MulOp struct {
+    lhs Tensor<100, 100, int32>;
+    rhs Tensor<100, 100, int32>;
+
+    pub accept bool;
+};
+
+type MulOp impl {
+    @Kernel.AutoParallel
+    @Platform = "cuda"
+    pub func Do(self *MulOp) -> Tensor<100, 100, int32> {
+        var a int = 10;
+        for (i := 0; i < 100; i++) {
+            for (j:=0; j < 100; j++) {
+                a = self.lhs[i, j];
+                if (a == 10) {
+                    var b Tensor;
+                } else if (a == 9) {
+                    var b int;
+                };
+            };
+        };
+    };
+
+    pub func __new__() -> MulOp {
+        switch (a) {
+            case 1: {
+                return MulOp.new();
+            };
+            case 2:
+            default: 
+        };
+        return 1;
+    };
+};
+
+func main(arg int, argv []string) -> void {
+    globalPlatform[0:1] = "amd64";
+    var a int = 1;
 };

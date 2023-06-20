@@ -13,10 +13,8 @@ packageClause: At Package Assign StringLiteral;
 // -- compile ctrl blok --
 compileFlags:
 	At Identifier (.Identifier)* (
-		Assign True_
-		| False_
-		| StringLiteral
-	)? Semi;
+		Assign (True_ | False_ | expression)
+	)?;
 
 // -- declaration --
 declaration: typeDecl | varDecl;
@@ -43,7 +41,14 @@ builtinType:
 	| Bool
 	| String
 	| Char
-	| Tensor
+	| Tensor (
+		Less expression (Comma expression)* Comma (
+			Float32
+			| Float64
+			| Int32
+			| Int64
+		) Greater
+	)?
 	| Void;
 
 typeName: qualifiedIdent | Identifier;
@@ -65,7 +70,7 @@ elementType: type_;
 
 pointerType: Star type_;
 
-implType: Impl LeftBrace (Public? functionLit)* RightBrace;
+implType: Impl LeftBrace (functionDecl Semi)* RightBrace;
 
 sliceType: LeftBracket RightBracket elementType;
 
@@ -99,7 +104,14 @@ slice_:
 	LeftBracket (
 		expression? Colon expression?
 		| expression? Colon expression Colon expression
-	) RightBracket;
+		| expression
+	) (
+		Comma (
+			expression? Colon expression?
+			| expression? Colon expression Colon expression
+			| expression
+		)
+	)* RightBracket;
 
 typeAssertion: Dot LeftParen type_ RightParen;
 
@@ -196,7 +208,8 @@ key: expression | literalValue;
 element: expression | literalValue;
 
 // -- Struct / Impl --
-structType: Struct LeftBrace (fieldDecl eos)* RightBrace;
+structType:
+	Struct LeftBrace (Public? fieldDecl eos)* RightBrace;
 
 fieldDecl: (identifierList type_ | embeddedField) tag = StringLiteral?;
 
@@ -205,12 +218,13 @@ embeddedField: Star? typeName;
 // -- function --
 functionLit: compileFlags* Function signature block;
 
-functionDecl: Function Identifier signature block?;
+functionDecl:
+	compileFlags* Public? Function Identifier signature block?;
 
 block: LeftBrace statementList? RightBrace;
 
 // -- statement --
-statementList: (Semi? statement eos)+;
+statementList: ((Semi?) statement eos)+;
 
 statement:
 	declaration
@@ -251,7 +265,7 @@ assign_op: (
 		| LeftShift
 		| RightShift
 		| And
-	)? Equal;
+	)? Assign;
 
 shortVarDecl: identifierList DeclareAssign expressionList;
 

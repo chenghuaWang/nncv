@@ -1,5 +1,5 @@
-set(DIALECTS_AUTOTEN_DIR_INCLUDE ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen)
-set(DIALECTS_AUTOTEN_DIR_SRC ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen)
+# set(DIALECTS_AUTOTEN_DIR_INCLUDE ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen)
+# set(DIALECTS_AUTOTEN_DIR_SRC ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen)
 
 set(LLVM_TARGET_DEFINITIONS AutoTen.td)
 mlir_tablegen(AutoTen.h.inc -gen-op-decls)

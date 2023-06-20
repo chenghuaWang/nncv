@@ -1,11 +1,24 @@
 #ifndef NNCV_COMPILER_TEN_LANG_PARSER_HPP_
 #define NNCV_COMPILER_TEN_LANG_PARSER_HPP_
 
-#include "nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseListener.h"
+#include "AutoTenV1ParserBaseVisitor.h"
+#include "AutoTenV1ParserListener.h"
 
 #include "nncv/compiler/Frontend/TenLangAst.hpp"
 
-#include <stack>
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Verifier.h"
+
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
 
 using namespace antlrcpp;
 
@@ -20,8 +33,67 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
+ public:
+  AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
+      : m_OpBuilder(&context), m_FileName(fileName) {
+    m_TheModule = mlir::ModuleOp::create(m_OpBuilder.getUnknownLoc());
+  }
+
+  inline mlir::ModuleOp getModule() { return m_TheModule; }
+
+ private:
+  mlir::ModuleOp m_TheModule;
+  mlir::OpBuilder m_OpBuilder;
+
+  llvm::ScopedHashTable<llvm::StringRef, std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>
+      m_SymbolTable;
+  llvm::ScopedHashTable<llvm::StringRef, int> m_FunctionSymbolTable;
+  // llvm::StringMap<mlir::toy::FuncOp> functionMap;
+  llvm::StringMap<mlir::Type> m_StructTypeMap;
+  llvm::StringMap<AutoTenV1Parser::StructTypeContext*> m_StructCtxMap;
+
+  std::string m_FileName;
+
+  /// Declare a variable in the current scope
+  /// - Check if the variable is already registered.
+  /// -  Register variable in the symbol table.
+  // TODO
+  inline mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value,
+                                     AutoTenV1Parser::VarDeclContext* ctx) {
+    if (m_SymbolTable.count(var)) return mlir::failure();
+    m_SymbolTable.insert(var, {value, ctx});
+    return mlir::success();
+  }
+
+  // Declear a function in the current module
+  /// - Check the parameter number of the function.
+  // TODO
+  inline mlir::LogicalResult funcDeclare(llvm::StringRef functionName, int argsNumber) {
+    if (m_FunctionSymbolTable.count(functionName)) return mlir::failure();
+    m_FunctionSymbolTable.insert(functionName, argsNumber);
+    return mlir::success();
+  }
+
+  /// Location
+  /// Get the MLIR location object with the current line and row of the toy
+  /// source file.
+  // TODO
+  inline mlir::Location loc(int line, int row) {
+    return mlir::FileLineColLoc::get(m_OpBuilder.getStringAttr(m_FileName), line, row);
+  }
+
+  //===----------------------------------------------------------------------===//
+  // Override visitor functions in the AutoTenV1ParserVisitor
+  //===----------------------------------------------------------------------===//
+  std::any visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) override;
+
+  std::any visitStructType(AutoTenV1Parser::StructTypeContext* ctx) override;
+
+  std::any visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx) override;
+};
+
 class AutoTenListener : public AutoTenV1ParserListener {
-  AutoTenListener() : m_Indent(0) {}
   int m_Indent;
   inline void Indent() {
     for (int i = 0; i < m_Indent; i++) std::cout << "    ";
@@ -33,6 +105,8 @@ class AutoTenListener : public AutoTenV1ParserListener {
   std::string m_CurPakageName;
 
  public:
+  AutoTenListener() : m_Indent(0) {}
+
   void enterSourceFile(AutoTenV1Parser::SourceFileContext* ctx) override;
   void exitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) override;
 

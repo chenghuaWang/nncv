@@ -10,14 +10,28 @@
  * @copyright Copyright (c) 2023
  *
  */
-
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
   "version is 0.0.1(pre-build).\n"                          \
   "author: chenghua.wang\n"
 
 #include "llvm/Support/CommandLine.h"
+#include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/ExecutionEngine/ExecutionEngine.h"
+#include "mlir/ExecutionEngine/OptUtils.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Verifier.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
+#include "mlir/Transforms/Passes.h"
+
+#include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
 
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 
@@ -25,11 +39,24 @@ llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<
                                          llvm::cl::Required);
 
 int main(int argc, char* argv[]) {
+  mlir::registerAsmPrinterCLOptions();
+  mlir::registerMLIRContextCLOptions();
+  mlir::registerPassManagerCLOptions();
+
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
-  // Pipeline - Frontend
   nncv::compiler::pipeline::FrontendPipeline fr;
+
   fr.SetFilePath(InputFilename.getValue());
   fr.Do();
+
+  // init MLIR
+  // mlir::MLIRContext MlirContext;
+  // MlirContext.getOrLoadDialect<mlir::aten::AtenDialect>();
+  // mlir::OwningOpRef<mlir::ModuleOp> MlirModule;
+
+  // Pipline do
+
+  // MlirModule->dump();
 }

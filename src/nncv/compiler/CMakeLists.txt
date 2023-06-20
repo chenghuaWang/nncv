@@ -78,7 +78,6 @@ include_directories(${MLIR_INCLUDE_DIRS})
 link_directories(D:/commonlib/llvm-project/build/Debug/lib)
 add_definitions(${LLVM_DEFINITIONS})
 
-
 find_package(Protobuf CONFIG REQUIRED)
 if(${Protobuf_FOUND})
     # TODO add some args and include libs, etc.
@@ -92,6 +91,12 @@ find_package(fmt CONFIG REQUIRED)
 
 # Add Dialets into this project
 add_subdirectory(Dialects)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/Dialects/)
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 # The compiler target
 add_llvm_executable(nncv-c 
@@ -123,9 +128,14 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
 
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen/Dialect.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen/Dialect.hpp
+
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
+
+
 
     DEPENDS
     Dialect_AutoTen_Target
@@ -134,12 +144,9 @@ add_llvm_executable(nncv-c
 if (nncv_compiler_use_antlr)
     target_link_libraries(nncv-c PRIVATE
     ${LLVM_LIBS}
-    MLIRAnalysis
-    MLIRIR
-    MLIRParser
-    MLIRPass
-    MLIRSideEffectInterfaces
-    MLIRTransforms
+    ${dialect_libs}
+    ${conversion_libs}
+    ${extension_libs}
 
     # Third-party
     fmt::fmt-header-only
@@ -150,16 +157,27 @@ if (nncv_compiler_use_antlr)
 else()
     target_link_libraries(nncv-c PRIVATE
         ${LLVM_LIBS}
+        ${dialect_libs}
+        ${conversion_libs}
+        ${extension_libs}
         MLIRAnalysis
+        MLIRBuiltinToLLVMIRTranslation
+        MLIRCallInterfaces
+        MLIRCastInterfaces
+        MLIRExecutionEngine
         MLIRIR
+        MLIRLLVMCommonConversion
+        MLIRLLVMToLLVMIRTranslation
+        MLIRMemRefDialect
         MLIRParser
         MLIRPass
         MLIRSideEffectInterfaces
+        MLIRTargetLLVMIRExport
         MLIRTransforms
 
         # Third-party
         fmt::fmt-header-only
     )
 endif()
-
+mlir_check_all_link_libraries(nncv-c)
 llvm_update_compile_flags(nncv-c)
