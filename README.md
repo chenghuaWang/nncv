@@ -1,18 +1,9 @@
 NNCV
 ---
-Neural Networks Inference Computing Framework for Computer Vision(NNCV) is a High-Performance and Light-Weighted lib with minimum third party libs dependency. NNCV now focus on cuda device and cpu(x86) inferring. Different from other inference computing frameworks, NNCV will optimize the compute graph automatically(branch cutting and op fusion, etc).
 
-*Features:*
+This is a personal practice project for MLSys.
 
-1. A tool for converting ONNX to NNCV's representation.
-2. Automatically optimize compute graph:
-    * Op fusion
-    * Branch cutting
-    * etc
-3. Highly optimized operation kernel.
-4. Carefully and efficient memory management.
-5. A Perf tool for testing your networks' performance.
-6. Code generation for highly optimized operator.
+Neural Networks Inference&Compiling Framework for Computer Vision(NNCV)
 
 *Supporting:*
 
@@ -20,17 +11,6 @@ Neural Networks Inference Computing Framework for Computer Vision(NNCV) is a Hig
 |:-:|:-:|:-:|
 |win64(x86)| yes | yes |
 |ubuntu 20.04(wsl2 x86)| yes | yes |
-
-
-## Learning
-
-* 常见框架的实现方式
-* 算子融合+代码生成的方式
-* 图优化的种类和方式，实现
-
-## Road Map
-
-
 
 ## citing
 
