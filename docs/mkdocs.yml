@@ -1,6 +1,6 @@
 site_name: NNCV Docs
 repo_url: https://github.com/chenghuaWang/nncv
-repo_name: "GitHub"
+repo_name: "nncv"
 
 nav:
   - "Preface & Introduction": "index.md"
