@@ -16,6 +16,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
@@ -32,6 +33,14 @@ enum AutoTenPaserType {
 namespace nncv {
 namespace compiler {
 namespace frontend {
+
+struct __AtenType4Visitor__ {
+  inline __AtenType4Visitor__(const std::any& payload, AtenType type)
+      : payload(payload), type(type) {}
+
+  std::any payload;
+  AtenType type;
+};
 
 class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
  public:
@@ -91,6 +100,10 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitStructType(AutoTenV1Parser::StructTypeContext* ctx) override;
 
   std::any visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx) override;
+
+  std::any visitMapType(AutoTenV1Parser::MapTypeContext* ctx) override;
+
+  std::any visitTensorType(AutoTenV1Parser::TensorTypeContext* ctx) override;
 };
 
 class AutoTenListener : public AutoTenV1ParserListener {

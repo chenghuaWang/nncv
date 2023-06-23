@@ -34,6 +34,8 @@ public:
 
     virtual std::any visitType_(AutoTenV1Parser::Type_Context *context) = 0;
 
+    virtual std::any visitTensorType(AutoTenV1Parser::TensorTypeContext *context) = 0;
+
     virtual std::any visitBuiltinType(AutoTenV1Parser::BuiltinTypeContext *context) = 0;
 
     virtual std::any visitTypeName(AutoTenV1Parser::TypeNameContext *context) = 0;

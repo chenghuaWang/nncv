@@ -31,6 +31,16 @@ type_:
 	| LeftParen type_ RightParen
 	| builtinType;
 
+tensorType:
+	Tensor (
+		Less expression (Comma expression)* Comma (
+			Float32
+			| Float64
+			| Int32
+			| Int64
+		) Greater
+	)?;
+
 builtinType:
 	Int8
 	| Int16
@@ -41,14 +51,7 @@ builtinType:
 	| Bool
 	| String
 	| Char
-	| Tensor (
-		Less expression (Comma expression)* Comma (
-			Float32
-			| Float64
-			| Int32
-			| Int64
-		) Greater
-	)?
+	| tensorType
 	| Void;
 
 typeName: qualifiedIdent | Identifier;
@@ -194,6 +197,7 @@ literalType:
 	| arrayType
 	| elementType LeftBracket Ellipsis RightBracket
 	| sliceType
+	| tensorType
 	| mapType
 	| typeName;
 

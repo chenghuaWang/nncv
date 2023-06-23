@@ -37,6 +37,9 @@ public:
   virtual void enterType_(AutoTenV1Parser::Type_Context *ctx) = 0;
   virtual void exitType_(AutoTenV1Parser::Type_Context *ctx) = 0;
 
+  virtual void enterTensorType(AutoTenV1Parser::TensorTypeContext *ctx) = 0;
+  virtual void exitTensorType(AutoTenV1Parser::TensorTypeContext *ctx) = 0;
+
   virtual void enterBuiltinType(AutoTenV1Parser::BuiltinTypeContext *ctx) = 0;
   virtual void exitBuiltinType(AutoTenV1Parser::BuiltinTypeContext *ctx) = 0;
 

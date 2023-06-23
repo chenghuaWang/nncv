@@ -35,6 +35,23 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+enum AtenType : int {
+  kInt8 = 0,
+  kInt16,
+  kInt32,
+  kInt64,
+  kFloat32,
+  kFloat64,
+  kTensor,
+  kMap,
+  kString,
+  kChar,
+  kArray,
+  kSlice,
+  kFunc,
+  kStruct,
+};
+
 class ExprAst;
 
 using ExprASTList = std::vector<std::unique_ptr<ExprAst>>;

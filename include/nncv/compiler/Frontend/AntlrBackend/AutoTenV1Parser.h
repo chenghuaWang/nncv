@@ -36,28 +36,28 @@ public:
 
   enum {
     RuleSourceFile = 0, RulePackageClause = 1, RuleCompileFlags = 2, RuleDeclaration = 3, 
-    RuleTypeDecl = 4, RuleTypeSpec = 5, RuleType_ = 6, RuleBuiltinType = 7, 
-    RuleTypeName = 8, RuleTypeLit = 9, RuleArrayType = 10, RuleArrayLength = 11, 
-    RuleElementType = 12, RulePointerType = 13, RuleImplType = 14, RuleSliceType = 15, 
-    RuleMapType = 16, RuleMethodSpec = 17, RuleFunctionType = 18, RuleVarDecl = 19, 
-    RuleVarSpec = 20, RuleSignature = 21, RuleResult = 22, RuleParameters = 23, 
-    RuleIndex = 24, RuleSlice_ = 25, RuleTypeAssertion = 26, RuleArguments = 27, 
-    RuleMethodExpr = 28, RuleParameterDecl = 29, RuleExpression = 30, RulePrimaryExpr = 31, 
-    RuleConversion = 32, RuleNonNamedType = 33, RuleOperand = 34, RuleExpressionList = 35, 
-    RuleIdentifierList = 36, RuleLiteral = 37, RuleBasicLit = 38, RuleOperandName = 39, 
-    RuleQualifiedIdent = 40, RuleCompositeLit = 41, RuleLiteralType = 42, 
-    RuleLiteralValue = 43, RuleElementList = 44, RuleKeyedElement = 45, 
-    RuleKey = 46, RuleElement = 47, RuleStructType = 48, RuleFieldDecl = 49, 
-    RuleEmbeddedField = 50, RuleFunctionLit = 51, RuleFunctionDecl = 52, 
-    RuleBlock = 53, RuleStatementList = 54, RuleStatement = 55, RuleSimpleStmt = 56, 
-    RuleExpressionStmt = 57, RuleIncDecStmt = 58, RuleAssignment = 59, RuleAssign_op = 60, 
-    RuleShortVarDecl = 61, RuleEmptyStmt = 62, RuleLabeledStmt = 63, RuleReturnStmt = 64, 
-    RuleBreakStmt = 65, RuleContinueStmt = 66, RuleGotoStmt = 67, RuleFallthroughStmt = 68, 
-    RuleIfStmt = 69, RuleSwitchStmt = 70, RuleExprSwitchStmt = 71, RuleExprCaseClause = 72, 
-    RuleExprSwitchCase = 73, RuleTypeSwitchStmt = 74, RuleTypeSwitchGuard = 75, 
-    RuleTypeCaseClause = 76, RuleTypeSwitchCase = 77, RuleTypeList = 78, 
-    RuleForStmt = 79, RuleForClause = 80, RuleWhileStmt = 81, RuleDoWhileStmt = 82, 
-    RuleEos = 83
+    RuleTypeDecl = 4, RuleTypeSpec = 5, RuleType_ = 6, RuleTensorType = 7, 
+    RuleBuiltinType = 8, RuleTypeName = 9, RuleTypeLit = 10, RuleArrayType = 11, 
+    RuleArrayLength = 12, RuleElementType = 13, RulePointerType = 14, RuleImplType = 15, 
+    RuleSliceType = 16, RuleMapType = 17, RuleMethodSpec = 18, RuleFunctionType = 19, 
+    RuleVarDecl = 20, RuleVarSpec = 21, RuleSignature = 22, RuleResult = 23, 
+    RuleParameters = 24, RuleIndex = 25, RuleSlice_ = 26, RuleTypeAssertion = 27, 
+    RuleArguments = 28, RuleMethodExpr = 29, RuleParameterDecl = 30, RuleExpression = 31, 
+    RulePrimaryExpr = 32, RuleConversion = 33, RuleNonNamedType = 34, RuleOperand = 35, 
+    RuleExpressionList = 36, RuleIdentifierList = 37, RuleLiteral = 38, 
+    RuleBasicLit = 39, RuleOperandName = 40, RuleQualifiedIdent = 41, RuleCompositeLit = 42, 
+    RuleLiteralType = 43, RuleLiteralValue = 44, RuleElementList = 45, RuleKeyedElement = 46, 
+    RuleKey = 47, RuleElement = 48, RuleStructType = 49, RuleFieldDecl = 50, 
+    RuleEmbeddedField = 51, RuleFunctionLit = 52, RuleFunctionDecl = 53, 
+    RuleBlock = 54, RuleStatementList = 55, RuleStatement = 56, RuleSimpleStmt = 57, 
+    RuleExpressionStmt = 58, RuleIncDecStmt = 59, RuleAssignment = 60, RuleAssign_op = 61, 
+    RuleShortVarDecl = 62, RuleEmptyStmt = 63, RuleLabeledStmt = 64, RuleReturnStmt = 65, 
+    RuleBreakStmt = 66, RuleContinueStmt = 67, RuleGotoStmt = 68, RuleFallthroughStmt = 69, 
+    RuleIfStmt = 70, RuleSwitchStmt = 71, RuleExprSwitchStmt = 72, RuleExprCaseClause = 73, 
+    RuleExprSwitchCase = 74, RuleTypeSwitchStmt = 75, RuleTypeSwitchGuard = 76, 
+    RuleTypeCaseClause = 77, RuleTypeSwitchCase = 78, RuleTypeList = 79, 
+    RuleForStmt = 80, RuleForClause = 81, RuleWhileStmt = 82, RuleDoWhileStmt = 83, 
+    RuleEos = 84
   };
 
   explicit AutoTenV1Parser(antlr4::TokenStream *input);
@@ -84,6 +84,7 @@ public:
   class TypeDeclContext;
   class TypeSpecContext;
   class Type_Context;
+  class TensorTypeContext;
   class BuiltinTypeContext;
   class TypeNameContext;
   class TypeLitContext;
@@ -297,6 +298,31 @@ public:
 
   Type_Context* type_();
 
+  class  TensorTypeContext : public antlr4::ParserRuleContext {
+  public:
+    TensorTypeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *Tensor();
+    antlr4::tree::TerminalNode *Less();
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
+    std::vector<antlr4::tree::TerminalNode *> Comma();
+    antlr4::tree::TerminalNode* Comma(size_t i);
+    antlr4::tree::TerminalNode *Greater();
+    antlr4::tree::TerminalNode *Float32();
+    antlr4::tree::TerminalNode *Float64();
+    antlr4::tree::TerminalNode *Int32();
+    antlr4::tree::TerminalNode *Int64();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  TensorTypeContext* tensorType();
+
   class  BuiltinTypeContext : public antlr4::ParserRuleContext {
   public:
     BuiltinTypeContext(antlr4::ParserRuleContext *parent, size_t invokingState);
@@ -310,13 +336,7 @@ public:
     antlr4::tree::TerminalNode *Bool();
     antlr4::tree::TerminalNode *String();
     antlr4::tree::TerminalNode *Char();
-    antlr4::tree::TerminalNode *Tensor();
-    antlr4::tree::TerminalNode *Less();
-    std::vector<ExpressionContext *> expression();
-    ExpressionContext* expression(size_t i);
-    std::vector<antlr4::tree::TerminalNode *> Comma();
-    antlr4::tree::TerminalNode* Comma(size_t i);
-    antlr4::tree::TerminalNode *Greater();
+    TensorTypeContext *tensorType();
     antlr4::tree::TerminalNode *Void();
 
     virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
@@ -974,6 +994,7 @@ public:
     antlr4::tree::TerminalNode *Ellipsis();
     antlr4::tree::TerminalNode *RightBracket();
     SliceTypeContext *sliceType();
+    TensorTypeContext *tensorType();
     MapTypeContext *mapType();
     TypeNameContext *typeName();
 

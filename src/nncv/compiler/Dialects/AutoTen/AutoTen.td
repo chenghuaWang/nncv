@@ -32,6 +32,17 @@ def Aten_Dialect : Dialect {
     }];
     let hasConstantMaterializer = 1;
     let useDefaultTypePrinterParser = 1;
+
+    let dependentDialects = [
+        "affine::AffineDialect",
+        "arith::ArithDialect",
+        "func::FuncDialect",
+        "linalg::LinalgDialect",
+        "math::MathDialect",
+        "memref::MemRefDialect",
+        "scf::SCFDialect",
+        "shape::ShapeDialect",
+    ];
 }
 
 //===----------------------------------------------------------------------===//

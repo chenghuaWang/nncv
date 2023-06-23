@@ -24,7 +24,8 @@ type MulOp impl {
                 if (a == 10) {
                     var b Tensor;
                 } else if (a == 9) {
-                    var b int;
+                    var b int32;
+                    c := Tensor<100, 100, int32>{1, 2, 3, 4, 5, 8};
                 };
             };
         };
