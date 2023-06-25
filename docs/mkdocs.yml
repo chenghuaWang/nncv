@@ -29,3 +29,19 @@ extra_javascript:
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 # https://squidfunk.github.io/mkdocs-material/creating-your-site/#windows
+
+plugins:
+  - exclude:
+      glob:
+        - ../.cache
+        - ../.idea
+        - ../.vscode
+        - ../bin
+        - ../build
+        - ../cmake
+        - ../include
+        - ../python
+        - ../script
+        - ../src
+        - ../tests
+        - ../third_party
