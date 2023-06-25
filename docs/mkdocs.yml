@@ -33,15 +33,15 @@ extra_javascript:
 plugins:
   - exclude:
       glob:
-        - ../.cache
-        - ../.idea
-        - ../.vscode
-        - ../bin
-        - ../build
-        - ../cmake
-        - ../include
-        - ../python
-        - ../script
-        - ../src
-        - ../tests
-        - ../third_party
+        - ../.cache/*
+        - ../.idea/*
+        - ../.vscode/*
+        - ../bin/*
+        - ../build/*
+        - ../cmake/*
+        - ../include/*
+        - ../python/*
+        - ../script/*
+        - ../src/*
+        - ../tests/*
+        - ../third_party/*
