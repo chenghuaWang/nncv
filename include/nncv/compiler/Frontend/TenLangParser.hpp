@@ -119,6 +119,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitExpression(AutoTenV1Parser::ExpressionContext* ctx) override;
 
+  std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
+
   //===----------------------------------------------------------------------===//
   // Method to process type, mactch type or cast type.
   //===----------------------------------------------------------------------===//

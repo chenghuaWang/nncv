@@ -147,13 +147,27 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
         return 0;
       }
     }
-    case kMap:
-    case kArray:
-    case kSlice:
-    case kString:
-    case kChar:
-    case kFunc:
-    case kStruct:
+    case kMap: {
+      return 0;
+    }
+    case kArray: {
+      return 0;
+    }
+    case kSlice: {
+      return 0;
+    }
+    case kString: {
+      return 0;
+    }
+    case kChar: {
+      return 0;
+    }
+    case kFunc: {
+      return 0;
+    }
+    case kStruct: {
+      return 0;
+    }
     case kTensor: {
       std::tuple<mlir::Type, std::vector<mlir::Value>> payload =
           std::any_cast<std::tuple<mlir::Type, std::vector<mlir::Value>>>(atv.payload);
@@ -312,7 +326,17 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
     mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
   }
-  return visitChildren(ctx);
+  return 0;
+}
+
+std::any AutoTen2MlirVisitor::visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) {
+  if (ctx->Identifier().size() != 1) {
+    utils::CliFormatOutput::ErrorAt(
+        m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
+        "Identifier.size() != 1. nncv-c synatic only support single Identifier in one line.");
+    return nullptr;
+  }
+  return ctx->Identifier()[0]->getText();
 }
 
 //===----------------------------------------------------------------------===//
