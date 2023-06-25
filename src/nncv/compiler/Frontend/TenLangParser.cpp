@@ -1,7 +1,6 @@
 #ifdef NNCV_ENABLE_ANTLR
 
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
 
 #include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
@@ -70,41 +69,82 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   __AtenType4Visitor__ atv = std::any_cast<__AtenType4Visitor__>(visit(theVarSpec->type_()));
   switch (atv.type) {
     case kInt8: {
-      // TODO register value to the table it belong to.
-      mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantIntOp>(
-          location, std::any_cast<int8_t>(atv.payload), 8);
-      return value;
+      if (!theVarSpec->Assign()) {
+        // if var delare has no assgin. Then attatch a empty value to it. 0 by default.
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI8IntegerAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        // expression has value;
+        // 1) expression may be `var a int8 = 1;` then, in expression a constant builder will be
+        // called in expression.
+        // 2) expression may be `var a int8 = c + d;` then, in expression a add builder will be
+        // called in expression.
+        // Anyway, the only thing visit(expression) will returned is Value or error(null).
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
+      }
     }
     case kInt16: {
-      // TODO register value to the table it belong to.
-      mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantIntOp>(
-          location, std::any_cast<int16_t>(atv.payload), 16);
-      return value;
+      if (!theVarSpec->Assign()) {
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI16IntegerAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
+      }
     }
     case kInt32: {
-      // TODO register value to the table it belong to.
-      mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantIntOp>(
-          location, std::any_cast<int32_t>(atv.payload), 32);
-      return value;
+      if (!theVarSpec->Assign()) {
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI32IntegerAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
+      }
     }
     case kInt64: {
-      // TODO register value to the table it belong to.
-      mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantIntOp>(
-          location, std::any_cast<int64_t>(atv.payload), 64);
-      return value;
+      if (!theVarSpec->Assign()) {
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI64IntegerAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
+      }
     }
     case kFloat32: {
-      // TODO register value to the table it belong to.
-      mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantFloatOp>(
-          location, std::any_cast<float>(atv.payload), 32);
-      return value;
+      if (!theVarSpec->Assign()) {
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
+      }
     }
     case kFloat64: {
-      {
-        // TODO register value to the table it belong to.
-        mlir::Value value = m_OpBuilder.create<mlir::arith::ConstantFloatOp>(
-            location, std::any_cast<double>(atv.payload), 64);
-        return value;
+      if (!theVarSpec->Assign()) {
+        mlir::Value value =
+            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(0));
+        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+        return 0;
+      } else {
+        mlir::failed(m_SymbolTable.declare(
+            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
+        return 0;
       }
     }
     case kMap:
@@ -126,8 +166,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
           // TODO Pass correct value to empty op. Use mlir::tensor::empty method to build the value.
           // TODO register value to the table it belong to.
           // https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorempty-tensoremptyop
-          mlir::Value value = m_OpBuilder.create<mlir::tensor::EmptyOp>(location);
-          return value;
+          // mlir::Value value = m_OpBuilder.create<mlir::tensor::EmptyOp>(location);
+          // return value;
+          return 0;
         }
       }
     }
@@ -181,9 +222,97 @@ std::any AutoTen2MlirVisitor::visitTensorType(AutoTenV1Parser::TensorTypeContext
   // return tuple<type, dimsExpr> for [VarDecl/ShortDecl] to use. The [VarDecl/ShortDecl] will
   // consider the expression behind the tensor type. Such as `a := Tensor<10, 10, int32>{...}`. If
   // args in `a := Tensor<arg1, arg2, int32>` is not  constant, it will use `tensor::EmptyOp` or
-  // `tensor::GenerateOp` to create tensor. Otherwise, tensor will be made constant.
+  // `tensor::GenerateOp` to create tensor. Otherwise, tensor will be made constant using Dense
+  // Attribute in `builtin` dialect.
   return __AtenType4Visitor__(std::tuple<mlir::Type, std::vector<mlir::Value>>{type, dimsExpr},
                               AtenType::kTensor);
+}
+
+//===----------------------------------------------------------------------===//
+// expressionList: expression (Comma expression)*;
+//
+// Note: I only support single expression here. So the expression.size() should be 1
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitExpressionList(AutoTenV1Parser::ExpressionListContext* ctx) {
+  if (ctx->expression().size() != 1) {
+    utils::CliFormatOutput::ErrorAt(
+        m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
+        "expression.size() != 1. nncv-c synatic only support single expression in one line.");
+    return nullptr;
+  }
+  return visit(ctx->expression()[0]);
+}
+
+//===----------------------------------------------------------------------===//
+// expression:
+// 	primaryExpr
+// 	| unary_op = (Plus | Minus | Not | Caret | Star | And) expression
+// 	| expression mul_op = (
+// 		Star
+// 		| Div
+// 		| Mod
+// 		| LeftShift
+// 		| RightShift
+// 		| And
+// 	) expression
+// 	| expression add_op = (Plus | Minus | Or | Caret) expression
+// 	| expression rel_op = (
+// 		Equal
+// 		| NotEqual
+// 		| Less
+// 		| LessEqual
+// 		| Greater
+// 		| GreaterEqual
+// 	) expression
+// 	| expression AndAnd expression
+// 	| expression OrOr expression;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext* ctx) {
+  // primaryExpr
+  if (ctx->primaryExpr()) {
+    return visit(ctx->primaryExpr());
+  }
+  // unary_op = (Plus | Minus | Not | Caret | Star | And) expression
+  else if (ctx->unary_op) {
+  }
+  // expression mul_op = (Star|Div|Mod|LeftShift|RightShift|And)expression
+  else if (ctx->mul_op) {
+    auto mulOpType = ctx->mul_op->getType();
+    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
+    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    switch (mulOpType) {
+      case m_Lexer.Star: {
+      }
+      case m_Lexer.Div: {
+      }
+      case m_Lexer.Mod: {
+      }
+      case m_Lexer.LeftShift: {
+      }
+      case m_Lexer.RightShift: {
+      }
+      case m_Lexer.And: {
+      }
+    }
+  }
+  // expression add_op = (Plus|Minus|Or|Caret) expression
+  else if (ctx->add_op) {
+  }
+  // expression rel_op = (Equal|NotEqual|Less|LessEqual|Greater|GreaterEqual) expression
+  else if (ctx->rel_op) {
+  }
+  // expression AndAnd expression
+  else if (ctx->AndAnd()) {
+    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
+    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    if (!lhsValue.getType().isInteger(1)) {}
+  }
+  // expression OrOr expression;
+  else if (ctx->OrOr()) {
+    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
+    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+  }
+  return visitChildren(ctx);
 }
 
 //===----------------------------------------------------------------------===//

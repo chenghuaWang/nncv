@@ -14,6 +14,7 @@ struct CliFormatOutput {
     fmt::print(fg(fmt::color::crimson) | fmt::emphasis::bold,
                fmt::format("Err: File {}(Line: {}, Colum{}).\n", _fn, _line, _col));
     fmt::print(fg(fmt::color::crimson) | fmt::emphasis::bold, fmt::format("    ->:{}\n", _what));
+    exit(1);
   }
 };
 

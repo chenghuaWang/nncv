@@ -42,6 +42,7 @@ def Aten_Dialect : Dialect {
         "memref::MemRefDialect",
         "scf::SCFDialect",
         "shape::ShapeDialect",
+        "tensor::TensorDialect",
     ];
 }
 

@@ -37,26 +37,26 @@
 
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                                          llvm::cl::Required);
+llvm::cl::opt<bool> ShowCst("show-cst", llvm::cl::desc("<show CST>"), llvm::cl::Optional);
+llvm::cl::opt<bool> ShowMlir("show-mlir", llvm::cl::desc("<show MLIR>"), llvm::cl::Optional);
 
 int main(int argc, char* argv[]) {
-  mlir::registerAsmPrinterCLOptions();
-  mlir::registerMLIRContextCLOptions();
-  mlir::registerPassManagerCLOptions();
+  // mlir::registerAsmPrinterCLOptions();
+  // mlir::registerMLIRContextCLOptions();
+  // mlir::registerPassManagerCLOptions();
 
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
-  nncv::compiler::pipeline::FrontendPipeline fr;
+  // init MLIR
+  mlir::MLIRContext MlirContext;
+  MlirContext.getOrLoadDialect<mlir::aten::AtenDialect>();
+  mlir::OwningOpRef<mlir::ModuleOp> MlirModule;
+
+  nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
 
   fr.SetFilePath(InputFilename.getValue());
+  fr.SetShowCst(ShowCst.getValue());
+  fr.SetDumpMlir(ShowMlir.getValue());
   fr.Do();
-
-  // init MLIR
-  // mlir::MLIRContext MlirContext;
-  // MlirContext.getOrLoadDialect<mlir::aten::AtenDialect>();
-  // mlir::OwningOpRef<mlir::ModuleOp> MlirModule;
-
-  // Pipline do
-
-  // MlirModule->dump();
 }

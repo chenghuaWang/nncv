@@ -1,5 +1,3 @@
-#include "nncv/compiler/Frontend/TenLangLexer.hpp"
-#include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 
 #include <fstream>
@@ -20,11 +18,15 @@ void FrontendPipeline::Do() {
   AutoTenV1Lexer lexer(&input);
   antlr4::CommonTokenStream tokens(&lexer);
   AutoTenV1Parser parser(&tokens);
-  antlr4::tree::ParseTree* tree = parser.sourceFile();
-  std::cout << tree->toString();
-
+  antlrcpp::AutoTenV1Parser::SourceFileContext* tree = parser.sourceFile();
+  if (m_showCst) { std::cout << tree->toStringTree(true) << "\n"; }
+  if (m_dumpMlir) {
+    frontend::AutoTen2MlirVisitor visitor(m_CurrentFilePath, m_Context);
+    visitor.visit(tree);
+    m_Module = visitor.getModule();
+    m_Module->dump();
+  }
   ino.close();
-  // TODO pass MLIR in AutoTenVisitor to next pipeline.
 #endif
 }
 

@@ -3,6 +3,7 @@
 
 #include "AutoTenV1ParserBaseVisitor.h"
 #include "AutoTenV1ParserListener.h"
+#include "AutoTenV1Lexer.h"
 
 #include "nncv/compiler/Frontend/TenLangAst.hpp"
 
@@ -42,52 +43,61 @@ struct __AtenType4Visitor__ {
   AtenType type;
 };
 
-class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
- public:
-  AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
-      : m_OpBuilder(&context), m_FileName(fileName) {
-    m_TheModule = mlir::ModuleOp::create(m_OpBuilder.getUnknownLoc());
+struct __AtenSymbolTable__ {
+  inline llvm::ScopedHashTable<llvm::StringRef,
+                               std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>&
+  getScopedVarDeclSymbolTable() {
+    return m_ScopedVarDeclSymbolTable;
   }
 
-  inline mlir::ModuleOp getModule() { return m_TheModule; }
+  inline llvm::ScopedHashTable<llvm::StringRef, int>& getFunctionSymbolTable() {
+    return m_FunctionSymbolTable;
+  }
 
- private:
-  mlir::ModuleOp m_TheModule;
-  mlir::OpBuilder m_OpBuilder;
+  inline llvm::StringMap<mlir::Type>& getStructTypeMap() { return m_StructTypeMap; }
 
-  llvm::ScopedHashTable<llvm::StringRef, std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>
-      m_SymbolTable;
-  llvm::ScopedHashTable<llvm::StringRef, int> m_FunctionSymbolTable;
-  // llvm::StringMap<mlir::toy::FuncOp> functionMap;
-  llvm::StringMap<mlir::Type> m_StructTypeMap;
-  llvm::StringMap<AutoTenV1Parser::StructTypeContext*> m_StructCtxMap;
+  inline llvm::StringMap<AutoTenV1Parser::StructTypeContext*>& getStructCtxMap() {
+    return m_StructCtxMap;
+  }
 
-  std::string m_FileName;
-
-  /// Declare a variable in the current scope
-  /// - Check if the variable is already registered.
-  /// -  Register variable in the symbol table.
-  // TODO
   inline mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value,
                                      AutoTenV1Parser::VarDeclContext* ctx) {
-    if (m_SymbolTable.count(var)) return mlir::failure();
-    m_SymbolTable.insert(var, {value, ctx});
+    if (m_ScopedVarDeclSymbolTable.count(var)) return mlir::failure();
+    m_ScopedVarDeclSymbolTable.insert(var, {value, ctx});
     return mlir::success();
   }
 
-  // Declear a function in the current module
-  /// - Check the parameter number of the function.
-  // TODO
   inline mlir::LogicalResult funcDeclare(llvm::StringRef functionName, int argsNumber) {
     if (m_FunctionSymbolTable.count(functionName)) return mlir::failure();
     m_FunctionSymbolTable.insert(functionName, argsNumber);
     return mlir::success();
   }
 
-  /// Location
-  /// Get the MLIR location object with the current line and row of the toy
-  /// source file.
-  // TODO
+ private:
+  llvm::ScopedHashTable<llvm::StringRef, std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>
+      m_ScopedVarDeclSymbolTable;
+  llvm::ScopedHashTable<llvm::StringRef, int> m_FunctionSymbolTable;
+  llvm::StringMap<mlir::Type> m_StructTypeMap;
+  llvm::StringMap<AutoTenV1Parser::StructTypeContext*> m_StructCtxMap;
+};
+
+class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
+ public:
+  AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
+      : m_Lexer(nullptr), m_OpBuilder(&context), m_FileName(fileName) {
+    m_TheModule = mlir::ModuleOp::create(m_OpBuilder.getUnknownLoc());
+  }
+
+  inline mlir::ModuleOp getModule() { return m_TheModule; }
+
+ private:
+  AutoTenV1Lexer m_Lexer;
+  mlir::ModuleOp m_TheModule;
+  mlir::OpBuilder m_OpBuilder;
+  std::string m_FileName;
+
+  __AtenSymbolTable__ m_SymbolTable;
+
   inline mlir::Location loc(int line, int row) {
     return mlir::FileLineColLoc::get(m_OpBuilder.getStringAttr(m_FileName), line, row);
   }
@@ -104,6 +114,14 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitMapType(AutoTenV1Parser::MapTypeContext* ctx) override;
 
   std::any visitTensorType(AutoTenV1Parser::TensorTypeContext* ctx) override;
+
+  std::any visitExpressionList(AutoTenV1Parser::ExpressionListContext* ctx) override;
+
+  std::any visitExpression(AutoTenV1Parser::ExpressionContext* ctx) override;
+
+  //===----------------------------------------------------------------------===//
+  // Method to process type, mactch type or cast type.
+  //===----------------------------------------------------------------------===//
 };
 
 class AutoTenListener : public AutoTenV1ParserListener {
