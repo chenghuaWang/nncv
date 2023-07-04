@@ -78,13 +78,13 @@ class ExprAst {
  public:
   enum ExprAstKind {
     // function related
-    ExprCall = 0,
-    ExprReturn,
+    ExprCall = 0,  // done. fro mlir
+    ExprReturn,    // done. for mlir
     // operation
-    ExprBinaryOp,
-    ExprUnaryOp,
+    ExprBinaryOp,  // done. for mlir
+    ExprUnaryOp,   // done. for mlir
     // ref
-    ExprMember,
+    ExprMemberVar,  // done. for mlir
     // declaration
     ExprGeneralValDel,
     EXprArrayDecl,
@@ -120,41 +120,60 @@ class ExprAst {
 
 //===----------------------------------------------------------------------===//
 // Expression class for function call. Such as `print(c);`
+//
+// !! Fixed for MLIR dump !!
 //===----------------------------------------------------------------------===//
 class CallExprAst : public ExprAst {
   std::string callee;
   std::vector<std::unique_ptr<ExprAst>> args;
-  std::vector<std::unique_ptr<ExprAst>> attribute;
 
  public:
-  CallExprAst(Location loc, const std::string& callee, std::vector<std::unique_ptr<ExprAst>> args,
-              std::vector<std::unique_ptr<ExprAst>> attribute)
-      : ExprAst(ExprCall, std::move(loc)),
-        callee(callee),
-        args(std::move(args)),
-        attribute(std::move(attribute)) {}
+  CallExprAst(Location loc, const std::string& callee, std::vector<std::unique_ptr<ExprAst>> args)
+      : ExprAst(ExprCall, std::move(loc)), callee(callee), args(std::move(args)) {}
 
   llvm::StringRef getCallee() { return callee; }
   llvm::ArrayRef<std::unique_ptr<ExprAst>> getArgs() { return args; }
-  llvm::ArrayRef<std::unique_ptr<ExprAst>> getAttribute() { return attribute; }
 
   /// LLVM style RTTI
   static bool classof(const ExprAst* c) { return c->getKind() == ExprCall; }
 };
 
 //===----------------------------------------------------------------------===//
+// Expression class for function return. Such as `return %0, %1 : i32, f8`
+//
+// !! Fixed for MLIR dump !!
+//===----------------------------------------------------------------------===//
+class ReturnExprAst : public ExprAst {
+  std::optional<std::vector<std::unique_ptr<ExprAst>>> operands;
+
+ public:
+  ReturnExprAst(Location loc, std::vector<std::unique_ptr<ExprAst>> operands)
+      : ExprAst(ExprReturn, std::move(loc)), operands(std::move(operands)) {}
+
+  llvm::ArrayRef<std::unique_ptr<ExprAst>> getOperands() {
+    if (operands.has_value()) return operands.value();
+    return std::nullopt;
+  }
+
+  /// LLVM style RTTI
+  static bool classof(const ExprAst* c) { return c->getKind() == ExprReturn; }
+};
+
+//===----------------------------------------------------------------------===//
 // Expression class for Binary Op. Such as `a + b;`
+//
+// !! Fixed for MLIR dump !!
 //===----------------------------------------------------------------------===//
 class BinaryExprAst : public ExprAst {
-  std::string op;
+  int32_t op;
   std::unique_ptr<ExprAst> lhs, rhs;
 
  public:
-  llvm::StringRef getOp() { return op; }
+  int32_t getOp() { return op; }
   ExprAst* getLHS() { return lhs.get(); }
   ExprAst* getRHS() { return rhs.get(); }
 
-  BinaryExprAst(Location loc, const std::string& op, std::unique_ptr<ExprAst> lhs,
+  BinaryExprAst(Location loc, int32_t op, std::unique_ptr<ExprAst> lhs,
                 std::unique_ptr<ExprAst> rhs)
       : ExprAst(ExprBinaryOp, std::move(loc)), op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
@@ -164,16 +183,18 @@ class BinaryExprAst : public ExprAst {
 
 //===----------------------------------------------------------------------===//
 // Expression class for Unary Op. Such as `i ++;`. Only `lhs op`.
+//
+// !! Fixed for MLIR dump !!
 //===----------------------------------------------------------------------===//
 class UnaryExprAst : public ExprAst {
-  std::string op;
+  int32_t op;
   std::unique_ptr<ExprAst> lhs;
 
  public:
-  llvm::StringRef getOp() { return op; }
+  int32_t getOp() { return op; }
   ExprAst* getLHS() { return lhs.get(); }
 
-  UnaryExprAst(Location loc, const std::string& op, std::unique_ptr<ExprAst> lhs)
+  UnaryExprAst(Location loc, int32_t op, std::unique_ptr<ExprAst> lhs)
       : ExprAst(ExprUnaryOp, std::move(loc)), op(op), lhs(std::move(lhs)) {}
 
   /// LLVM style RTTI
@@ -181,11 +202,15 @@ class UnaryExprAst : public ExprAst {
 };
 
 //===----------------------------------------------------------------------===//
-// Expression class for Memeber. Such as `var a Tensor; a.type`; `type` is a member.
-// But you should notice that MemberExprAst is just for struct. It can't call
-// a function.
+// Expression class for Memeber. Such as `var a Tensor; a.some`; `some` is a member.
+// But you should notice that MemberVarExprAst is just for struct to visit member.
+// It can't call a function.
+//
+// TODO Check Toy's Struct visit Op for more infomation
+//
+// !! Fixed for MLIR dump !!
 //===----------------------------------------------------------------------===//
-class MemberExprAst : public ExprAst {
+class MemberVarExprAst : public ExprAst {
   std::unique_ptr<ExprAst> structLi;
   std::unique_ptr<ExprAst> member;
 
@@ -193,13 +218,13 @@ class MemberExprAst : public ExprAst {
   ExprAst* getStructLi() { return structLi.get(); }
   ExprAst* getMember() { return member.get(); }
 
-  MemberExprAst(Location loc, std::unique_ptr<ExprAst> structLi, std::unique_ptr<ExprAst> member)
-      : ExprAst(ExprMember, std::move(loc)),
+  MemberVarExprAst(Location loc, std::unique_ptr<ExprAst> structLi, std::unique_ptr<ExprAst> member)
+      : ExprAst(ExprMemberVar, std::move(loc)),
         structLi(std::move(structLi)),
         member(std::move(member)) {}
 
   /// LLVM style RTTI
-  static bool classof(const ExprAst* c) { return c->getKind() == ExprMember; }
+  static bool classof(const ExprAst* c) { return c->getKind() == ExprMemberVar; }
 };
 
 //===----------------------------------------------------------------------===//
@@ -226,25 +251,6 @@ class ArrayDeclExprAst : public ExprAst {
 
   /// LLVM style RTTI
   static bool classof(const ExprAst* c) { return c->getKind() == EXprArrayDecl; }
-};
-
-//===----------------------------------------------------------------------===//
-// Expression class for array. Such as `return 1+1;`
-//===----------------------------------------------------------------------===//
-class ReturnExprAst : public ExprAst {
-  std::optional<std::unique_ptr<ExprAst>> expr;
-
- public:
-  ReturnExprAst(Location loc, std::optional<std::unique_ptr<ExprAst>> expr)
-      : ExprAst(ExprReturn, std::move(loc)), expr(std::move(expr)) {}
-
-  std::optional<ExprAst*> getExpr() {
-    if (expr.has_value()) return expr->get();
-    return std::nullopt;
-  }
-
-  /// LLVM style RTTI
-  static bool classof(const ExprAst* c) { return c->getKind() == ExprReturn; }
 };
 
 //===----------------------------------------------------------------------===//

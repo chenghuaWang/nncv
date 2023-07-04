@@ -294,8 +294,22 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     auto mulOpType = ctx->mul_op->getType();
     mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
     mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+
+    mlir::Location location = loc(ctx->mul_op->getLine(), ctx->mul_op->getCharPositionInLine());
+
     switch (mulOpType) {
       case m_Lexer.Star: {
+        if (lhsValue.getType().isa<mlir::aten::StructType>()
+            || rhsValue.getType().isa<mlir::aten::StructType>()) {
+          // check the impl exists ornot, add a pending to queue because I didn't know if impl is
+          // defined below or not.
+        } else if (lhsValue.getType().isa<mlir::TensorType>()
+                   || rhsValue.getType().isa<mlir::TensorType>()) {
+          // do tensor add or broad cast
+        } else {
+          // else is arith constant
+          return m_OpBuilder.create<mlir::arith::MulIOp>(location, lhsValue, rhsValue);
+        }
       }
       case m_Lexer.Div: {
       }
@@ -341,6 +355,8 @@ std::any AutoTen2MlirVisitor::visitIdentifierList(AutoTenV1Parser::IdentifierLis
 
 //===----------------------------------------------------------------------===//
 // The listener is for generating AST.
+//
+// Reference: https://zhuanlan.zhihu.com/p/369250644
 //===----------------------------------------------------------------------===//
 void AutoTenListener::enterSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {}
 
