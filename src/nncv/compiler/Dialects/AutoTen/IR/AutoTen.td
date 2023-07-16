@@ -74,6 +74,7 @@ def Aten_BinaryArithPredicateAttr : I64EnumAttr<"BinaryArithPredict", "", [
     I64EnumAttrCase<"Sub", 1>,
     I64EnumAttrCase<"Mul", 2>,
     I64EnumAttrCase<"Div", 3>,
+    I64EnumAttrCase<"Mod", 4>,
 ]> {
     let cppNamespace = "::mlir::aten";
 }
@@ -84,6 +85,17 @@ def Aten_BinaryLogicPredicateAttr : I64EnumAttr<"BinaryLogicPredict", "", [
     I64EnumAttrCase<"XorOp", 2>,
     I64EnumAttrCase<"ShlOp", 3>,
     I64EnumAttrCase<"ShrOp", 4>,
+    I64EnumAttrCase<"AndAndOp", 5>,
+    I64EnumAttrCase<"OrOrOp", 6>,
+]> {
+    let cppNamespace = "::mlir::aten";
+}
+
+def Aten_UnaryLogicPredicateAttr : I64EnumAttr<"UnaryLogicPredict", "", [
+    I64EnumAttrCase<"MakePositive", 0>,
+    I64EnumAttrCase<"MakeNegative", 1>,
+    I64EnumAttrCase<"Not4Bool", 2>,
+    I64EnumAttrCase<"BitwiseNot", 3>,
 ]> {
     let cppNamespace = "::mlir::aten";
 }
@@ -213,7 +225,7 @@ def Aten_CastPtr : Aten_Op<"CastPtr", [
     let arguments = (ins AnyMemRef:$input);
     let results = (outs AnyMemRef:$output);
 
-    let assemblyFormat = "`aten.castptr` $input attr-dict `:` type($input) `to` type($output)";
+    // let assemblyFormat = "`aten.castptr` $input attr-dict `:` type($input) `to` type($output)";
 }
 
 //===----------------------------------------------------------------------===//
@@ -232,7 +244,7 @@ def Aten_BinaryArithOp : Aten_Op<"BinaryArith"> {
     let arguments = (ins Aten_BinaryArithPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Type4NormalExpression:$result);
 
-    let assemblyFormat = "`aten.binaryarith` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->`  type($result)";
+    // let assemblyFormat = "`aten.binaryarith` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->`  type($result)";
 }
 
 def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic"> {
@@ -244,7 +256,7 @@ def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic"> {
     let arguments = (ins Aten_BinaryLogicPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Type4NormalExpression:$result);
 
-    let assemblyFormat = "`aten.binarylogic` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
+    // let assemblyFormat = "`aten.binarylogic` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 }
 
 def Aten_CmpOp : Aten_Op<"Cmp"> {
@@ -252,6 +264,11 @@ def Aten_CmpOp : Aten_Op<"Cmp"> {
     let results = (outs Aten_Bool:$result);
 
     // let assemblyFormat = "`aten.cmp` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs)";
+}
+
+def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic"> {
+    let arguments = (ins Aten_BinaryLogicPredicateAttr:$predicate, Aten_Type4NormalExpression:$inputs);
+    let results = (outs Aten_Type4NormalExpression:$result);
 }
 
 //===----------------------------------------------------------------------===//
@@ -277,7 +294,19 @@ def Aten_AccessArray : Aten_Op<"AccessArray">{
 
 //===----------------------------------------------------------------------===//
 // Aten Operations: Helper Op on typed pointer.
+//
+// Dereference: value = *ptr
+// Apply: ptr = &value
 //===----------------------------------------------------------------------===//
+def Aten_Dereference : Aten_Op<"Dereference"> {
+    let arguments = (ins Aten_Ptr:$inputs);
+    let results = (outs Aten_Type4NormalExpression:$outputs);
+}
+
+def Aten_Apply : Aten_Op<"Apply"> {
+    let arguments = (ins Aten_Type4NormalExpression:$inputs);
+    let results = (outs Aten_Ptr:$outputs);
+}
 
 //===----------------------------------------------------------------------===//
 // Aten Operations: Contorl Flow.

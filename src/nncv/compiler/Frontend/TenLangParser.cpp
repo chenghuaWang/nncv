@@ -284,10 +284,12 @@ std::any AutoTen2MlirVisitor::visitExpressionList(AutoTenV1Parser::ExpressionLis
 std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext* ctx) {
   // primaryExpr
   if (ctx->primaryExpr()) {
+    // TODO
     return visit(ctx->primaryExpr());
   }
   // unary_op = (Plus | Minus | Not | Caret | Star | And) expression
   else if (ctx->unary_op) {
+    // TODO
   }
   // expression mul_op = (Star|Div|Mod|LeftShift|RightShift|And)expression
   else if (ctx->mul_op) {
@@ -299,40 +301,190 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
 
     switch (mulOpType) {
       case m_Lexer.Star: {
+        // TODO bulder is incorrect.
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryArithOp>(
+            location,
+            mlir::aten::BinaryArithPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryArithPredict::Mul),
+            lhsValue, rhsValue);
+        return retValue;
       }
       case m_Lexer.Div: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryArithOp>(
+            location,
+            mlir::aten::BinaryArithPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryArithPredict::Div),
+            lhsValue, rhsValue);
+        return retValue;
       }
       case m_Lexer.Mod: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryArithOp>(
+            location,
+            mlir::aten::BinaryArithPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryArithPredict::Mod),
+            lhsValue, rhsValue);
+        return retValue;
       }
       case m_Lexer.LeftShift: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+            location,
+            mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryLogicPredict::ShlOp),
+            lhsValue, rhsValue);
+        return retValue;
       }
       case m_Lexer.RightShift: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+            location,
+            mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryLogicPredict::ShrOp),
+            lhsValue, rhsValue);
+        return retValue;
       }
       case m_Lexer.And: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+            location,
+            mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryLogicPredict::AndOp),
+            lhsValue, rhsValue);
+        return retValue;
       }
     }
   }
   // expression add_op = (Plus|Minus|Or|Caret) expression
   else if (ctx->add_op) {
+    auto addOpType = ctx->add_op->getType();
+    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
+    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+
+    mlir::Location location = loc(ctx->add_op->getLine(), ctx->add_op->getCharPositionInLine());
+    switch (addOpType) {
+      case m_Lexer.Plus: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryArithOp>(
+            location,
+            mlir::aten::BinaryArithPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryArithPredict::Add),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.Minus: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryArithOp>(
+            location,
+            mlir::aten::BinaryArithPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryArithPredict::Sub),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.Or: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+            location,
+            mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryLogicPredict::OrOp),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.Caret: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+            location,
+            mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::BinaryLogicPredict::XorOp),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+    }
   }
   // expression rel_op = (Equal|NotEqual|Less|LessEqual|Greater|GreaterEqual) expression
   else if (ctx->rel_op) {
+    auto relOpType = ctx->add_op->getType();
+    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
+    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+
+    mlir::Location location = loc(ctx->rel_op->getLine(), ctx->rel_op->getCharPositionInLine());
+
+    switch (relOpType) {
+      case m_Lexer.Equal: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Equl),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.NotEqual: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Nequal),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.Less: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Less),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.LessEqual: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Lesseq),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.Greater: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Greater),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+      case m_Lexer.GreaterEqual: {
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpPredicate::Greatereq),
+            lhsValue, rhsValue);
+        return retValue;
+      }
+    }
   }
   // expression AndAnd expression
   else if (ctx->AndAnd()) {
     mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
     mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
-    if (!lhsValue.getType().isInteger(1)) {}
+
+    mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
+                                  ctx->AndAnd()->getSymbol()->getCharPositionInLine());
+
+    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+        location,
+        mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::BinaryLogicPredict::AndAndOp),
+        lhsValue, rhsValue);
   }
   // expression OrOr expression;
   else if (ctx->OrOr()) {
     mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
     mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+
+    mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
+                                  ctx->AndAnd()->getSymbol()->getCharPositionInLine());
+
+    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+        location,
+        mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::BinaryLogicPredict::OrOrOp),
+        lhsValue, rhsValue);
   }
   return 0;
 }
 
 std::any AutoTen2MlirVisitor::visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) {
+  // TODO
   if (ctx->Identifier().size() != 1) {
     utils::CliFormatOutput::ErrorAt(
         m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
