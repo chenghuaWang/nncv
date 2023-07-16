@@ -15,6 +15,11 @@
   "version is 0.0.1(pre-build).\n"                          \
   "author: chenghua.wang\n"
 
+// make complex warning silence
+#ifdef _WIN32
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
+
 #include "llvm/Support/CommandLine.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
@@ -31,7 +36,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
+#include "nncv/compiler/Dialects/AutoTen/IR/Dialect.hpp"
 
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 

@@ -91,6 +91,8 @@ find_package(fmt CONFIG REQUIRED)
 
 # Add Dialets into this project
 add_subdirectory(Dialects)
+# Add Convertion into this project
+add_subdirectory(Conversion)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/Dialects/)
@@ -128,17 +130,22 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
 
-    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen/Dialect.cpp
-    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen/Dialect.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen/IR/Dialect.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen/IR/Dialect.hpp
+
+    # conversion dir
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Conversion/Passes.h
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Conversion/AtenToArith/AtenToArith.cpp
 
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
 
-
-
     DEPENDS
+    # dialect itself
     Dialect_AutoTen_Target
+    # how to convert
+    AtenConversionPassIncGen
 )
 
 if (nncv_compiler_use_antlr)

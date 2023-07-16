@@ -1,6 +1,6 @@
 #ifdef NNCV_ENABLE_ANTLR
 
-#include "nncv/compiler/Dialects/AutoTen/Dialect.hpp"
+#include "nncv/compiler/Dialects/AutoTen/IR/Dialect.hpp"
 
 #include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
@@ -299,17 +299,6 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
 
     switch (mulOpType) {
       case m_Lexer.Star: {
-        if (lhsValue.getType().isa<mlir::aten::StructType>()
-            || rhsValue.getType().isa<mlir::aten::StructType>()) {
-          // check the impl exists ornot, add a pending to queue because I didn't know if impl is
-          // defined below or not.
-        } else if (lhsValue.getType().isa<mlir::TensorType>()
-                   || rhsValue.getType().isa<mlir::TensorType>()) {
-          // do tensor add or broad cast
-        } else {
-          // else is arith constant
-          return m_OpBuilder.create<mlir::arith::MulIOp>(location, lhsValue, rhsValue);
-        }
       }
       case m_Lexer.Div: {
       }
