@@ -5,6 +5,7 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/InliningUtils.h"
 
 #include "llvm/ADT/TypeSwitch.h"
@@ -84,6 +85,32 @@ bool CastPtr::areCastCompatible(TypeRange inputs, TypeRange outputs) {
 
   if (!input || !output) return false;
   return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Operations: Binary Op.
+//===----------------------------------------------------------------------===//
+mlir::LogicalResult BinaryArithOp::inferReturnTypes(
+    ::mlir::MLIRContext* context, ::std::optional< ::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl< ::mlir::Type>& inferredReturnTypes) {
+  if (operands.size() != 2) {
+    // TODO mlir::emicError log
+    return failure();
+  }
+  auto lhs = operands[0];
+  auto rhs = operands[1];
+  if (lhs.isa<mlir::aten::AtenStructType>() || rhs.isa<mlir::aten::AtenStructType>()) {
+    // TODO mlir::emitError log
+    return failure();
+  }
+  // TODO create a type compare method to give the output type.
+  // if the lhs and rhs is struct. I need to figure out if lhs impl the arith operator
+  // and figure out the outputs type. In that case, if lhs and rhs is struct type, I
+  // should implicatly decalre it using opbuilder.create<...>(location, result, attri, lhs, rhs)
+  // directly in the parse tree or mlir gen part rather then using auto infer interface.
+  return success();
 }
 
 }  // namespace aten

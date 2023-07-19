@@ -140,6 +140,8 @@ add_llvm_executable(nncv-c
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/SymbolRef.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/SymbolRef.cpp
 
     DEPENDS
     # dialect itself

@@ -20,6 +20,7 @@ include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 
 // include for Attribute
 include "mlir/IR/AttrTypeBase.td"
@@ -235,7 +236,9 @@ def Aten_CastPtr : Aten_Op<"CastPtr", [
 // Ops: CmpOp(!=, ==, >, >=, <, <=) using attribute to figure out which pattern we need.
 // Ops: AndOp, OrOp, XorOp
 //===----------------------------------------------------------------------===//
-def Aten_BinaryArithOp : Aten_Op<"BinaryArith"> {
+def Aten_BinaryArithOp : Aten_Op<"BinaryArith", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+]> {
     let summary = "Aten Generic Binary Op";
     let description = [{
 
@@ -247,7 +250,9 @@ def Aten_BinaryArithOp : Aten_Op<"BinaryArith"> {
     // let assemblyFormat = "`aten.binaryarith` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->`  type($result)";
 }
 
-def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic"> {
+def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+]> {
     let summary = "Aten Generic Binary logic";
     let description = [{
 
@@ -259,14 +264,18 @@ def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic"> {
     // let assemblyFormat = "`aten.binarylogic` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 }
 
-def Aten_CmpOp : Aten_Op<"Cmp"> {
+def Aten_CmpOp : Aten_Op<"Cmp", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+]> {
     let arguments = (ins Aten_CmpPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Bool:$result);
 
     // let assemblyFormat = "`aten.cmp` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs)";
 }
 
-def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic"> {
+def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+]> {
     let arguments = (ins Aten_BinaryLogicPredicateAttr:$predicate, Aten_Type4NormalExpression:$inputs);
     let results = (outs Aten_Type4NormalExpression:$result);
 }
