@@ -34,6 +34,7 @@
 
 #include <vector>
 #include <optional>
+#include <unordered_map>
 
 namespace nncv {
 namespace compiler {
@@ -65,6 +66,14 @@ struct AtenStructSymbolPaylod {
       const std::string& varName);
 };
 
+//===----------------------------------------------------------------------===//
+// Aten Symbol Module Name Attribute
+//===----------------------------------------------------------------------===//
+struct AtenModuleNameAttr {
+  AtenModuleNameAttr(const std::string& name) : name(name) {}
+  std::string name;
+};
+
 class RandomAccessSymbolStack {};
 
 class AtenSymbolTableG {
@@ -88,7 +97,6 @@ class AtenSymbolRef {
  public:
   AtenSymbolRef();
   ~AtenSymbolRef();
-  static AtenSymbolRef* getInstance() { return instance; }
 
   void newContext();
   void deleteCurContext();
@@ -100,7 +108,7 @@ class AtenSymbolRef {
   AtenFunctionSymbolPaylod getFuncSymbol(const std::string& funcName);  ///> use `funcVerify` first.
   // The normally usage of this function is:
   // if (structVerify(StructName, argumentName))
-  //    AtenSymbolRef::getInstance().getStructSymbol(StructName).getVarTypeAndPositionInStruct(varName)
+  //    AtenSymbolRef.getStructSymbol(StructName).getVarTypeAndPositionInStruct(varName)
   AtenStructSymbolPaylod getStructSymobl(
       const std::string& structName);  ///> use `structVerify` first
 
@@ -113,16 +121,78 @@ class AtenSymbolRef {
   void createVarSymbolTableOnTop();
   void deleteVarSymbolTableOnTop();
 
-  static std::string genFuncNameWithNamespace(const std::vector<std::string>& strs);
+  bool writeCache(const std::string& path);  ///< using database
+  bool readCache(const std::string& path);   ///< using database
+
+  inline AtenSymbolRef* getParent() { return m_parent; }
+
+  // Using m_parent to get _ModuleA_ModuleB,
+  // flag = 0: attrs' size = 1, for struct and var and normal func
+  // flag = 1: attrs's size = 2, for func in the `impl`, attrs[0] is fun name, atrrs[1] is impl name
+  inline std::string reNameSymbol(const std::vector<std::string>& attrs, bool flag = 0) {
+    std::string ret;
+    AtenSymbolRef* tmp = this;
+    while (tmp != nullptr) {
+      ret = "_" + tmp->m_name + ret;
+      tmp = tmp->m_parent;
+    }
+    if (flag) {
+      return ret + "_" + attrs[1] + "_" + attrs[0];
+    } else {
+      return ret + "_" + attrs[0];
+    }
+  }
 
  private:
   void clearAll();
-  void registerRuntime();
 
+  std::string m_name;
+  AtenSymbolRef* m_parent;
   RandomAccessSymbolStack m_stack;
+};
 
-  bool isDelayVerifyDone;  ///> to check if all delay verify symbol is checked.
-  static AtenSymbolRef* instance;
+class AtenSymbolTable {
+ public:
+  AtenSymbolTable();
+  ~AtenSymbolTable();
+
+  static AtenSymbolTable* getInstance() { return instance; }
+
+  inline AtenSymbolRef* getSymbolRefOfModule(const AtenModuleNameAttr& attr) {
+    auto it = m_SymbolRefs.find(attr.name);
+    if (it == m_SymbolRefs.end()) {
+      // TODO emit a error
+      return nullptr;
+    }
+    return it->second;
+  }
+
+  inline AtenSymbolRef* createSymbolRefOfModule(const AtenModuleNameAttr& attr) {
+    auto it = new AtenSymbolRef();
+    m_SymbolRefs[attr.name] = it;
+    return it;
+  }
+
+  inline void deleteSymbolRefOfModule(const AtenModuleNameAttr& attr) {
+    auto it = m_SymbolRefs.find(attr.name);
+    if (it != m_SymbolRefs.end()) {
+      auto ptr = it->second;
+      m_SymbolRefs.erase(it);
+      delete ptr;
+    } else {
+      // TODO emic error
+      return;
+    }
+  }
+
+  inline AtenSymbolRef* operator[](const AtenModuleNameAttr& attr) {
+    return getSymbolRefOfModule(attr);
+  }
+
+ private:
+  std::unordered_map<std::string, AtenSymbolRef*> m_SymbolRefs;
+
+  static AtenSymbolTable* instance;
 };
 
 }  // namespace utils

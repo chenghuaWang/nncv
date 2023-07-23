@@ -27,7 +27,21 @@ namespace frontend {
 // packageClause: At Package Assign StringLiteral;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {
-  return visitChildren(ctx);
+  visit(ctx->packageClause());
+  // TODO
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// packageClause: At Package Assign StringLiteral;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) {
+  std::string pkgName = ctx->StringLiteral()->toString();
+  // create a symbol table for the package(module or to say).
+  if (utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(pkgName) == nullptr) {
+    utils::AtenSymbolTable::getInstance()->createSymbolRefOfModule(pkgName);
+  }
+  return nullptr;
 }
 
 std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext* ctx) {

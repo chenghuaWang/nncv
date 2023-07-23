@@ -6,6 +6,7 @@
 #include "AutoTenV1Lexer.h"
 
 #include "nncv/compiler/Frontend/TenLangAst.hpp"
+#include "nncv/compiler/Utils/SymbolRef.hpp"
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -106,6 +107,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   // Override visitor functions in the AutoTenV1ParserVisitor
   //===----------------------------------------------------------------------===//
   std::any visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) override;
+
+  std::any visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) override;
 
   std::any visitStructType(AutoTenV1Parser::StructTypeContext* ctx) override;
 

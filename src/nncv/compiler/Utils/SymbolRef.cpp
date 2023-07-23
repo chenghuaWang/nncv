@@ -3,21 +3,20 @@
 namespace nncv {
 namespace compiler {
 namespace utils {
-AtenSymbolRef::AtenSymbolRef() : isDelayVerifyDone(false) {
-  instance = this;
-  registerRuntime();
-}
+AtenSymbolRef::AtenSymbolRef() : m_parent(nullptr) {}
 
-AtenSymbolRef::~AtenSymbolRef() {
-  if (!isDelayVerifyDone) {
-    // do somthing.
-  }
-  clearAll();
-}
+AtenSymbolRef::~AtenSymbolRef() { clearAll(); }
 
 void AtenSymbolRef::clearAll() {}
 
-void AtenSymbolRef::registerRuntime() {}
+//===----------------------------------------------------------------------===//
+// AtenSymbolTable Implement
+//===----------------------------------------------------------------------===//
+AtenSymbolTable::AtenSymbolTable() { instance = this; }
+
+AtenSymbolTable::~AtenSymbolTable() {
+  for (auto& item : m_SymbolRefs) { delete item.second; }
+}
 
 }  // namespace utils
 }  // namespace compiler
