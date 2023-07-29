@@ -8,6 +8,9 @@ namespace nncv {
 namespace compiler {
 namespace utils {
 
+// TODO using trap stack to get function stack infomation. and call trap_reduce when abort()
+// occurred
+
 #define ERROR_CHECK_TABLE_LEN 32
 
 enum class ErrorType : int {

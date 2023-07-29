@@ -21,6 +21,7 @@ include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/Interfaces/CallInterfaces.td"
 
 // include for Attribute
 include "mlir/IR/AttrTypeBase.td"
@@ -197,7 +198,10 @@ class Aten_Op<string mnemonic, list<Trait> traits = []> : Op<Aten_Dialect, mnemo
 //===----------------------------------------------------------------------===//
 // Aten Operations: All Cast Operation.
 //===----------------------------------------------------------------------===//
-def Aten_CastArith : Aten_Op<"CastArith"> {
+def Aten_CastArith : Aten_Op<"CastArith", [
+    DeclareOpInterfaceMethods<CastOpInterface>,
+    Pure
+]> {
     let summary = "Aten Arith Cast operation";
     let description = [{
         The CastArith Op will finally lowering to `arith.BitCast` Op.
@@ -206,7 +210,7 @@ def Aten_CastArith : Aten_Op<"CastArith"> {
     let arguments = (ins Aten_Float, Aten_Integer:$input);
     let results = (outs Aten_Float, Aten_Integer:$output);
 
-    // let assemblyFormat = "`aten.castarith` $input attr-dict `:` type($input) `to` type($output)";
+    let assemblyFormat = "$input attr-dict `:` type($input) `->` type($output)";
 }
 
 def Aten_CastPtr : Aten_Op<"CastPtr", [
@@ -226,7 +230,7 @@ def Aten_CastPtr : Aten_Op<"CastPtr", [
     let arguments = (ins AnyMemRef:$input);
     let results = (outs AnyMemRef:$output);
 
-    // let assemblyFormat = "`aten.castptr` $input attr-dict `:` type($input) `to` type($output)";
+    // let assemblyFormat = "$input attr-dict `:` type($input) `to` type($output)";
 }
 
 //===----------------------------------------------------------------------===//
@@ -247,7 +251,7 @@ def Aten_BinaryArithOp : Aten_Op<"BinaryArith", [
     let arguments = (ins Aten_BinaryArithPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Type4NormalExpression:$result);
 
-    // let assemblyFormat = "`aten.binaryarith` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->`  type($result)";
+    let assemblyFormat = "$predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 }
 
 def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic", [
@@ -261,7 +265,7 @@ def Aten_BinaryLogicOp : Aten_Op<"BinaryLogic", [
     let arguments = (ins Aten_BinaryLogicPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Type4NormalExpression:$result);
 
-    // let assemblyFormat = "`aten.binarylogic` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
+    let assemblyFormat = "$predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 }
 
 def Aten_CmpOp : Aten_Op<"Cmp", [
@@ -270,7 +274,7 @@ def Aten_CmpOp : Aten_Op<"Cmp", [
     let arguments = (ins Aten_CmpPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Bool:$result);
 
-    // let assemblyFormat = "`aten.cmp` $predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs)";
+    let assemblyFormat = "$predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) -> type($result)";
 }
 
 def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic", [
@@ -278,6 +282,8 @@ def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic", [
 ]> {
     let arguments = (ins Aten_BinaryLogicPredicateAttr:$predicate, Aten_Type4NormalExpression:$inputs);
     let results = (outs Aten_Type4NormalExpression:$result);
+
+    let assemblyFormat = "$predicate `,` $inputs attr-dict `:` type($inputs) `->` type($result)";
 }
 
 //===----------------------------------------------------------------------===//
@@ -322,6 +328,40 @@ def Aten_Apply : Aten_Op<"Apply"> {
 //
 // For / While / do-While / if 
 //===----------------------------------------------------------------------===//
+def FuncOp : Aten_Op<"Func", [
+    DeclareOpInterfaceMethods<CallableOpInterface>, FunctionOpInterface,
+    IsolatedFromAbove
+  ]> {
+  let summary = "user defined function operation";
+  let description = [{
+  }];
+
+  let arguments = (ins
+    SymbolNameAttr:$sym_name,
+    TypeAttrOf<FunctionType>:$function_type,
+    OptionalAttr<DictArrayAttr>:$arg_attrs,
+    OptionalAttr<DictArrayAttr>:$res_attrs
+  );
+  let regions = (region AnyRegion:$body);
+
+  let builders = [OpBuilder<(ins
+    "StringRef":$name, "FunctionType":$type,
+    CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)
+  >];
+  let extraClassDeclaration = [{
+    //===------------------------------------------------------------------===//
+    // FunctionOpInterface Methods
+    //===------------------------------------------------------------------===//
+
+    /// Returns the argument types of this function.
+    ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+
+    /// Returns the result types of this function.
+    ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+  }];
+  let hasCustomAssemblyFormat = 1;
+  let skipDefaultBuilders = 1;
+}
 
 //===----------------------------------------------------------------------===//
 // Aten Operations: Other build in method.

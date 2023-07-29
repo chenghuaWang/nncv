@@ -20,11 +20,6 @@
 #pragma once
 #endif  //! check msc version
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/ScopedHashTable.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/ArrayRef.h"
-
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -44,11 +39,24 @@ namespace utils {
 // lld will check if they are in the symbol table or not.
 static std::vector<std::string> __rt_namespace__ = {"std", "io", "nncv"};
 
-enum AtenSymbolTableState { kGlobal = 0, kInner = 1 };
+//===----------------------------------------------------------------------===//
+// The Organization of Aten Symbol Table:
+//
+// stack<AtenSymbolTableG> -> AtenSymbolRef -> AtenSymbolTable(singleton)
+//
+// An aten symbol table correspond to a program which composed by multi packages
+// An aten symbol ref correspond to a single package
+// An aten symbol tableG correspond to a block in package.
+//===----------------------------------------------------------------------===//
 
-enum AtenFunctionType { kGeneral = 0, kImpl = 1 };
+//===----------------------------------------------------------------------===//
+// Aten Symbol Payload and state
+//===----------------------------------------------------------------------===//
+enum class AtenSymbolTableState { kGlobal = 0, kInner = 1 };
 
-struct AtenFunctionSymbolPaylod {
+enum class AtenFunctionType { kGeneral = 0, kImpl = 1 };
+
+struct AtenFunctionSymbolPayload {
   // basic type check
   mlir::Type retType;
   mlir::TypeRange argumentsType;
@@ -57,12 +65,19 @@ struct AtenFunctionSymbolPaylod {
   bool isPublic;
 };
 
-struct AtenStructSymbolPaylod {
+struct AtenStructSymbolPayload {
   // basic type check
   std::vector<std::tuple<std::string, mlir::Type, bool>>
       argumentsLists;  ///> name, type, visibility
 
-  std::optional<std::pair<mlir::Type, size_t>> getVarTypeAndPositionInStruct(
+  inline bool hasArgument(const std::string& name) {
+    for (auto& item : argumentsLists) {
+      if (std::get<0>(item) == name) return true;
+    }
+    return false;
+  }
+
+  std::optional<std::tuple<mlir::Type, bool, size_t>> getVarTypeAndPositionInStruct(
       const std::string& varName);
 };
 
@@ -74,46 +89,153 @@ struct AtenModuleNameAttr {
   std::string name;
 };
 
-class RandomAccessSymbolStack {};
+template<typename _Ty>
+class RandomAccessSymbolStack {
+ public:
+  inline void push(_Ty d) {
+    _data.push_back(d);
+    _data.shrink_to_fit();
+  }
+
+  inline void pop() {
+    if (_data.size() == 0) return;
+    _data.erase(_data.end() - 1);
+    _data.shrink_to_fit();
+  }
+
+  inline _Ty top() { return _data[_data.size() - 1]; }
+
+  inline _Ty randomAccess(size_t a) {
+    if (a > _data.size()) {
+      // TODO emit error
+      return _data[0];
+    } else {
+      return _data[a];
+    }
+  }
+
+  inline size_t size() { return _data.size(); }
+
+ private:
+  std::vector<_Ty> _data;
+};
 
 class AtenSymbolTableG {
  public:
-  std::optional<AtenFunctionSymbolPaylod&> getFunctionSymbol(const std::string& funcName);
-  std::optional<AtenStructSymbolPaylod&> getStructSymbol(const std::string& structName);
-  std::optional<mlir::Value&> getVarSymbol(const std::string& varSymbol);
+  inline AtenSymbolTableG(AtenSymbolTableState level = AtenSymbolTableState::kGlobal)
+      : stateLevel(level) {}
 
-  bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPaylod& payload);
-  bool registerStructSymbol(const std::string& structName, AtenStructSymbolPaylod& payload);
-  bool registerVarSymbol(const std::string& varName, mlir::Value value);
+  inline std::optional<AtenFunctionSymbolPayload> getFunctionSymbol(const std::string& funcName) {
+    switch (stateLevel) {
+      case AtenSymbolTableState::kGlobal: {
+        auto item = funcSymbolTable.find(funcName);
+        if (item == funcSymbolTable.end()) {
+          // emit error
+        } else {
+          return item->second;
+        }
+        break;
+      }
+      case AtenSymbolTableState::kInner: {
+        // TODO emit error
+        break;
+      }
+    }
+    return std::nullopt;
+  }
+
+  inline std::optional<AtenStructSymbolPayload> getStructSymbol(const std::string& structName) {
+    switch (stateLevel) {
+      case AtenSymbolTableState::kGlobal: {
+        auto item = structSymbolTable.find(structName);
+        if (item == structSymbolTable.end()) {
+          // emit error
+        } else {
+          return item->second;
+        }
+        break;
+      }
+      case AtenSymbolTableState::kInner: {
+        // TODO emit error
+        break;
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::optional<mlir::Value> getVarSymbol(const std::string& varSymbol) {
+    auto item = varSymbolTable.find(varSymbol);
+    if (item == varSymbolTable.end()) {
+      // emit error
+      return std::nullopt;
+    } else {
+      return item->second;
+    }
+  }
+
+  inline bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPayload& payload) {
+    if (funcSymbolTable.find(funcName) == funcSymbolTable.end()) return false;
+    funcSymbolTable[funcName] = payload;
+    return true;
+  }
+
+  inline bool registerStructSymbol(const std::string& structName,
+                                   AtenStructSymbolPayload& payload) {
+    if (structSymbolTable.find(structName) == structSymbolTable.end()) return false;
+    structSymbolTable[structName] = payload;
+    return true;
+  }
+
+  inline bool registerVarSymbol(const std::string& varName, mlir::Value value) {
+    if (varSymbolTable.find(varName) == varSymbolTable.end()) return false;
+    varSymbolTable[varName] = value;
+    return true;
+  }
 
  private:
   AtenSymbolTableState stateLevel;
-  llvm::ScopedHashTable<llvm::StringRef, mlir::Value> varSymbolTable;
-  llvm::ScopedHashTable<llvm::StringRef, AtenStructSymbolPaylod> structSymbolTable;
-  llvm::ScopedHashTable<llvm::StringRef, AtenFunctionSymbolPaylod> funcSymbolTable;
+  std::unordered_map<std::string, mlir::Value> varSymbolTable;
+  std::unordered_map<std::string, AtenStructSymbolPayload> structSymbolTable;
+  std::unordered_map<std::string, AtenFunctionSymbolPayload> funcSymbolTable;
 };
 
 class AtenSymbolRef {
  public:
-  AtenSymbolRef();
+  AtenSymbolRef(const std::string& name);
   ~AtenSymbolRef();
 
-  void newContext();
-  void deleteCurContext();
+  inline bool funcVerify(const std::string& funcName, const mlir::Type& retType,
+                         const mlir::TypeRange& argumentsType) {
+    // step 1. access the top level symbol table.
+    auto symbolTable = m_stack.randomAccess(0);
+    // step2. search func in this table.
+    auto funcSymbol = symbolTable->getFunctionSymbol(funcName);
+    if (!funcSymbol.has_value()) return false;
+    // step 3. check ok.
+    auto value = funcSymbol.value();
+    if (value.retType == retType && value.argumentsType == argumentsType) return true;
+    return false;
+  }
 
-  bool funcVerify(const std::string& funcName, mlir::Type retType, mlir::TypeRange argumentsType);
-  bool structVerify(const std::string& structName, const std::string& argumentName);
+  inline bool structVerify(const std::string& structName, const std::string& argumentName) {
+    // same as what funcVerify do.
+    auto symbolTable = m_stack.randomAccess(0);
+    auto structSymbol = symbolTable->getStructSymbol(structName);
+    if (!structSymbol.has_value()) return false;
+    return structSymbol.value().hasArgument(argumentName);
+  }
 
   // This function will not be used most of the time. I think people just need to verify a function
-  AtenFunctionSymbolPaylod getFuncSymbol(const std::string& funcName);  ///> use `funcVerify` first.
+  AtenFunctionSymbolPayload getFuncSymbol(
+      const std::string& funcName);  ///> use `funcVerify` first.
   // The normally usage of this function is:
   // if (structVerify(StructName, argumentName))
   //    AtenSymbolRef.getStructSymbol(StructName).getVarTypeAndPositionInStruct(varName)
-  AtenStructSymbolPaylod getStructSymobl(
+  AtenStructSymbolPayload getStructSymbol(
       const std::string& structName);  ///> use `structVerify` first
 
-  bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPaylod& payload);
-  bool registerStructSymbol(const std::string& structName, AtenStructSymbolPaylod& payload);
+  bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPayload& payload);
+  bool registerStructSymbol(const std::string& structName, AtenStructSymbolPayload& payload);
 
   std::optional<mlir::Value> getVarValueSymbol(const std::string& varName);
   bool registerVarSymbol(const std::string& varName, mlir::Value value);
@@ -124,31 +246,9 @@ class AtenSymbolRef {
   bool writeCache(const std::string& path);  ///< using database
   bool readCache(const std::string& path);   ///< using database
 
-  inline AtenSymbolRef* getParent() { return m_parent; }
-
-  // Using m_parent to get _ModuleA_ModuleB,
-  // flag = 0: attrs' size = 1, for struct and var and normal func
-  // flag = 1: attrs's size = 2, for func in the `impl`, attrs[0] is fun name, atrrs[1] is impl name
-  inline std::string reNameSymbol(const std::vector<std::string>& attrs, bool flag = 0) {
-    std::string ret;
-    AtenSymbolRef* tmp = this;
-    while (tmp != nullptr) {
-      ret = "_" + tmp->m_name + ret;
-      tmp = tmp->m_parent;
-    }
-    if (flag) {
-      return ret + "_" + attrs[1] + "_" + attrs[0];
-    } else {
-      return ret + "_" + attrs[0];
-    }
-  }
-
  private:
-  void clearAll();
-
   std::string m_name;
-  AtenSymbolRef* m_parent;
-  RandomAccessSymbolStack m_stack;
+  RandomAccessSymbolStack<AtenSymbolTableG*> m_stack;
 };
 
 class AtenSymbolTable {
@@ -168,7 +268,7 @@ class AtenSymbolTable {
   }
 
   inline AtenSymbolRef* createSymbolRefOfModule(const AtenModuleNameAttr& attr) {
-    auto it = new AtenSymbolRef();
+    auto it = new AtenSymbolRef(attr.name);
     m_SymbolRefs[attr.name] = it;
     return it;
   }
