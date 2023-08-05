@@ -37,6 +37,8 @@ std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) {
   std::string pkgName = ctx->StringLiteral()->toString();
+  // change the module name in mlir to package name.
+  m_TheModule.setName("pk_" + pkgName);
   // create a symbol table for the package(module or to say).
   if (utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(pkgName) == nullptr) {
     utils::AtenSymbolTable::getInstance()->createSymbolRefOfModule(pkgName);
@@ -340,13 +342,13 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         return retValue;
       }
       case m_Lexer.LeftShift: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue,
-                                                                       m_OpBuilder.getUnitAttr());
+        mlir::Value retValue =
+            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue, true);
         return retValue;
       }
       case m_Lexer.RightShift: {
         mlir::Value retValue =
-            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue);
+            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue, false);
         return retValue;
       }
       case m_Lexer.And: {
@@ -468,10 +470,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());
 
-    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
         location,
-        mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinaryLogicPredict::AndAndOp),
+        mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                            mlir::aten::BinOpPredicate::LogicAnd),
         lhsValue, rhsValue);
   }
   // expression OrOr expression;
@@ -482,10 +484,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());
 
-    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinaryLogicOp>(
+    mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
         location,
-        mlir::aten::BinaryLogicPredictAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinaryLogicPredict::OrOrOp),
+        mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                            mlir::aten::BinOpPredicate::LogicOr),
         lhsValue, rhsValue);
   }
   return 0;

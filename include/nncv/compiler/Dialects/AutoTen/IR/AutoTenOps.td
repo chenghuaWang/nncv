@@ -190,8 +190,33 @@ def ConstantOp : Aten_Op<"const", [
 
 // TODO
 
+
 //===----------------------------------------------------------------------===//
-// LoadOp
+// Aten Ptr Get Refernce Op
+//===----------------------------------------------------------------------===//
+
+def GetRefOp : Aten_Op<"get_ref", [
+    InferTypeOpInterface,
+    Pure
+]> {
+    let summary = "Get the reference of a object";
+    let description = [{
+    }];
+
+    let arguments = (ins AnyType:$value);
+
+    let results = (outs Aten_PointerType:$res);
+
+    let assemblyFormat = [{
+        $value attr-dict `:` type($value) `->` type($res)
+    }];
+
+    // InferTypeOpInterface will make sure everything is right.
+    let hasVerifier = 0;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Load Op (can be used as deref)
 //===----------------------------------------------------------------------===//
 
 def LoadOp : Aten_Op<"load", [
@@ -217,7 +242,7 @@ def LoadOp : Aten_Op<"load", [
 }
 
 //===----------------------------------------------------------------------===//
-// StoreOp
+// Aten Store Op
 //===----------------------------------------------------------------------===//
 
 def StoreOp : Aten_Op<"store", [
@@ -227,15 +252,6 @@ def StoreOp : Aten_Op<"store", [
 ]> {
     let summary = "Store value to memory address";
     let description = [{
-        `cir.store` stores a value (first operand) to the memory address specified
-        in the second operand.
-
-        Example:
-
-        ```mlir
-        // Store a function argument to local storage, address in %0.
-        cir.store %arg0, %0 : i32, !cir.ptr<i32>
-        ```
     }];
 
     let arguments = (ins AnyType:$value,
