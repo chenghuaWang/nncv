@@ -36,7 +36,7 @@
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "nncv/compiler/Dialects/AutoTen/IR/Dialect.hpp"
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 

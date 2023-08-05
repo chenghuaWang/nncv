@@ -26,58 +26,6 @@ find_package(ANTLR REQUIRED)
 
 endif (nncv_compiler_use_antlr)
 
-unset(LLVM_DIR CACHE)
-if (NOT DEFINED MLIR_DIR)
-  message(FATAL_ERROR "MLIR_DIR is not configured but it is required. "
-    "Set the cmake option MLIR_DIR, e.g.,\n"
-    "    cmake -DMLIR_DIR=/path/to/llvm-project/build/lib/cmake/mlir ..\n"
-    )
-endif()
-find_package(MLIR 
-    REQUIRED 
-    CONFIG
-)
-
-message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
-set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
-set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
-
-message(STATUS "LLVM_RUNTIME_OUTPUT_INTDIR: ${LLVM_RUNTIME_OUTPUT_INTDIR}")
-message(STATUS "LLVM_LIBRARY_OUTPUT_INTDIR: ${LLVM_LIBRARY_OUTPUT_INTDIR}")
-
-list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-
-include(TableGen)
-include(AddLLVM)
-include(AddMLIR)
-# include(HandleLLVMOptions)
-
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
-
-# nncv uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
-# the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
-set(LLVM_REQUIRES_EH ON)
-set(LLVM_ENABLE_RTTI ON)
-message(STATUS "LLVM_REQUIRES_EH         : " ${LLVM_REQUIRES_EH})
-message(STATUS "LLVM_ENABLE_RTTI         : " ${LLVM_ENABLE_RTTI})
-
-message(STATUS "LLVM_INCLUDE_DIRS        : " ${LLVM_INCLUDE_DIRS})
-message(STATUS "MLIR_INCLUDE_DIRS        : " ${MLIR_INCLUDE_DIRS})
-message(STATUS "LLVM_BUILD_LIBRARY_DIR   : " ${LLVM_BUILD_LIBRARY_DIR})
-message(STATUS "LLVM_DEFINITIONS         : " ${LLVM_DEFINITIONS})
-llvm_map_components_to_libnames(LLVM_LIBS support core irreader)
-message(STATUS "LLVM_LIBS                : " ${LLVM_LIBS})
-
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(${MLIR_INCLUDE_DIRS})
-link_directories(D:/commonlib/llvm-project/build/Debug/lib)
-add_definitions(${LLVM_DEFINITIONS})
-
 find_package(Protobuf CONFIG REQUIRED)
 if(${Protobuf_FOUND})
     # TODO add some args and include libs, etc.
@@ -93,9 +41,8 @@ find_package(fmt CONFIG REQUIRED)
 add_subdirectory(Dialects)
 # Add Convertion into this project
 add_subdirectory(Conversion)
+# Add all include to this project
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/Dialects/)
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
@@ -130,13 +77,6 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
 
-    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Dialects/AutoTen/IR/Dialect.cpp
-    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Dialects/AutoTen/IR/Dialect.hpp
-
-    # conversion dir
-    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Conversion/Passes.h
-    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Conversion/AtenToArith/AtenToArith.cpp
-
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
@@ -145,23 +85,21 @@ add_llvm_executable(nncv-c
 
     DEPENDS
     # dialect itself
-    Dialect_AutoTen_Target
-    # how to convert
-    AtenConversionPassIncGen
+    MLIRAtenLang
 )
 
 if (nncv_compiler_use_antlr)
     target_link_libraries(nncv-c PRIVATE
-    ${LLVM_LIBS}
-    ${dialect_libs}
-    ${conversion_libs}
-    ${extension_libs}
+        ${LLVM_LIBS}
+        ${dialect_libs}
+        ${conversion_libs}
+        ${extension_libs}
 
-    # Third-party
-    fmt::fmt-header-only
+        # Third-party
+        fmt::fmt-header-only
 
-    # antlr4
-    antlr4_static
+        # antlr4
+        antlr4_static
     )
 else()
     target_link_libraries(nncv-c PRIVATE
@@ -169,20 +107,6 @@ else()
         ${dialect_libs}
         ${conversion_libs}
         ${extension_libs}
-        MLIRAnalysis
-        MLIRBuiltinToLLVMIRTranslation
-        MLIRCallInterfaces
-        MLIRCastInterfaces
-        MLIRExecutionEngine
-        MLIRIR
-        MLIRLLVMCommonConversion
-        MLIRLLVMToLLVMIRTranslation
-        MLIRMemRefDialect
-        MLIRParser
-        MLIRPass
-        MLIRSideEffectInterfaces
-        MLIRTargetLLVMIRExport
-        MLIRTransforms
 
         # Third-party
         fmt::fmt-header-only

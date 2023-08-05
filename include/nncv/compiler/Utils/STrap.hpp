@@ -18,7 +18,7 @@ enum class ErrorType : int {
   kLexerError = 1,
 };
 
-static inline void __HandlerUnkwonErr() {}
+static inline void __HandlerUnkownErr() {}
 
 static inline void __HandlerLexerErr() {
   std::printf("\n\nLexer error is critical, exit with state 1.(Lexer Error)\n");
@@ -28,7 +28,7 @@ static inline void __HandlerLexerErr() {
 // TODO
 
 static void (*__error_check_table__[ERROR_CHECK_TABLE_LEN])() = {
-    __HandlerUnkwonErr, __HandlerLexerErr,
+    __HandlerUnkownErr, __HandlerLexerErr,
     // TODO
 };
 

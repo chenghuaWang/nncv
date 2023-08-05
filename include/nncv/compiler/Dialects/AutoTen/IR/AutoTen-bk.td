@@ -207,8 +207,8 @@ def Aten_CastArith : Aten_Op<"CastArith", [
         The CastArith Op will finally lowering to `arith.BitCast` Op.
     }];
 
-    let arguments = (ins Aten_Float, Aten_Integer:$input);
-    let results = (outs Aten_Float, Aten_Integer:$output);
+    let arguments = (ins AnyTypeOf<[Aten_Float, Aten_Integer]>:$input);
+    let results = (outs AnyTypeOf<[Aten_Float, Aten_Integer]>:$output);
 
     let assemblyFormat = "$input attr-dict `:` type($input) `->` type($output)";
 }
@@ -274,7 +274,7 @@ def Aten_CmpOp : Aten_Op<"Cmp", [
     let arguments = (ins Aten_CmpPredicateAttr:$predicate, Aten_Type4NormalExpression:$lhs, Aten_Type4NormalExpression:$rhs);
     let results = (outs Aten_Bool:$result);
 
-    let assemblyFormat = "$predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) -> type($result)";
+    let assemblyFormat = "$predicate `,` $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)";
 }
 
 def Aten_UnaryLogicOp : Aten_Op<"UnaryLogic", [
