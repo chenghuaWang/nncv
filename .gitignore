@@ -16,3 +16,4 @@ docs/site/
 ./CMakeSettings.json
 out/
 site/
+deps/

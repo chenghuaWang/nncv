@@ -72,6 +72,8 @@ set(nncv_link_lib_lists)
 set(nncv_3rd_src_list)
 set(nncv_3rd_include_list)
 
+add_subdirectory(third_party/cpuinfo EXCLUDE_FROM_ALL)
+
 if(nncv_enable_opencv)
     message(WARNING "As a light-weighted framework, OpenCV is too heavy, I not recommend you to use it.")
     message(STATUS "Using image io backend [opencv]")
