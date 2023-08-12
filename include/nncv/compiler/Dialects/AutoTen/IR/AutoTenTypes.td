@@ -58,17 +58,17 @@ def Aten_IntegerType : Aten_Type<"Int", "int", [
 // Aten Float Types
 //===----------------------------------------------------------------------===//
 
-def Aten_FloatType : Aten_Type<"Float", "float", [
-    DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
-]> {
-    let summary = "float with limited bitwidth";
-    let description = [{
-        f32, f64 is supported.
-    }];
-    let parameters = (ins "unsigned":$width);
-    let hasCustomAssemblyFormat = 1;
-    let genVerifyDecl = 1;
-}
+// def Aten_FloatType : Aten_Type<"Float", "float", [
+//     DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
+// ]> {
+//     let summary = "float with limited bitwidth";
+//     let description = [{
+//         f32, f64 is supported.
+//     }];
+//     let parameters = (ins "unsigned":$width);
+//     let hasCustomAssemblyFormat = 1;
+//     let genVerifyDecl = 1;
+// }
 
 //===----------------------------------------------------------------------===//
 // Aten Bool Types
@@ -263,7 +263,8 @@ def Aten_VoidType : Aten_Type<"Void", "void"> {
 
 def Aten_TensorType : TensorOf<[
     Aten_IntegerType, 
-    Aten_FloatType
+    F32,
+    F64
 ]>;
 
 //===----------------------------------------------------------------------===//

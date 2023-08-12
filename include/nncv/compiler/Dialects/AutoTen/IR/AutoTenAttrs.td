@@ -120,9 +120,9 @@ def AtenConstStructAttr : Aten_Attr<"ConstStruct", "constStruct", [
 def Aten_IntAttr : Aten_Attr<"Int", "int", [
     TypedAttrInterface
 ]> {
-    let summary = "integer value of i8, i16, i32, i64";
+    let summary = "integer value of i1, i8, i16, i32, i64";
     let description = [{
-        i8, i16, i32, i64
+        i1, i8, i16, i32, i64
     }];
     let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APInt":$value);
     let builders = [
@@ -151,34 +151,34 @@ def Aten_IntAttr : Aten_Attr<"Int", "int", [
 // WARNING: Droped !!! using mlir::float inside.
 //===----------------------------------------------------------------------===//
 
-def Aten_FloatAttr : Aten_Attr<"Float", "float", [
-    TypedAttrInterface
-]> {
-    let summary = "integer value of i8, i16, i32, i64";
-    let description = [{
-        i8, i16, i32, i64
-    }];
-    let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APFloat":$value);
-    let builders = [
-        AttrBuilderWithInferredContext<(ins "Type":$type,
-                                            "const APFloat &":$value), [{
-            return $_get(type.getContext(), type, value);
-        }]>,
-        AttrBuilderWithInferredContext<(ins "Type":$type, "double":$value), [{
-            if (type.isF64() || !::llvm::isa<FloatType>(type))
-                return $_get(type.getContext(), type, APFloat(value));
+// def Aten_FloatAttr : Aten_Attr<"Float", "float", [
+//     TypedAttrInterface
+// ]> {
+//     let summary = "integer value of i8, i16, i32, i64";
+//     let description = [{
+//         i8, i16, i32, i64
+//     }];
+//     let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APFloat":$value);
+//     let builders = [
+//         AttrBuilderWithInferredContext<(ins "Type":$type,
+//                                             "const APFloat &":$value), [{
+//             return $_get(type.getContext(), type, value);
+//         }]>,
+//         AttrBuilderWithInferredContext<(ins "Type":$type, "double":$value), [{
+//             if (type.isF64() || !::llvm::isa<FloatType>(type))
+//                 return $_get(type.getContext(), type, APFloat(value));
 
-            // This handles, e.g., F16 because there is no APFloat constructor for it.
-            bool unused;
-            APFloat val(value);
-            val.convert(::llvm::cast<FloatType>(type).getFloatSemantics(),
-                        APFloat::rmNearestTiesToEven, &unused);
-            return $_get(type.getContext(), type, val);
-        }]>
-    ];
-    let genVerifyDecl = 1;
-    let hasCustomAssemblyFormat = 1;
-}
+//             // This handles, e.g., F16 because there is no APFloat constructor for it.
+//             bool unused;
+//             APFloat val(value);
+//             val.convert(::llvm::cast<FloatType>(type).getFloatSemantics(),
+//                         APFloat::rmNearestTiesToEven, &unused);
+//             return $_get(type.getContext(), type, val);
+//         }]>
+//     ];
+//     let genVerifyDecl = 1;
+//     let hasCustomAssemblyFormat = 1;
+// }
 
 //===----------------------------------------------------------------------===//
 // Aten Ext Func Attri

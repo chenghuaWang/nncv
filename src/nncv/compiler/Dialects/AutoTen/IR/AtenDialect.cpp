@@ -67,24 +67,20 @@ LogicalResult CastOp::verify() {
       if (!inputType.isa<mlir::aten::IntType>()) {
         return emitOpError() << "requires !aten.int for input";
       }
-      if (!resType.isa<mlir::aten::FloatType>()) {
+      if (!resType.isa<mlir::FloatType>()) {
         return emitOpError() << "requires !aten.float for result";
       }
       return success();
     }
     case aten::CastPredicate::float_to_bool: {
-      if (!inputType.isa<mlir::aten::FloatType>()) {
-        return emitOpError() << "requires float for input";
-      }
+      if (!inputType.isa<mlir::FloatType>()) { return emitOpError() << "requires float for input"; }
       if (!resType.isa<mlir::aten::BoolType>()) {
         return emitOpError() << "requires !aten.bool for result";
       }
       return success();
     }
     case aten::CastPredicate::float_to_int: {
-      if (!inputType.isa<mlir::aten::FloatType>()) {
-        return emitOpError() << "requires float for input";
-      }
+      if (!inputType.isa<mlir::FloatType>()) { return emitOpError() << "requires float for input"; }
       if (!resType.isa<mlir::aten::IntType>()) {
         return emitOpError() << "requires !aten.bool for result";
       }
@@ -107,8 +103,7 @@ LogicalResult CastOp::verify() {
       return success();
     }
     case aten::CastPredicate::floating: {
-      if (!inputType.dyn_cast<mlir::aten::FloatType>()
-          || !resType.dyn_cast<mlir::aten::FloatType>()) {
+      if (!inputType.dyn_cast<mlir::FloatType>() || !resType.dyn_cast<mlir::FloatType>()) {
         return emitOpError() << "requires floating for input and result";
       }
       return success();
@@ -456,6 +451,24 @@ LogicalResult ConstantOp::verify() {
   return __checkConstantTypes(getOperation(), getType(), getValue());
 }
 
+static ParseResult parseConstantValue(OpAsmParser& parser, mlir::Attribute& valueAttr) {
+  NamedAttrList attr;
+  if (parser.parseAttribute(valueAttr, "value", attr).failed()) {
+    return parser.emitError(parser.getCurrentLocation(),
+                            "expected constant attribute to match type");
+  }
+
+  return success();
+}
+
+static void printConstant(OpAsmPrinter& p, Attribute value) { p.printAttribute(value); }
+
+static void printConstantValue(OpAsmPrinter& p, aten::ConstantOp op, Attribute value) {
+  printConstant(p, value);
+}
+
+OpFoldResult ConstantOp::fold(FoldAdaptor /*adaptor*/) { return getValue(); }
+
 //===----------------------------------------------------------------------===//
 // Aten Func Return Op
 //===----------------------------------------------------------------------===//
@@ -512,6 +525,22 @@ static ParseResult parseStructSymbolOpTypeAndInitialValue(OpAsmParser& parser, T
 }
 
 //===----------------------------------------------------------------------===//
+// Aten Get Ref Op.
+//===----------------------------------------------------------------------===//
+
+LogicalResult aten::GetRefOp::inferReturnTypes(
+    ::mlir::MLIRContext* context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type>& inferredReturnTypes) {
+  if (operands.size() != 1) { return failure(); }
+  auto theType = operands[0].getType();
+  auto ptr2TheType = aten::PointerType::get(context, theType);
+  inferredReturnTypes.insert(inferredReturnTypes.end(), ptr2TheType);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Aten self defined traits
 //===----------------------------------------------------------------------===//
 
@@ -526,3 +555,6 @@ LogicalResult OpTrait::impl::verifySameFirstOperandAndResultType(Operation* op) 
 
   return success();
 }
+
+#define GET_OP_CLASSES
+#include "AutoTen/IR/AutoTenOps.cpp.inc"

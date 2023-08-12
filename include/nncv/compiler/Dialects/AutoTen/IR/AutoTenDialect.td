@@ -40,6 +40,11 @@ def Aten_Dialect : Dialect {
         "shape::ShapeDialect",
         "tensor::TensorDialect"
     ];
+
+    let extraClassDeclaration = [{
+        void registerAttributes();
+        void registerTypes();
+    }];
 }
 
 #endif //! AUTOTEN_IR_DIALECT_TD

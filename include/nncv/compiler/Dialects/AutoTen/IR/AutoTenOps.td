@@ -196,7 +196,7 @@ def ConstantOp : Aten_Op<"const", [
 //===----------------------------------------------------------------------===//
 
 def GetRefOp : Aten_Op<"get_ref", [
-    InferTypeOpInterface,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>,
     Pure
 ]> {
     let summary = "Get the reference of a object";
