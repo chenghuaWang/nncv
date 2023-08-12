@@ -22,7 +22,7 @@ include "mlir/IR/EnumAttr.td"
 
 class Aten_Attr<string name, string attrMnemonic, list<Trait> traits = []>
     : AttrDef<Aten_Dialect, name, traits> {
-  let mnemonic = attrMnemonic;
+    let mnemonic = attrMnemonic;
 }
 
 //===----------------------------------------------------------------------===//
@@ -32,17 +32,17 @@ class Aten_Attr<string name, string attrMnemonic, list<Trait> traits = []>
 def Aten_NullAttr : Aten_Attr<"Nil", "nil", [
     TypedAttrInterface
 ]> {
-  let summary = "Attri for nil ptr";
-  let description = [{
-    Only for `!aten.ptr`
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<"">:$type);
-  let builders = [
-    AttrBuilderWithInferredContext<(ins "Type":$type), [{
-      return $_get(type.getContext(), type);
-    }]>
-  ];
-  let assemblyFormat = [{}];
+    let summary = "Attri for nil ptr";
+    let description = [{
+        Only for `!aten.ptr`
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<"">:$type);
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "Type":$type), [{
+            return $_get(type.getContext(), type);
+        }]>
+    ];
+    let assemblyFormat = [{}];
 }
 
 //===----------------------------------------------------------------------===//
@@ -50,19 +50,19 @@ def Aten_NullAttr : Aten_Attr<"Nil", "nil", [
 //===----------------------------------------------------------------------===//
 
 def Aten_BoolAttr : Aten_Attr<"Bool", "bool", [
-  TypedAttrInterface
+    TypedAttrInterface
 ]> {
-  let summary = "true or false";
-  let description = [{
-    The BoolAttr represents a 'true' or 'false' value.
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<
-                        "", "mlir::aten::BoolType">:$type,
-                    "bool":$value);
+    let summary = "true or false";
+    let description = [{
+        The BoolAttr represents a 'true' or 'false' value.
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<
+                            "", "mlir::aten::BoolType">:$type,
+                        "bool":$value);
 
-  let assemblyFormat = [{
-    `<` $value `>`
-  }];
+    let assemblyFormat = [{
+        `<` $value `>`
+    }];
 }
 
 //===----------------------------------------------------------------------===//
@@ -70,22 +70,22 @@ def Aten_BoolAttr : Aten_Attr<"Bool", "bool", [
 //===----------------------------------------------------------------------===//
 
 def Aten_ConstArrayAttr : Aten_Attr<"ConstArray", "constArray", [
-  TypedAttrInterface
+    TypedAttrInterface
 ]> {
-  let summary = "constant make array";
-  let description = [{
-    Array of literals of the specified attr types.
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<"">:$type,
-                        "Attribute":$elts);
-  let builders = [
-    AttrBuilderWithInferredContext<(ins "mlir::aten::ArrayType":$type,
-                                        "Attribute":$elts), [{
-      return $_get(type.getContext(), type, elts);
-    }]>
-  ];
-  let hasCustomAssemblyFormat = 1;
-  let genVerifyDecl = 1;
+    let summary = "constant make array";
+    let description = [{
+        Array of literals of the specified attr types.
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<"">:$type,
+                            "Attribute":$elts);
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "mlir::aten::ArrayType":$type,
+                                            "Attribute":$elts), [{
+            return $_get(type.getContext(), type, elts);
+        }]>
+    ];
+    let hasCustomAssemblyFormat = 1;
+    let genVerifyDecl = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -93,24 +93,24 @@ def Aten_ConstArrayAttr : Aten_Attr<"ConstArray", "constArray", [
 //===----------------------------------------------------------------------===//
 
 def AtenConstStructAttr : Aten_Attr<"ConstStruct", "constStruct", [
-  TypedAttrInterface
+    TypedAttrInterface
 ]> {
-  let summary = "constant make struct";
-  let description = [{
-    Eats data from ArrayAttr. 
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<"">:$type,
-                        "ArrayAttr":$members);
-  let builders = [
-    AttrBuilderWithInferredContext<(ins "mlir::aten::StructType":$type,
-                                        "ArrayAttr":$members), [{
-      return $_get(type.getContext(), type, members);
-    }]>
-  ];
-  let assemblyFormat = [{
-    `<` custom<StructMembers>($members) `>`
-  }];
-  let genVerifyDecl = 1;
+    let summary = "constant make struct";
+    let description = [{
+        Eats data from ArrayAttr. 
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<"">:$type,
+                            "ArrayAttr":$members);
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "mlir::aten::StructType":$type,
+                                            "ArrayAttr":$members), [{
+            return $_get(type.getContext(), type, members);
+        }]>
+    ];
+    let assemblyFormat = [{
+        `<` custom<StructMembers>($members) `>`
+    }];
+    let genVerifyDecl = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -118,65 +118,88 @@ def AtenConstStructAttr : Aten_Attr<"ConstStruct", "constStruct", [
 //===----------------------------------------------------------------------===//
 
 def Aten_IntAttr : Aten_Attr<"Int", "int", [
-  TypedAttrInterface
+    TypedAttrInterface
 ]> {
-  let summary = "integer value of i8, i16, i32, i64";
-  let description = [{
-    i8, i16, i32, i64
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APInt":$value);
-  let builders = [
-    AttrBuilderWithInferredContext<(ins "Type":$type,
-                                        "const APInt &":$value), [{
-      return $_get(type.getContext(), type, value);
-    }]>,
-    AttrBuilderWithInferredContext<(ins "Type":$type, "int64_t":$value), [{
-      IntType intType = type.cast<IntType>();
-      mlir::APInt apValue(intType.getWidth(), value, intType.isSigned());
-      return $_get(intType.getContext(), intType, apValue);
-    }]>,
-  ];
-  let extraClassDeclaration = [{
-    int64_t getSInt() const { return getValue().getSExtValue(); }
-    uint64_t getUInt() const { return getValue().getZExtValue(); }
-    bool isNilValue() const { return getValue() == 0; }
-  }];
-  let genVerifyDecl = 1;
-  let hasCustomAssemblyFormat = 1;
+    let summary = "integer value of i8, i16, i32, i64";
+    let description = [{
+        i8, i16, i32, i64
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APInt":$value);
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "Type":$type,
+                                            "const APInt &":$value), [{
+            return $_get(type.getContext(), type, value);
+        }]>,
+        AttrBuilderWithInferredContext<(ins "Type":$type, "int64_t":$value), [{
+            IntType intType = type.cast<IntType>();
+            mlir::APInt apValue(intType.getWidth(), value, intType.isSigned());
+            return $_get(intType.getContext(), intType, apValue);
+        }]>,
+    ];
+    let extraClassDeclaration = [{
+        int64_t getSInt() const { return getValue().getSExtValue(); }
+        uint64_t getUInt() const { return getValue().getZExtValue(); }
+        bool isNilValue() const { return getValue() == 0; }
+    }];
+    let genVerifyDecl = 1;
+    let hasCustomAssemblyFormat = 1;
 }
 
 //===----------------------------------------------------------------------===//
 // Aten Float Attri
 // FIXME: APFloat constructor usage is wrong?
+// WARNING: Droped !!! using mlir::float inside.
 //===----------------------------------------------------------------------===//
 
 def Aten_FloatAttr : Aten_Attr<"Float", "float", [
-  TypedAttrInterface
+    TypedAttrInterface
 ]> {
-  let summary = "integer value of i8, i16, i32, i64";
-  let description = [{
-    i8, i16, i32, i64
-  }];
-  let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APFloat":$value);
-  let builders = [
-    AttrBuilderWithInferredContext<(ins "Type":$type,
-                                        "const APFloat &":$value), [{
-      return $_get(type.getContext(), type, value);
-    }]>,
-    AttrBuilderWithInferredContext<(ins "Type":$type, "double":$value), [{
-      if (type.isF64() || !::llvm::isa<FloatType>(type))
-        return $_get(type.getContext(), type, APFloat(value));
+    let summary = "integer value of i8, i16, i32, i64";
+    let description = [{
+        i8, i16, i32, i64
+    }];
+    let parameters = (ins AttributeSelfTypeParameter<"">:$type, "APFloat":$value);
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "Type":$type,
+                                            "const APFloat &":$value), [{
+            return $_get(type.getContext(), type, value);
+        }]>,
+        AttrBuilderWithInferredContext<(ins "Type":$type, "double":$value), [{
+            if (type.isF64() || !::llvm::isa<FloatType>(type))
+                return $_get(type.getContext(), type, APFloat(value));
 
-      // This handles, e.g., F16 because there is no APFloat constructor for it.
-      bool unused;
-      APFloat val(value);
-      val.convert(::llvm::cast<FloatType>(type).getFloatSemantics(),
-                  APFloat::rmNearestTiesToEven, &unused);
-      return $_get(type.getContext(), type, val);
-    }]>
-  ];
-  let genVerifyDecl = 1;
-  let hasCustomAssemblyFormat = 1;
+            // This handles, e.g., F16 because there is no APFloat constructor for it.
+            bool unused;
+            APFloat val(value);
+            val.convert(::llvm::cast<FloatType>(type).getFloatSemantics(),
+                        APFloat::rmNearestTiesToEven, &unused);
+            return $_get(type.getContext(), type, val);
+        }]>
+    ];
+    let genVerifyDecl = 1;
+    let hasCustomAssemblyFormat = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Ext Func Attri
+//===----------------------------------------------------------------------===//
+
+def Aten_ExtFuncAttr : Aten_Attr<"ExtFunc", "extFunc", [
+]> {
+    let summary = "A bunch of func attr for paralle optimization";
+    let description = [{
+
+    }];
+
+    let parameters = (ins 
+        "DictionaryAttr":$elements
+    );
+
+    let assemblyFormat = [{ 
+        `(` 
+        $elements
+        `)` 
+    }];
 }
 
 #endif //! AUTOTEN_IR_ATTRI_TD

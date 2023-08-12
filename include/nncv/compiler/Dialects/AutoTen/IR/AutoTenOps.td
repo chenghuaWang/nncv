@@ -278,6 +278,11 @@ def Aten_UnaryOp_Not   : I32EnumAttrCase<"Not",   5, "not">; // !i
 def UnaryOpPredicate : I32EnumAttr<
     "UnaryOpPredicate",
     "unary operation predicate", [
+    Aten_UnaryOp_Inc,
+    Aten_UnaryOp_Dec,
+    Aten_UnaryOp_Plus,
+    Aten_UnaryOp_Minus,
+    Aten_UnaryOp_Not
 ]> {
     let cppNamespace = "::mlir::aten";
 }
@@ -358,7 +363,8 @@ def Aten_BinOp : Aten_Op<"binop", [
 //===----------------------------------------------------------------------===//
 
 def Aten_ShiftOp : Aten_Op<"shift", [
-    Pure
+    Pure,
+    SameOperandsAndResultType
 ]> {
     let summary = "Shift";
     let description = [{
@@ -457,6 +463,251 @@ def Aten_StructElementAddr : Aten_Op<"struct_element_addr"> {
 
 //===----------------------------------------------------------------------===//
 // Function & Call
+//
+// Highly referenced from mlir.func 's impl.
 //===----------------------------------------------------------------------===//
+
+def Aten_FuncOp : Aten_Op <"func", [
+    AutomaticAllocationScope, 
+    CallableOpInterface, 
+    FunctionOpInterface,
+    IsolatedFromAbove, 
+    Symbol
+]> {
+    let summary = "Declare or define a function";
+    let description = [{
+
+    }];
+
+    let arguments = (ins 
+        SymbolNameAttr:$sym_name,
+        TypeAttrOf<Aten_FuncType>:$function_type,
+        Aten_ExtFuncAttr:$extra_attrs,
+        OptionalAttr<StrAttr>:$sym_visibility,
+        OptionalAttr<DictArrayAttr>:$arg_attrs,
+        OptionalAttr<DictArrayAttr>:$res_attrs
+    );
+
+    let regions = (region AnyRegion:$body);
+    let skipDefaultBuilders = 1;
+
+    let builders = [OpBuilder<(ins
+        "StringRef":$name, 
+        "FuncType":$type,
+        CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs,
+        CArg<"ArrayRef<DictionaryAttr>", "{}">:$argAttrs
+    )>];
+
+    let extraClassDeclaration = [{
+        /// Returns the region on the current operation that is callable. This may
+        /// return null in the case of an external callable object, e.g. an external
+        /// function.
+        ::mlir::Region *getCallableRegion();
+
+        /// Returns the results types that the callable region produces when
+        /// executed.
+        ArrayRef<Type> getCallableResults() {
+        if (::llvm::isa<aten::VoidType>(getFunctionType().getReturnType()))
+            return {};
+        return getFunctionType().getReturnTypes();
+        }
+
+        /// Returns the argument attributes for all callable region arguments or
+        /// null if there are none.
+        ::mlir::ArrayAttr getCallableArgAttrs() {
+        return getArgAttrs().value_or(nullptr);
+        }
+
+        /// Returns the result attributes for all callable region results or null if
+        /// there are none.
+        ::mlir::ArrayAttr getCallableResAttrs() {
+        return getResAttrs().value_or(nullptr);
+        }
+
+        /// Returns the argument types of this function.
+        ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+
+        /// Returns the result types of this function.
+        ArrayRef<Type> getResultTypes() { return getFunctionType().getReturnTypes(); }
+
+        /// Hook for OpTrait::FunctionOpInterfaceTrait, called after verifying that
+        /// the 'type' attribute is present and checks if it holds a function type.
+        /// Ensures getType, getNumFuncArguments, and getNumFuncResults can be
+        /// called safely.
+        LogicalResult verifyType();
+
+        //===------------------------------------------------------------------===//
+        // SymbolOpInterface Methods
+        //===------------------------------------------------------------------===//
+
+        bool isDeclaration();
+    }];
+
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+}
+
+def CallOp : Aten_Op<"call", [
+    CallOpInterface, 
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>
+]> {
+    let summary = "call operation";
+    let description = [{
+    }];
+
+    let arguments = (ins OptionalAttr<FlatSymbolRefAttr>:$callee, Variadic<AnyType>:$operands);
+    let results = (outs Variadic<AnyType>);
+
+    let builders = [
+        OpBuilder<(ins "FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
+        $_state.addOperands(operands);
+        $_state.addAttribute("callee", SymbolRefAttr::get(callee));
+        if (!callee.getFunctionType().isVoid())
+            $_state.addTypes(callee.getFunctionType().getReturnType());
+        }]>,
+        OpBuilder<(ins "Value":$ind_target, "FuncType":$fn_type, CArg<"ValueRange", "{}">:$operands), [{
+        $_state.addOperands(ValueRange{ind_target});
+        $_state.addOperands(operands);
+        if (!fn_type.isVoid())
+            $_state.addTypes(fn_type.getReturnType());
+        }]
+    >];
+
+    let extraClassDeclaration = [{
+        mlir::Value getIndirectCallee() {
+            assert(!getCallee() && "only works for indirect call");
+            return *arg_operand_begin();
+        }
+
+        operand_iterator arg_operand_begin() {
+            auto arg_begin = operand_begin();
+            if (!getCallee())
+                arg_begin++;
+            return arg_begin;
+        }
+        operand_iterator arg_operand_end() { return operand_end(); }
+
+        /// Get the argument operands to the called function.
+        operand_range getArgOperands() {
+            return {arg_operand_begin(), arg_operand_end()};
+        }
+
+        /// Return the operand at index 'i', accounts for indirect call.
+        Value getArgOperand(unsigned i) {
+            if (!getCallee()) i++;
+            return getOperand(i);
+        }
+
+        /// Return the number of operands, accounts for indirect call.
+        unsigned getNumArgOperands() {
+            if (!getCallee())
+                return this->getOperation()->getNumOperands()-1;
+            return this->getOperation()->getNumOperands();
+        }
+
+        /// Return the callee of this operation.
+        CallInterfaceCallable getCallableForCallee() {
+            return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+        }
+
+        /// Set the callee for this operation.
+        void setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
+            if (auto calling =
+                (*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
+                (*this)->setAttr(getCalleeAttrName(), callee.get<mlir::SymbolRefAttr>());
+            setOperand(0, callee.get<mlir::Value>());
+        }
+    }];
+
+    let hasCustomAssemblyFormat = 1;
+    let skipDefaultBuilders = 1;
+    let hasVerifier = 0;
+}
+
+def ReturnOp : Aten_Op<"return", [ 
+    HasParent<"FuncOp">,
+    Terminator
+]> {
+    let summary = "Return from function";
+    let description = [{
+    }];
+
+    let arguments = (ins Variadic<AnyType>:$input);
+
+    let assemblyFormat = "($input^ `:` type($input))? attr-dict ";
+
+    let builders = [
+        OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+    ];
+
+    let extraClassDeclaration = [{
+        bool hasOperand() { return getNumOperands() != 0; }
+    }];
+
+    let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Struct Symbol
+//===----------------------------------------------------------------------===//
+
+def Aten_MakeStructSymbol : Aten_Op<"make_struct_symbol", [
+    Symbol, 
+    DeclareOpInterfaceMethods<RegionBranchOpInterface>, 
+    NoRegionArguments
+]> {
+    let summary = "Declare a struct type. A temp struct symbol for multi-file compile";
+    let description = [{
+        This Op works in such circumstance: file `a.lang` want to use a struct that defined in `b.lang`.
+        And you don't want to let `a.lang` know the defination of struct in high-level language but using mlir.
+        As we all know that !llvm.struct is just a type. It's not bing treated as a defination such as func.func.
+        In that case, I use a symbol like defination to let `a.mlir` know there has a struct def in `b.mlir`.
+
+        In `b.mlir`:
+        ```mlir
+            aten.make_struct_symbol @foo = #aten.const_struct<{0 : i8,
+                                                               5 : i64, 
+                                                               #aten.null : !aten.ptr<i8>
+                                                            }> : !aten.struct<"", i8, i64, !aten.ptr<i8>>
+        ``` 
+
+        When loweirng `a.lang` to `a.mlir` and `a.lang` want to know the def of struct `foo`. It can load pre-compiled
+        `b.mlir` and using `lookup` function to find the symbol `foo`. Due to `foo` is a `const_struct`, it know all info
+        of types in struct `foo`.
+
+        *Note*:
+        1. this Op should not appear into the code u want to run. It's just a helper Op. When loweing to LLVM, it should be
+            eliminated.
+        2. I highly comment you to generate two files for `b.lang`. One for symbol check up, while another has all regions.
+    }];
+
+    let arguments = (ins SymbolNameAttr:$sym_name,
+                       TypeAttr:$sym_type,
+                       OptionalAttr<AnyAttr>:$initial_value,
+                       OptionalAttr<I64Attr>:$alignment
+                    );
+
+    let regions = (region AnyRegion:$ctorRegion);
+    let assemblyFormat = [{
+        $sym_name
+        custom<StructSymbolOpTypeAndInitialValue>($sym_type, $initial_value, $ctorRegion)
+        attr-dict
+    }];
+
+    let skipDefaultBuilders = 1;
+    let builders = [
+        OpBuilder<(ins
+        "StringRef":$sym_name,
+        "Type":$sym_type)>
+    ];
+
+    let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Global Value
+//===----------------------------------------------------------------------===//
+
+/// TODO
 
 #endif //! AUTOTEN_IR_OPS_TD

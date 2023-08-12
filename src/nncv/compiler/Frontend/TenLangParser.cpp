@@ -342,13 +342,13 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         return retValue;
       }
       case m_Lexer.LeftShift: {
-        mlir::Value retValue =
-            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue, true);
+        mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue,
+                                                                       m_OpBuilder.getUnitAttr());
         return retValue;
       }
       case m_Lexer.RightShift: {
         mlir::Value retValue =
-            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue, false);
+            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue);
         return retValue;
       }
       case m_Lexer.And: {
