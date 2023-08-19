@@ -56,7 +56,7 @@ static ParseResult parseStructMembers(AsmParser& parser, ArrayAttr& members) {
 // Const Struct Attr
 //===----------------------------------------------------------------------===//
 
-LogicalResult ConstStructAttr::verify(::llvm::function_ref< ::mlir::InFlightDiagnostic()> emitError,
+LogicalResult ConstStructAttr::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError,
                                       ::mlir::Type type, ArrayAttr members) {
   auto theType = type.dyn_cast_or_null<mlir::aten::StructType>();
   if (!theType) {
@@ -92,7 +92,7 @@ LogicalResult ConstStructAttr::verify(::llvm::function_ref< ::mlir::InFlightDiag
 // Int Attr
 //===----------------------------------------------------------------------===//
 
-LogicalResult IntAttr::verify(::llvm::function_ref< ::mlir::InFlightDiagnostic()> emitError,
+LogicalResult IntAttr::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError,
                               ::mlir::Type type, APInt value) {
   if (!type.isa<aten::IntType>()) {
     emitError() << "expected int type(i1, i8, i16, i32, i64)";
@@ -166,7 +166,99 @@ void aten::IntAttr::print(::mlir::AsmPrinter& odsPrinter) const {
 // Const Array Attr
 //===----------------------------------------------------------------------===//
 
-// TODO
+void ConstArrayAttr::print(::mlir::AsmPrinter& odsPrinter) const {
+  odsPrinter << "<";
+  odsPrinter.printStrippedAttrOrType(getElts());
+  odsPrinter << ">";
+}
+
+mlir::Attribute ConstArrayAttr::parse(::mlir::AsmParser& odsParser, ::mlir::Type odsType) {
+  ::mlir::FailureOr<::mlir::Type> resultTy;
+  ::mlir::FailureOr<Attribute> resultVal;
+  ::llvm::SMLoc loc = odsParser.getCurrentLocation();
+  (void)loc;
+  // Parse literal '<'
+  if (odsParser.parseLess()) return {};
+
+  // Parse variable 'value'
+  resultVal = ::mlir::FieldParser<Attribute>::parse(odsParser);
+  if (failed(resultVal)) {
+    odsParser.emitError(odsParser.getCurrentLocation(),
+                        "failed to parse ConstArrayAttr parameter 'value' which is "
+                        "to be a `Attribute`");
+    return {};
+  }
+
+  // ArrayAttrrs have per-element type, not the type of the array...
+  if (resultVal->dyn_cast<ArrayAttr>()) {
+    // Array has implicit type: infer from const array type.
+    if (odsParser.parseOptionalColon().failed()) {
+      resultTy = odsType;
+    } else {  // Array has explicit type: parse it.
+      resultTy = ::mlir::FieldParser<::mlir::Type>::parse(odsParser);
+      if (failed(resultTy)) {
+        odsParser.emitError(odsParser.getCurrentLocation(),
+                            "failed to parse ConstArrayAttr parameter 'type' which is "
+                            "to be a `::mlir::Type`");
+        return {};
+      }
+    }
+  } else {
+    assert(resultVal->isa<TypedAttr>() && "IDK");
+    auto ta = resultVal->cast<TypedAttr>();
+    resultTy = ta.getType();
+    if (resultTy->isa<mlir::NoneType>()) {
+      odsParser.emitError(odsParser.getCurrentLocation(),
+                          "expected type declaration for string literal");
+      return {};
+    }
+  }
+
+  // Parse literal '>'
+  if (odsParser.parseGreater()) return {};
+  return odsParser.getChecked<ConstArrayAttr>(loc, odsParser.getContext(), resultTy.value(),
+                                              resultVal.value());
+}
+
+LogicalResult mlir::aten::ConstArrayAttr::verify(
+    ::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError, ::mlir::Type type,
+    Attribute attr) {
+  if (!(attr.isa<mlir::ArrayAttr>() || attr.isa<mlir::StringAttr>()))
+    return emitError() << "constant array expects ArrayAttr or StringAttr";
+
+  if (auto strAttr = attr.dyn_cast<mlir::StringAttr>()) {
+    mlir::aten::ArrayType at = type.cast<mlir::aten::ArrayType>();
+    auto intTy = at.getEleT().dyn_cast<aten::IntType>();
+
+    if (!intTy || intTy.getWidth() != 8) {
+      emitError() << "constant array element for string literals expects "
+                     "!cir.int<u, 8> element type";
+      return failure();
+    }
+    return success();
+  }
+
+  assert(attr.isa<mlir::ArrayAttr>());
+  auto arrayAttr = attr.cast<mlir::ArrayAttr>();
+  auto at = type.cast<ArrayType>();
+
+  // Make sure both number of elements and subelement types match type.
+  if (at.getSizeT() != arrayAttr.size())
+    return emitError() << "constant array size should match type size";
+  LogicalResult eltTypeCheck = success();
+  arrayAttr.walkImmediateSubElements(
+      [&](Attribute attr) {
+        // Once we find a mismatch, stop there.
+        if (eltTypeCheck.failed()) return;
+        auto typedAttr = attr.dyn_cast<TypedAttr>();
+        if (!typedAttr || typedAttr.getType() != at.getEleT()) {
+          eltTypeCheck = failure();
+          emitError() << "constant array element should match array element type";
+        }
+      },
+      [&](Type type) {});
+  return eltTypeCheck;
+}
 
 //===----------------------------------------------------------------------===//
 // Aten Dialect Register

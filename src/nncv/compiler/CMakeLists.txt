@@ -67,6 +67,7 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserListener.cpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserVisitor.cpp
 
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/BuiltinMethodHandler.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Lexer.h
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1Parser.h
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserBaseListener.h
@@ -76,6 +77,9 @@ add_llvm_executable(nncv-c
 
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
+
+    # CodeGen
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp
 
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp

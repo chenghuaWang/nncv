@@ -25,7 +25,7 @@
 
 using namespace antlrcpp;
 
-enum AutoTenPaserType {
+enum AutoTenParserType {
   Antlr = 0,
   Builtin = 1,
 };
@@ -35,14 +35,6 @@ enum AutoTenPaserType {
 namespace nncv {
 namespace compiler {
 namespace frontend {
-
-struct __AtenType4Visitor__ {
-  inline __AtenType4Visitor__(const std::any& payload, AtenType type)
-      : payload(payload), type(type) {}
-
-  std::any payload;
-  AtenType type;
-};
 
 struct __AtenSymbolTable__ {
   inline llvm::ScopedHashTable<llvm::StringRef,
@@ -123,6 +115,11 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitExpression(AutoTenV1Parser::ExpressionContext* ctx) override;
 
   std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
+
+  //===----------------------------------------------------------------------===//
+  // Method to process function declarations
+  //===----------------------------------------------------------------------===//
+  std::any visitFunctionDecl(AutoTenV1Parser::FunctionDeclContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Method to process type, mactch type or cast type.
@@ -409,14 +406,141 @@ class AutoTenListener : public AutoTenV1ParserListener {
 class AutoTenParser {
  public:
   explicit AutoTenParser(AutoTenV1Parser& _at)
-      : m_Type(AutoTenPaserType::Antlr), m_AntlrParser(_at) {}
+      : m_Type(AutoTenParserType::Antlr), m_AntlrParser(_at) {}
 
   void dump();
 
  private:
-  AutoTenPaserType m_Type;
+  AutoTenParserType m_Type;
   AutoTenV1Parser& m_AntlrParser;
 };
+
+}  // namespace frontend
+}  // namespace compiler
+}  // namespace nncv
+
+namespace nncv {
+namespace compiler {
+namespace frontend {
+
+//===----------------------------------------------------------------------===//
+// Helper class for Antlr visitor models' return.
+//
+// This class is a wrapper of visitor pattern's return, will make judge the return
+// type less suffer.
+//===----------------------------------------------------------------------===//
+class VisitorParserReturn;
+enum class VisitorParserReturnType {
+  kMlirValue,
+  kMlirType,
+  kStringLiteral,
+  kIntLiteral, /*all int literal will return as int64*/
+  kFloatLiteral,
+  kAtenTypeDeclare,
+  kNone,
+};
+
+enum class VisitorParserAtenTypeDeclType {
+  kInt1,
+  kInt8,
+  kInt16,
+  kInt32,
+  kInt64,
+  kFloat32,
+  kFloat64,
+  kBool,
+  kTensor,
+  kChar,
+  kString,
+  kMap,
+  kSlice,
+  kStruct,
+  kFunc,
+  kArray,
+  kPtr,
+};
+
+struct VisitorParserAtenTypeDecl {
+  VisitorParserAtenTypeDecl(
+      std::pair<mlir::Type, std::vector<VisitorParserReturn>> p,
+      VisitorParserAtenTypeDeclType type = VisitorParserAtenTypeDeclType::kTensor)
+      : tensorPayload(p), type(type) {}
+
+  std::pair<mlir::Type, std::vector<VisitorParserReturn>> tensorPayload;  ///< for tensor use only
+  std::pair<mlir::Type, uint32_t> arrayPayload;                           ///< for array use only
+  mlir::Type ptrPayload;                                                  ///< for Ptr use only
+  VisitorParserAtenTypeDeclType type;
+};
+
+class VisitorParserReturn {
+ public:
+  VisitorParserReturn() : type(VisitorParserReturnType::kNone){};
+  VisitorParserReturn(const std::string& str)
+      : value(str), type(VisitorParserReturnType::kStringLiteral) {}
+  VisitorParserReturn(mlir::Value& value)
+      : value(value), type(VisitorParserReturnType::kMlirValue) {}
+  VisitorParserReturn(mlir::Type& value) : value(value), type(VisitorParserReturnType::kMlirType) {}
+  VisitorParserReturn(VisitorParserAtenTypeDecl value)
+      : value(value), type(VisitorParserReturnType::kAtenTypeDeclare) {}
+  VisitorParserReturn(int64_t value) : value(value), type(VisitorParserReturnType::kIntLiteral) {}
+
+ public:
+  inline bool isa(VisitorParserReturnType t) { return type == t; }
+  inline VisitorParserReturnType getType() { return type; };
+
+  template<typename T>
+  inline T getValue() {
+    return std::any_cast<T>(value);
+  };
+
+  inline std::any getRawValue() { return value; }
+
+ private:
+  std::any value;
+  VisitorParserReturnType type;
+};
+
+#define HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(width_n)                                               \
+  if (!theVarSpec->Assign()) {                                                                     \
+    /*if var declaration has no assign. Then attach a empty value to it. 0 by default.*/           \
+    mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(                                \
+        location,                                                                                  \
+        mlir::aten::IntAttr::get(mlir::aten::IntType::get(m_OpBuilder.getContext(),                \
+                                                          /*width*/ width_n, /*isSigned*/ true),   \
+                                 0));                                                              \
+    mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));                                   \
+    return VisitorParserReturn(value);                                                             \
+  } else {                                                                                         \
+    /*                                                                                             \
+    // expression has value;                                                                       \
+    // 1) expression may be `var a int8 = 1;` then, in expression a constant builder will be       \
+    // called in expression.                                                                       \
+    // 2) expression may be `var a int8 = c + d;` then, in expression a add builder will be        \
+    // called in expression.                                                                       \
+    */                                                                                             \
+    /* get the expression value */                                                                 \
+    auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));        \
+    /* if this expr return a mlir::Value. We just need to record this value;*/                     \
+    if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {                                        \
+      auto v = exprAny.getValue<mlir::Value>();                                                    \
+      if (v.getType().cast<mlir::aten::IntType>().getWidth() != width_n) { /*FIXME throw error*/   \
+      }                                                                                            \
+      mlir::failed(m_SymbolTable.declare(symbolName, v, ctx));                                     \
+      return VisitorParserReturn(v);                                                               \
+    }                                                                                              \
+    /*if the return is just a int literal. We use `ConstantOp` to create one*/                     \
+    if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {                                       \
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(                              \
+          location,                                                                                \
+          mlir::aten::IntAttr::get(mlir::aten::IntType::get(m_OpBuilder.getContext(),              \
+                                                            /*width*/ width_n, /*isSigned*/ true), \
+                                   exprAny.getValue<int64_t>()));                                  \
+      mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));                                 \
+      return VisitorParserReturn(value);                                                           \
+    }                                                                                              \
+    /* FIXME: throw error*/                                                                        \
+    return VisitorParserReturn();                                                                  \
+  }
 
 }  // namespace frontend
 }  // namespace compiler

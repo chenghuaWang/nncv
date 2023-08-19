@@ -204,21 +204,73 @@ def Aten_StructType : Aten_Type<"Struct", "struct", [
             auto sTy = StructType::get(context, members, id, body, /*packed=*/false);
             return sTy;
         }]>
-  ];
+    ];
 
     let hasCustomAssemblyFormat = 1;
 
     let extraClassDeclaration = [{
-    private:
-        // All these support lazily computation and storage
-        // for the struct size and alignment.
-        mutable std::optional<unsigned> size{}, align{};
-        mutable std::optional<bool> padded{};
-        void computeSizeAndAlignment(const ::mlir::DataLayout &dataLayout) const;
-    public:
-        size_t getNumElements() const { return getMembers().size(); }
-        bool isOpaque() const { return !getBody(); }
-        bool isPadded(const ::mlir::DataLayout &dataLayout) const;
+        private:
+            // All these support lazily computation and storage
+            // for the struct size and alignment.
+            mutable std::optional<unsigned> size{}, align{};
+            mutable std::optional<bool> padded{};
+            void computeSizeAndAlignment(const ::mlir::DataLayout &dataLayout) const;
+        public:
+            size_t getNumElements() const { return getMembers().size(); }
+            bool isOpaque() const { return !getBody(); }
+            bool isPadded(const ::mlir::DataLayout &dataLayout) const;
+    }];
+}
+
+//===----------------------------------------------------------------------===//
+// All Struct self class type: for Recursive Reference
+// 
+// See our discuss at:
+// CIR Dialect Struct Type Recursive Reference: https://github.com/llvm/clangir/issues/231
+// The approach here is different with CIR dialect and much hacky now.
+//===----------------------------------------------------------------------===//
+
+def Aten_StructSelfType : Aten_Type<"StructSelf", "struct_self", [
+    DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
+]> {
+    let summary = "The struct self type.";
+
+    let description =[{
+        See our discussion at CIR: https://github.com/llvm/clangir/issues/231
+
+        The approach in Aten-lang is same as CIR. Aten is for testing polyhedral
+        algorithms, it's not so focus on language's features.
+
+        It's hard to represent Recursive Reference Struct Type in mlir. Mlir has no
+        first class supportance to this feature. 
+
+        Suppose you want to translate this c-lang code below to mlir:
+
+        ```c
+        struct S1 {
+            int a;
+            Struct S1 **b; // ptr<ptr<struct>>
+        }
+        ```
+
+        It will be translate to mlir code like this:
+
+        ```mlir
+        !aten.make_struct_symbol @S1 : !aten.struct<"Struct.S1", !aten.i32, !aten.ptr<!aten.ptr<!aten.self<"Struct.S1">>>>
+        ```
+
+        `!aten.struct_element_addr` Op will replace the inner most `!aten.self` to `!aten.struct` if you want to get the 
+        `Struct S1 **b`. Generally, it will return type 
+        !aten.ptr<!aten.ptr<!aten.struct<"Struct.S1", !aten.i32, !aten.ptr<!aten.ptr<!aten.self<"Struct.S1">>>>>>
+
+    }];
+
+    let parameters = (ins
+        "mlir::StringAttr":$typeName
+    );
+
+    let assemblyFormat = [{
+        `<` $typeName `>`
     }];
 }
 

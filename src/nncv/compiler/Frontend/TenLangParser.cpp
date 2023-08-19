@@ -1,9 +1,13 @@
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenAttrs.hpp"
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenTypes.hpp"
 #ifdef NNCV_ENABLE_ANTLR
 
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 
 #include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
+
+#include "nncv/compiler/Frontend/CodeGenCtx.hpp"
 
 namespace nncv {
 namespace compiler {
@@ -28,8 +32,44 @@ namespace frontend {
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {
   visit(ctx->packageClause());
+  auto functionDeclCtxs = ctx->functionDecl();
+  auto declarationCtxs = ctx->declaration();
+  for (auto& item : functionDeclCtxs) { visit(item); }
+  for (auto& item : declarationCtxs) { visit(item); }
   // TODO
-  return nullptr;
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// functionDecl: compileFlags* Public? Function Identifier signature block?;
+// compileFlags:
+// At Identifier (.Identifier)* (
+// 	Assign (True_ | False_ | expression)
+// )?;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclContext* ctx) {
+  // eats and load all compile flags to func decl.
+  auto compileFlagsCtxs = ctx->compileFlags();
+  nncv::compiler::frontend::FuncCompilerFlag funcFlags;
+  for (auto& item : compileFlagsCtxs) {
+    auto identifier = item->Identifier();
+    // gather key string.
+    std::string sig;
+    for (auto& ids : identifier) { sig += ids->getText(); }
+
+    // gather value
+    if (item->True_()) {
+      if (!funcFlags.setFlagsKV(sig, true)) {
+        // TODO emit error.
+      }
+    } else if (item->False_()) {
+      if (!funcFlags.setFlagsKV(sig, false)) {
+        // TODO emit error.
+      }
+    } else {
+      // TODO
+    }
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -43,10 +83,11 @@ std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseC
   if (utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(pkgName) == nullptr) {
     utils::AtenSymbolTable::getInstance()->createSymbolRefOfModule(pkgName);
   }
-  return nullptr;
+  return VisitorParserReturn();
 }
 
 std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext* ctx) {
+  // TODO
   return visitChildren(ctx);
 }
 
@@ -67,6 +108,7 @@ std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx) {
   auto varSpec = ctx->varSpec();
+
   // check var spec blocks is 1 or not
   if (varSpec.size() != 1) {
     utils::CliFormatOutput::ErrorAt(
@@ -75,118 +117,171 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
         "a int32;`. The [LeftParen (varSpec eos)* RightParen] pattern is not support yet.");
   }
   auto theVarSpec = varSpec[0];
+
   // get the symbol name in identifier list.
-  std::string symbolName = std::any_cast<std::string>(
+  auto symbolNameAny = std::any_cast<VisitorParserReturn>(
       visit(theVarSpec->identifierList()));  // TODO identifier list on working
+  std::string symbolName;
+  if (symbolNameAny.isa(VisitorParserReturnType::kStringLiteral)) {
+    symbolName = symbolNameAny.getValue<std::string>();
+  } else {
+    // FIXME: throw error at location
+  }
+
   // get the identifier list's position
   mlir::Location location = loc(theVarSpec->identifierList()->getStart()->getLine(),
                                 theVarSpec->identifierList()->getStart()->getCharPositionInLine());
+
   // build values.
-  __AtenType4Visitor__ atv = std::any_cast<__AtenType4Visitor__>(visit(theVarSpec->type_()));
+  auto atvAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->type_()));
+
+  if (!atvAny.isa(VisitorParserReturnType::kAtenTypeDeclare)) {
+    // FIXME: throw error
+  }
+  auto atv = atvAny.getValue<VisitorParserAtenTypeDecl>();
   switch (atv.type) {
-    case kInt8: {
-      if (!theVarSpec->Assign()) {
-        // if var delare has no assgin. Then attatch a empty value to it. 0 by default.
-        mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI8IntegerAttr(0));
-        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
-      } else {
-        // expression has value;
-        // 1) expression may be `var a int8 = 1;` then, in expression a constant builder will be
-        // called in expression.
-        // 2) expression may be `var a int8 = c + d;` then, in expression a add builder will be
-        // called in expression.
-        // Anyway, the only thing visit(expression) will returned is Value or error(null).
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
-      }
+    case VisitorParserAtenTypeDeclType::kInt8: {
+      HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
     }
-    case kInt16: {
+    case VisitorParserAtenTypeDeclType::kInt16: {
+      HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(16)
+    }
+    case VisitorParserAtenTypeDeclType::kInt32: {
+      HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(32)
+    }
+    case VisitorParserAtenTypeDeclType::kInt64: {
+      HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(64);
+    }
+    case VisitorParserAtenTypeDeclType::kFloat32: {
       if (!theVarSpec->Assign()) {
         mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI16IntegerAttr(0));
+            m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(0.f));
         mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
+        return VisitorParserReturn(value);
       } else {
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
+        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+        /* if this expr return a mlir::Value. We just need to record this value;*/
+        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+          auto v = exprAny.getValue<mlir::Value>();
+
+          // if value's type is mismatch with Float32
+          // TODO do cast.
+
+          mlir::failed(m_SymbolTable.declare(symbolName, v, ctx));
+          return VisitorParserReturn(v);
+        }
+        /*if the return is just a int literal. We use `ConstantOp` to create one*/
+        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+            || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+          float f = 0.f;
+          if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+            f = exprAny.getValue<float>();
+          } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+            f = exprAny.getValue<int64_t>();
+          }
+          mlir::Value value =
+              m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(f));
+          mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+          return VisitorParserReturn(value);
+        }
+        /* FIXME: throw error*/
+        return VisitorParserReturn();
       }
     }
-    case kInt32: {
+    case VisitorParserAtenTypeDeclType::kFloat64: {
       if (!theVarSpec->Assign()) {
         mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI32IntegerAttr(0));
+            m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(0.f));
         mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
+        return VisitorParserReturn(value);
       } else {
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
+        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+        /* if this expr return a mlir::Value. We just need to record this value;*/
+        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+          auto v = exprAny.getValue<mlir::Value>();
+
+          // if value's type is mismatch with Float64
+          // TODO do cast.
+
+          mlir::failed(m_SymbolTable.declare(symbolName, v, ctx));
+          return VisitorParserReturn(v);
+        }
+        /*if the return is just a int literal. We use `ConstantOp` to create one*/
+        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+            || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+          float f = 0.f;
+          if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+            f = exprAny.getValue<float>();
+          } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+            f = exprAny.getValue<int64_t>();
+          }
+          mlir::Value value =
+              m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(f));
+          mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+          return VisitorParserReturn(value);
+        }
+        /* FIXME: throw error*/
+        return VisitorParserReturn();
       }
     }
-    case kInt64: {
+    case VisitorParserAtenTypeDeclType::kMap: {
+      // TODO
+      return VisitorParserReturn();
+    }
+    case VisitorParserAtenTypeDeclType::kArray: {
+      // get the Element type and length
+      auto payload = atv.arrayPayload;
+      auto ty = payload.first;
+      auto len = payload.second;
+      // create all values.
       if (!theVarSpec->Assign()) {
-        mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getI64IntegerAttr(0));
-        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
+        // init types with default attribute if they don't have a assign.
+        // TODO
       } else {
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
+        // TODO
       }
+      return VisitorParserReturn();
     }
-    case kFloat32: {
+    case VisitorParserAtenTypeDeclType::kPtr: {
+      auto pointeeType = atv.ptrPayload;
       if (!theVarSpec->Assign()) {
+        auto ptrAttr = mlir::aten::NilAttr::get(m_OpBuilder.getContext(), pointeeType);
         mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(0));
+            m_OpBuilder.create<mlir::aten::ConstantOp>(location, pointeeType, ptrAttr);
         mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
+        return VisitorParserReturn(value);
       } else {
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
+        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+          auto value = exprAny.getValue<mlir::Value>();
+
+          if (!value.isa<mlir::aten::PointerType>()) {
+            // FIXME throw error.
+          }
+
+          mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
+          return VisitorParserReturn(value);
+        }
       }
-    }
-    case kFloat64: {
-      if (!theVarSpec->Assign()) {
-        mlir::Value value =
-            m_OpBuilder.create<mlir::arith::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(0));
-        mlir::failed(m_SymbolTable.declare(symbolName, value, ctx));
-        return 0;
-      } else {
-        mlir::failed(m_SymbolTable.declare(
-            symbolName, std::any_cast<mlir::Value>(visit(theVarSpec->expressionList())), ctx));
-        return 0;
-      }
-    }
-    case kMap: {
-      return 0;
-    }
-    case kArray: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kSlice: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kString: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kChar: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kFunc: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kStruct: {
-      return 0;
+      return VisitorParserReturn();
     }
     case kTensor: {
-      std::tuple<mlir::Type, std::vector<mlir::Value>> payload =
-          std::any_cast<std::tuple<mlir::Type, std::vector<mlir::Value>>>(atv.payload);
+      auto payload = atv.tensorPayload;
       if (std::get<1>(payload).size() == 0) {
         // TODO
       } else {
@@ -198,12 +293,12 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
           // https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorempty-tensoremptyop
           // mlir::Value value = m_OpBuilder.create<mlir::tensor::EmptyOp>(location);
           // return value;
-          return 0;
+          return VisitorParserReturn();
         }
       }
     }
   }
-  return 0;
+  return VisitorParserReturn();
 }
 //===----------------------------------------------------------------------===//
 // mapType: Map LeftBracket type_ RightBracket elementType;
@@ -243,10 +338,10 @@ std::any AutoTen2MlirVisitor::visitTensorType(AutoTenV1Parser::TensorTypeContext
     type = m_OpBuilder.getI64Type();
   }
   // parse shape
-  std::vector<mlir::Value> dimsExpr;
+  std::vector<VisitorParserReturn> dimsExpr;
   if (ctx->Less()) {
     for (auto item : ctx->expression()) {
-      dimsExpr.emplace_back(std::any_cast<mlir::Value>(visit(item)));
+      dimsExpr.emplace_back(std::any_cast<VisitorParserReturn>(visit(item)));
     }
   }
   // return tuple<type, dimsExpr> for [VarDecl/ShortDecl] to use. The [VarDecl/ShortDecl] will
@@ -254,8 +349,8 @@ std::any AutoTen2MlirVisitor::visitTensorType(AutoTenV1Parser::TensorTypeContext
   // args in `a := Tensor<arg1, arg2, int32>` is not  constant, it will use `tensor::EmptyOp` or
   // `tensor::GenerateOp` to create tensor. Otherwise, tensor will be made constant using Dense
   // Attribute in `builtin` dialect.
-  return __AtenType4Visitor__(std::tuple<mlir::Type, std::vector<mlir::Value>>{type, dimsExpr},
-                              AtenType::kTensor);
+  return VisitorParserReturn(
+      VisitorParserAtenTypeDecl({type, dimsExpr}, VisitorParserAtenTypeDeclType::kTensor));
 }
 
 //===----------------------------------------------------------------------===//
@@ -268,7 +363,7 @@ std::any AutoTen2MlirVisitor::visitExpressionList(AutoTenV1Parser::ExpressionLis
     utils::CliFormatOutput::ErrorAt(
         m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
         "expression.size() != 1. nncv-c synatic only support single expression in one line.");
-    return nullptr;
+    return VisitorParserReturn();
   }
   return visit(ctx->expression()[0]);
 }
@@ -323,7 +418,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Mul),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Div: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -331,7 +426,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Div),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Mod: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -339,17 +434,17 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Mod),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.LeftShift: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue,
                                                                        m_OpBuilder.getUnitAttr());
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.RightShift: {
         mlir::Value retValue =
             m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.And: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -357,7 +452,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::And),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
     }
   }
@@ -375,7 +470,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Add),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Minus: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -383,7 +478,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Sub),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Or: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -391,7 +486,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Or),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Caret: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -399,7 +494,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::BinOpPredicate::Xor),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
     }
   }
@@ -418,7 +513,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::eq),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.NotEqual: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
@@ -426,7 +521,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::ne),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Less: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
@@ -434,7 +529,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::lt),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.LessEqual: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
@@ -442,7 +537,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::le),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.Greater: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
@@ -450,7 +545,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::gt),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
       case m_Lexer.GreaterEqual: {
         mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
@@ -458,7 +553,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
             mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
                                                 mlir::aten::CmpOpPredicate::ge),
             lhsValue, rhsValue);
-        return retValue;
+        return VisitorParserReturn(retValue);
       }
     }
   }
@@ -475,6 +570,8 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                             mlir::aten::BinOpPredicate::LogicAnd),
         lhsValue, rhsValue);
+
+    return VisitorParserReturn(retValue);
   }
   // expression OrOr expression;
   else if (ctx->OrOr()) {
@@ -489,8 +586,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                             mlir::aten::BinOpPredicate::LogicOr),
         lhsValue, rhsValue);
+
+    return VisitorParserReturn(retValue);
   }
-  return 0;
+  return VisitorParserReturn();
+  ;
 }
 
 std::any AutoTen2MlirVisitor::visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) {
@@ -499,9 +599,10 @@ std::any AutoTen2MlirVisitor::visitIdentifierList(AutoTenV1Parser::IdentifierLis
     utils::CliFormatOutput::ErrorAt(
         m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
         "Identifier.size() != 1. nncv-c synatic only support single Identifier in one line.");
-    return nullptr;
+    return VisitorParserReturn();
+    ;
   }
-  return ctx->Identifier()[0]->getText();
+  return VisitorParserReturn(ctx->Identifier()[0]->getText());
 }
 
 //===----------------------------------------------------------------------===//
