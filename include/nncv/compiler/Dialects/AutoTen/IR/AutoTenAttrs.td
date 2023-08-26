@@ -202,4 +202,18 @@ def Aten_ExtFuncAttr : Aten_Attr<"ExtFunc", "extFunc", [
     }];
 }
 
+
+//===----------------------------------------------------------------------===//
+// Aten without initialization Attr
+//===----------------------------------------------------------------------===//
+
+def WithoutInitAttr : Aten_Attr<"WithoutInit", "without_init", [TypedAttrInterface]> {
+  let summary = "without initialization for struct type and array type";
+  let description = [{
+  }];
+
+  let parameters = (ins AttributeSelfTypeParameter<"">:$type);
+  let assemblyFormat = [{}];
+}
+
 #endif //! AUTOTEN_IR_ATTRI_TD

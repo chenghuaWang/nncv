@@ -60,8 +60,9 @@ struct AtenFunctionSymbolPayload {
   // basic type check
   mlir::Type retType;
   mlir::TypeRange argumentsType;
+
+  AtenFunctionType funcType;  ///< this function is belong to impl type or in general place.
   // visibility
-  AtenFunctionType funcType;
   bool isPublic;
 };
 
@@ -78,6 +79,9 @@ struct AtenStructSymbolPayload {
   }
 
   std::optional<std::tuple<mlir::Type, bool, size_t>> getVarTypeAndPositionInStruct(
+      const std::string& varName);
+
+  std::optional<std::tuple<bool, size_t>> getVisibilityAndPositionInStruct(
       const std::string& varName);
 };
 
@@ -125,19 +129,20 @@ class AtenSymbolTableG {
   inline AtenSymbolTableG(AtenSymbolTableState level = AtenSymbolTableState::kGlobal)
       : stateLevel(level) {}
 
+  ///< Actually, this function should not be used. You should use mlir's SymbolTable instead.
   inline std::optional<AtenFunctionSymbolPayload> getFunctionSymbol(const std::string& funcName) {
     switch (stateLevel) {
       case AtenSymbolTableState::kGlobal: {
         auto item = funcSymbolTable.find(funcName);
         if (item == funcSymbolTable.end()) {
-          // emit error
+          // FIXME error
         } else {
           return item->second;
         }
         break;
       }
       case AtenSymbolTableState::kInner: {
-        // TODO emit error
+        // FIXME emit error
         break;
       }
     }
@@ -156,7 +161,7 @@ class AtenSymbolTableG {
         break;
       }
       case AtenSymbolTableState::kInner: {
-        // TODO emit error
+        // FIXME emit error
         break;
       }
     }
@@ -166,7 +171,7 @@ class AtenSymbolTableG {
   std::optional<mlir::Value> getVarSymbol(const std::string& varSymbol) {
     auto item = varSymbolTable.find(varSymbol);
     if (item == varSymbolTable.end()) {
-      // emit error
+      // FIXME emit error
       return std::nullopt;
     } else {
       return item->second;
@@ -174,6 +179,7 @@ class AtenSymbolTableG {
   }
 
   inline bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPayload& payload) {
+    if (stateLevel == AtenSymbolTableState::kInner) return false;
     if (funcSymbolTable.find(funcName) == funcSymbolTable.end()) return false;
     funcSymbolTable[funcName] = payload;
     return true;
@@ -181,6 +187,7 @@ class AtenSymbolTableG {
 
   inline bool registerStructSymbol(const std::string& structName,
                                    AtenStructSymbolPayload& payload) {
+    if (stateLevel == AtenSymbolTableState::kInner) return false;
     if (structSymbolTable.find(structName) == structSymbolTable.end()) return false;
     structSymbolTable[structName] = payload;
     return true;
@@ -261,7 +268,7 @@ class AtenSymbolTable {
   inline AtenSymbolRef* getSymbolRefOfModule(const AtenModuleNameAttr& attr) {
     auto it = m_SymbolRefs.find(attr.name);
     if (it == m_SymbolRefs.end()) {
-      // TODO emit a error
+      // FIXME emit a error
       return nullptr;
     }
     return it->second;
@@ -280,7 +287,7 @@ class AtenSymbolTable {
       m_SymbolRefs.erase(it);
       delete ptr;
     } else {
-      // TODO emic error
+      // FIXME emit error
       return;
     }
   }
@@ -289,8 +296,22 @@ class AtenSymbolTable {
     return getSymbolRefOfModule(attr);
   }
 
+  inline mlir::ModuleOp* getMLIRModule(const AtenModuleNameAttr& attr) {
+    auto it = m_MLIRModule.find(attr.name);
+    if (it == m_MLIRModule.end()) {
+      // FIXME emit a error
+      return nullptr;
+    }
+    return it->second;
+  }
+
+  inline void registerMLIRModule(const AtenModuleNameAttr& attr, mlir::ModuleOp* mo) {
+    m_MLIRModule[attr.name] = mo;
+  }
+
  private:
   std::unordered_map<std::string, AtenSymbolRef*> m_SymbolRefs;
+  std::unordered_map<std::string, mlir::ModuleOp*> m_MLIRModule;
 
   static AtenSymbolTable* instance;
 };

@@ -19,6 +19,16 @@ AtenStructSymbolPayload::getVarTypeAndPositionInStruct(const std::string& varNam
   return std::nullopt;
 }
 
+std::optional<std::tuple<bool, size_t>> AtenStructSymbolPayload::getVisibilityAndPositionInStruct(
+    const std::string& varName) {
+  size_t cnt = 0;
+  for (auto& item : argumentsLists) {
+    if (std::get<0>(item) == varName) { return std::tuple<bool, size_t>(std::get<2>(item), cnt); }
+    cnt++;
+  }
+  return std::nullopt;
+}
+
 //===----------------------------------------------------------------------===//
 // AtenSymbolRef Implement
 //===----------------------------------------------------------------------===//

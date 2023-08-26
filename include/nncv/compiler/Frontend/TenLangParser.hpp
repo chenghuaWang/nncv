@@ -1,6 +1,7 @@
 #ifndef NNCV_COMPILER_TEN_LANG_PARSER_HPP_
 #define NNCV_COMPILER_TEN_LANG_PARSER_HPP_
 
+#include "AutoTenV1Parser.h"
 #include "AutoTenV1ParserBaseVisitor.h"
 #include "AutoTenV1ParserListener.h"
 #include "AutoTenV1Lexer.h"
@@ -36,52 +37,22 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
-struct __AtenSymbolTable__ {
-  inline llvm::ScopedHashTable<llvm::StringRef,
-                               std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>&
-  getScopedVarDeclSymbolTable() {
-    return m_ScopedVarDeclSymbolTable;
-  }
-
-  inline llvm::ScopedHashTable<llvm::StringRef, int>& getFunctionSymbolTable() {
-    return m_FunctionSymbolTable;
-  }
-
-  inline llvm::StringMap<mlir::Type>& getStructTypeMap() { return m_StructTypeMap; }
-
-  inline llvm::StringMap<AutoTenV1Parser::StructTypeContext*>& getStructCtxMap() {
-    return m_StructCtxMap;
-  }
-
-  inline mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value,
-                                     AutoTenV1Parser::VarDeclContext* ctx) {
-    if (m_ScopedVarDeclSymbolTable.count(var)) return mlir::failure();
-    m_ScopedVarDeclSymbolTable.insert(var, {value, ctx});
-    return mlir::success();
-  }
-
-  inline mlir::LogicalResult funcDeclare(llvm::StringRef functionName, int argsNumber) {
-    if (m_FunctionSymbolTable.count(functionName)) return mlir::failure();
-    m_FunctionSymbolTable.insert(functionName, argsNumber);
-    return mlir::success();
-  }
-
- private:
-  llvm::ScopedHashTable<llvm::StringRef, std::pair<mlir::Value, AutoTenV1Parser::VarDeclContext*>>
-      m_ScopedVarDeclSymbolTable;
-  llvm::ScopedHashTable<llvm::StringRef, int> m_FunctionSymbolTable;
-  llvm::StringMap<mlir::Type> m_StructTypeMap;
-  llvm::StringMap<AutoTenV1Parser::StructTypeContext*> m_StructCtxMap;
-};
-
 class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
  public:
   AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
       : m_Lexer(nullptr), m_OpBuilder(&context), m_FileName(fileName) {
     m_TheModule = mlir::ModuleOp::create(m_OpBuilder.getUnknownLoc());
+    m_curSymbolTable = utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(fileName);
+    m_parseState = parseState::kNone;
   }
 
   inline mlir::ModuleOp getModule() { return m_TheModule; }
+
+ private:
+  enum class parseState { kTypeDecl, kNone };
+
+  parseState m_parseState;
+  std::string m_curParsingTypeDeclName;  ///< record current parsing Type Decl Name
 
  private:
   AutoTenV1Lexer m_Lexer;
@@ -89,7 +60,7 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   mlir::OpBuilder m_OpBuilder;
   std::string m_FileName;
 
-  __AtenSymbolTable__ m_SymbolTable;
+  utils::AtenSymbolRef* m_curSymbolTable;
 
   inline mlir::Location loc(int line, int row) {
     return mlir::FileLineColLoc::get(m_OpBuilder.getStringAttr(m_FileName), line, row);
@@ -102,19 +73,36 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) override;
 
-  std::any visitStructType(AutoTenV1Parser::StructTypeContext* ctx) override;
-
   std::any visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx) override;
 
-  std::any visitMapType(AutoTenV1Parser::MapTypeContext* ctx) override;
-
-  std::any visitTensorType(AutoTenV1Parser::TensorTypeContext* ctx) override;
+  std::any visitTypeDecl(AutoTenV1Parser::TypeDeclContext* ctx) override;
 
   std::any visitExpressionList(AutoTenV1Parser::ExpressionListContext* ctx) override;
 
   std::any visitExpression(AutoTenV1Parser::ExpressionContext* ctx) override;
 
   std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
+
+  std::any visitQualifiedIdent(AutoTenV1Parser::QualifiedIdentContext* ctx) override;
+
+  //===----------------------------------------------------------------------===//
+  // Process types and atrributes
+  //===----------------------------------------------------------------------===//
+  std::any visitType_(AutoTenV1Parser::Type_Context* ctx) override;
+
+  std::any visitTypeLit(AutoTenV1Parser::TypeLitContext* ctx) override;
+
+  std::any visitTypeName(AutoTenV1Parser::TypeNameContext* ctx) override;
+
+  std::any visitArrayType(AutoTenV1Parser::ArrayTypeContext* ctx) override;
+
+  std::any visitStructType(AutoTenV1Parser::StructTypeContext* ctx) override;
+
+  std::any visitPointerType(AutoTenV1Parser::PointerTypeContext* ctx) override;
+
+  std::any visitMapType(AutoTenV1Parser::MapTypeContext* ctx) override;
+
+  std::any visitTensorType(AutoTenV1Parser::TensorTypeContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Method to process function declarations
@@ -437,6 +425,7 @@ enum class VisitorParserReturnType {
   kIntLiteral, /*all int literal will return as int64*/
   kFloatLiteral,
   kAtenTypeDeclare,
+  kAttribute,
   kNone,
 };
 
@@ -483,6 +472,8 @@ class VisitorParserReturn {
   VisitorParserReturn(VisitorParserAtenTypeDecl value)
       : value(value), type(VisitorParserReturnType::kAtenTypeDeclare) {}
   VisitorParserReturn(int64_t value) : value(value), type(VisitorParserReturnType::kIntLiteral) {}
+  VisitorParserReturn(mlir::Attribute& attr)
+      : value(attr), type(VisitorParserReturnType::kAttribute) {}
 
  public:
   inline bool isa(VisitorParserReturnType t) { return type == t; }
