@@ -1,6 +1,3 @@
-Pre-Optimizer for NNCV
----
+# Optimizer
 
-*Reference:*
-
-[1] [ONNX's Optimizer](https://github.com/onnx/optimizer)
+## Memory Space Solver
