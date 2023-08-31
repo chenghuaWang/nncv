@@ -81,6 +81,10 @@ add_llvm_executable(nncv-c
     # CodeGen
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp
 
+    # Optimizer
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Optimizer/MemSolver.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Optimizer/MemSolver.cpp
+
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
