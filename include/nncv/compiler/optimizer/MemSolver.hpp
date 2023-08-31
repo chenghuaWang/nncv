@@ -32,6 +32,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <string>
+#include <string.h>
 
 namespace nncv {
 namespace compiler {
@@ -41,15 +43,17 @@ typedef int32_t MemSolverOpUUID_t;  ///< for user to figure the Ops.
 
 struct TensorUsageInterval {
   TensorUsageInterval() : firstOp(-1), lastOp(-1) {}
+  TensorUsageInterval(size_t s, size_t e) : firstOp(s), lastOp(e) {}
   int32_t firstOp;
   int32_t lastOp;
 };
 
 struct TensorUsageRecord {
   TensorUsageRecord(const TensorUsageInterval _interval, size_t _size)
-      : interval(_interval), size(_size) {}
+      : interval(_interval), size(_size), offset(-1) {}
   TensorUsageInterval interval;
   size_t size;
+  int32_t offset;
 };
 
 // don't need impl the memory allocate. This class just solve the memory manage problem in logic way
@@ -57,13 +61,19 @@ struct TensorUsageRecord {
 // tensor, and size.
 class MemSolver {
  public:
-  MemSolverOpUUID_t pushBackOp(size_t size, bool isInPlace = false);
+  // [lifeTimeS, lifeTimeE] both size included. One op is one life time.
+  void registerTensor(int32_t lifeTimeS, int32_t lifeTimeE, size_t size);
 
   bool solve();
 
+  bool writeHtmlChart(const std::string& fpath);
+  void showInTerminal();
+
+  inline int32_t getTotalConsumption() const { return totalConsumption; }
+
  private:
-  std::vector<std::pair<MemSolverOpUUID_t, /*isInPlace*/ bool>> opSequence;
-  std::unordered_map<MemSolverOpUUID_t, TensorUsageRecord> tensorUsageIntervals;
+  int32_t totalConsumption;
+  std::vector<TensorUsageRecord> tensorUsageRecords;
 };
 
 }  // namespace optimizer
