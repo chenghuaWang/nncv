@@ -42,6 +42,7 @@ bool MemSolver::solve() {
     totalConsumption = std::max(totalConsumption, bestOffset + (int32_t)t.size);
     orderedAllocatedIds.emplace_back(t);
   }
+  tensorUsageRecords = orderedAllocatedIds;
   return true;
 }
 

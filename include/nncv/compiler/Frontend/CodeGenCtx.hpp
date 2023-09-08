@@ -5,11 +5,27 @@
 
 #include <string>
 #include <map>
-#include <functional>
+#include <utility>
+#include <vector>
+
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Types.h"
 
 namespace nncv {
 namespace compiler {
 namespace frontend {
+
+//===----------------------------------------------------------------------===//
+// ParserState
+//===----------------------------------------------------------------------===//
+class ParserState {
+  // register function actions.
+};
 
 //===----------------------------------------------------------------------===//
 // Compiler Flags: Global flags.
@@ -58,7 +74,7 @@ class FuncCompilerFlag {
     return false;
   }
 
-  inline bool setFlagsKV(std::string& key, std::string& value) {
+  inline bool setFlagsKV(std::string& key, const std::string& value) {
     auto item = __FuncFlagsKeyCheckTable.find(key);
     if (item != __FuncFlagsKeyCheckTable.end()) {
       switch (item->second) {
@@ -72,10 +88,48 @@ class FuncCompilerFlag {
     return false;
   }
 
+  inline llvm::SmallVector<mlir::NamedAttribute> genNamedAttrs(mlir::MLIRContext* ctx) {
+    llvm::SmallVector<mlir::NamedAttribute> attrs;
+    // [1] Kernel.AutoParallel
+    if (asKernelAndEnableParallel) {
+      auto _na = mlir::NamedAttribute(mlir::StringAttr::get(ctx, "Kernel.AutoParallel"),
+                                      mlir::IntegerAttr::get(mlir::IntegerType::get(ctx, 32), 1));
+      attrs.emplace_back(_na);
+      // [2] Kernel.Platform
+      auto _nda = mlir::NamedAttribute(mlir::StringAttr::get(ctx, "Kernel.Platform"),
+                                       mlir::StringAttr::get(ctx, deviceType));
+      attrs.emplace_back(_nda);
+    }
+    return attrs;
+  }
+
  private:
   bool asKernelAndEnableParallel;
   std::string deviceType;
 };
+
+//===----------------------------------------------------------------------===//
+// Store the parameter of Functions
+//===----------------------------------------------------------------------===//
+struct FuncParameterAndReturn {
+  std::vector<std::tuple<std::string, mlir::Type, /*has identifier*/ bool>> parameters;
+  std::tuple<std::string, mlir::Type, /*has identifier*/ bool> ret;
+};
+
+//===----------------------------------------------------------------------===//
+// Helper functions: Generate sym_visibility:
+// "nested", "private", "public".
+//
+//===----------------------------------------------------------------------===//
+inline mlir::StringAttr genSymVisibilityAttr(mlir::MLIRContext* ctx, bool isPublic,
+                                             bool nested = false) {
+  if (nested) { return mlir::StringAttr::get(ctx, "nested"); }
+  if (isPublic) {
+    return mlir::StringAttr::get(ctx, "public");
+  } else {
+    return mlir::StringAttr::get(ctx, "private");
+  }
+}
 
 }  // namespace frontend
 }  // namespace compiler

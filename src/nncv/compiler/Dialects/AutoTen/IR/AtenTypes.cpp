@@ -1,3 +1,6 @@
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
 #include "mlir/IR/Types.h"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenTypes.hpp"
@@ -23,6 +26,29 @@ static void printFuncTypeArgs(::mlir::AsmPrinter& p, ::mlir::ArrayRef<::mlir::Ty
 
 using namespace mlir;
 using namespace mlir::aten;
+
+//===----------------------------------------------------------------------===//
+// Char Type
+//===----------------------------------------------------------------------===//
+
+/// printer
+void CharType::print(mlir::AsmPrinter& p) const {
+  p << '<';
+  p << getWidth();
+  p << '>';
+}
+
+/// parser
+mlir::Type CharType::parse(mlir::AsmParser& p) {
+  unsigned width;
+
+  if (p.parseLess()) { return mlir::Type(); }
+  if (p.parseInteger(width)) { return mlir::Type(); }
+  if (width != 8 || width != 16) { return mlir::Type(); }
+  if (p.parseGreater()) return mlir::Type();
+
+  return CharType::get(p.getContext(), width, /*isUtf*/ width == 8 ? false : true);
+}
 
 //===----------------------------------------------------------------------===//
 // Int Type
@@ -168,6 +194,25 @@ unsigned IntType::getPreferredAlignment(const ::mlir::DataLayout& dataLayout,
 }
 
 //===----------------------------------------------------------------------===//
+// Char Type Data layout info
+//===----------------------------------------------------------------------===//
+
+unsigned CharType::getABIAlignment(const mlir::DataLayout& dataLayout,
+                                   mlir::DataLayoutEntryListRef params) const {
+  return (unsigned)(getWidth() / 8);
+}
+
+unsigned CharType::getTypeSizeInBits(const mlir::DataLayout& dataLayout,
+                                     mlir::DataLayoutEntryListRef params) const {
+  return getWidth();
+}
+
+unsigned CharType::getPreferredAlignment(const ::mlir::DataLayout& dataLayout,
+                                         ::mlir::DataLayoutEntryListRef params) const {
+  return (unsigned)(getWidth() / 8);
+}
+
+//===----------------------------------------------------------------------===//
 // Bool Type Data layout info: Be careful with bool type's ABI setting.
 //===----------------------------------------------------------------------===//
 
@@ -298,6 +343,16 @@ mlir::LogicalResult IntType::verify(::llvm::function_ref<::mlir::InFlightDiagnos
     return mlir::failure();
   }
   return mlir::success();
+}
+
+//===----------------------------------------------------------------------===//
+// Char Type Verifier
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult CharType::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError,
+                                     unsigned int width, bool isUtf) {
+  if (width == 8 || (width == 16 && isUtf)) { return mlir::success(); }
+  return mlir::failure();
 }
 
 //===----------------------------------------------------------------------===//

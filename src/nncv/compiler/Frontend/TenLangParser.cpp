@@ -7,7 +7,6 @@
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
-#include "nncv/compiler/Frontend/CodeGenCtx.hpp"
 
 namespace nncv {
 namespace compiler {
@@ -48,6 +47,10 @@ std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext
 // )?;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclContext* ctx) {
+  // get the location
+  mlir::Location location = loc(ctx->Function()->getSymbol()->getLine(),
+                                ctx->Function()->getSymbol()->getCharPositionInLine());
+
   // eats and load all compile flags to func decl.
   auto compileFlagsCtxs = ctx->compileFlags();
   nncv::compiler::frontend::FuncCompilerFlag funcFlags;
@@ -60,16 +63,110 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     // gather value
     if (item->True_()) {
       if (!funcFlags.setFlagsKV(sig, true)) {
-        // TODO emit error.
+        // FIXME emit error.
       }
     } else if (item->False_()) {
       if (!funcFlags.setFlagsKV(sig, false)) {
-        // TODO emit error.
+        // FIXME emit error.
       }
     } else {
-      // TODO
+      auto strRetValue = std::any_cast<VisitorParserReturn>(visit(item->expression()));
+      if (!strRetValue.isa(VisitorParserReturnType::kStringLiteral)) {
+        // FIXME emit error
+      }
+      if (!funcFlags.setFlagsKV(sig, strRetValue.getValue<std::string>())) {
+        // FIXME emit error
+      }
     }
   }
+
+  // public ?
+  bool isPublic = false;
+  if (ctx->Public()) { isPublic = true; }
+
+  // eats Function
+  visit(ctx->Function());
+
+  // identifier
+  std::string funcName = ctx->Identifier()->getText();
+
+  // signature
+  auto payload = std::any_cast<VisitorParserReturn>(visit(ctx->signature()))
+                     .getValue<FuncParameterAndReturn>();
+
+  // check current state. And set flags. generate Op with/o block.
+  // generate function type first
+  llvm::SmallVector<mlir::Type, 4> paraTypes;
+  for (auto& item : payload.parameters) { paraTypes.emplace_back(std::get<1>(item)); }
+  auto funcTy = mlir::aten::FuncType::get(m_OpBuilder.getContext(), paraTypes,
+                                          std::get<1>(payload.ret), /*varArg*/ false);
+
+  llvm::SmallVector<mlir::DictionaryAttr, 4> _ub;
+
+  // TODO
+  if (ctx->block()) {
+    // TODO symbol table stack push
+
+    // symbol table stack pop
+  } else /*no function body*/ {
+    // TODO WAIT: Support Package and Function rename
+    auto op = m_OpBuilder.create<mlir::aten::FuncOp>(
+        location, funcName, funcTy, funcFlags.genNamedAttrs(m_OpBuilder.getContext()), _ub);
+    if (isPublic) {
+      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
+
+    } else {
+      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    }
+    m_TheModule.push_back(op);
+  }
+  // no need to register to symbol table. Using mlir's symbol table is enough.
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// signature: parameters ArrowReturnType result | parameters;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* ctx) {
+  auto payload = std::any_cast<VisitorParserReturn>(visit(ctx->parameters()))
+                     .getValue<FuncParameterAndReturn>();
+
+  // TODO parse result.
+  if (ctx->ArrowReturnType()) {
+    mlir::Type resultTy = mlir::aten::VoidType();
+  } else {
+  }
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// parameters:
+//	LeftParen (parameterDecl (Comma parameterDecl)* Comma?)? RightParen;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext* ctx) {
+  visit(ctx->LeftParen());
+
+  FuncParameterAndReturn payload;
+
+  auto paras = ctx->parameterDecl();
+  for (auto item : paras) {
+    auto ty = std::any_cast<VisitorParserReturn>(item->type_()).getValue<mlir::Type>();
+    std::string name;
+    bool hasIdentifier = false;
+
+    if (item->Ellipsis()) {
+      // FIXME throw error, not support yet.
+    }
+    if (item->identifierList()) {
+      name = std::any_cast<VisitorParserReturn>(item->identifierList()).getValue<std::string>();
+    }
+    payload.parameters.emplace_back(name, ty, /*has identifier*/ hasIdentifier);
+  }
+
+  visit(ctx->RightParen());
+
+  return VisitorParserReturn(payload);
 }
 
 //===----------------------------------------------------------------------===//
@@ -140,7 +237,7 @@ std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext
     std::string varName =
         std::any_cast<VisitorParserReturn>(item->identifierList()).getValue<std::string>();
     mlir::Type ty = std::any_cast<VisitorParserReturn>(item->type_()).getValue<mlir::Type>();
-    tys.emplace_back(tys);
+    tys.emplace_back(ty);
 
     // insert to this lang's symbol table
     symbolPayload.argumentsLists.emplace_back(
@@ -202,6 +299,12 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   }
   auto atv = atvAny.getValue<VisitorParserAtenTypeDecl>();
   switch (atv.type) {
+    case VisitorParserAtenTypeDeclType::kBool: {
+      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
+    }
+    case VisitorParserAtenTypeDeclType::kInt1: {
+      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
+    }
     case VisitorParserAtenTypeDeclType::kInt8: {
       // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
     }
@@ -216,8 +319,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
     }
     case VisitorParserAtenTypeDeclType::kFloat32: {
       if (!theVarSpec->Assign()) {
-        mlir::Value value =
-            m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(0.f));
+        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, mlir::Float32Type::get(m_OpBuilder.getContext()),
+            m_OpBuilder.getF32FloatAttr(0.f));
         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
         return VisitorParserReturn(value);
       } else {
@@ -241,8 +345,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
           } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
             f = exprAny.getValue<int64_t>();
           }
-          mlir::Value value =
-              m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF32FloatAttr(f));
+          mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+              location, mlir::Float32Type::get(m_OpBuilder.getContext()),
+              m_OpBuilder.getF32FloatAttr(f));
           m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
           return VisitorParserReturn(value);
         }
@@ -252,8 +357,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
     }
     case VisitorParserAtenTypeDeclType::kFloat64: {
       if (!theVarSpec->Assign()) {
-        mlir::Value value =
-            m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(0.f));
+        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, mlir::Float64Type::get(m_OpBuilder.getContext()),
+            m_OpBuilder.getF64FloatAttr(0.f));
         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
         return VisitorParserReturn(value);
       } else {
@@ -277,8 +383,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
           } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
             f = exprAny.getValue<int64_t>();
           }
-          mlir::Value value =
-              m_OpBuilder.create<mlir::aten::ConstantOp>(location, m_OpBuilder.getF64FloatAttr(f));
+          mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+              location, mlir::Float64Type::get(m_OpBuilder.getContext()),
+              m_OpBuilder.getF64FloatAttr(f));
           m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
           return VisitorParserReturn(value);
         }
@@ -300,7 +407,7 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
       if (!theVarSpec->Assign()) {
         // init types with default attribute if they don't have a assign.
         mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-            location,
+            location, arrayTy,
             mlir::aten::ConstArrayAttr::get(
                 arrayTy, mlir::aten::WithoutInitAttr::get(m_OpBuilder.getContext(), arrayTy)));
         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
@@ -325,7 +432,7 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
         if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
           auto value = exprAny.getValue<mlir::Value>();
 
-          if (!value.isa<mlir::aten::PointerType>()) {
+          if (!value.getType().isa<mlir::aten::PointerType>()) {
             // FIXME throw error.
           }
 
@@ -805,6 +912,7 @@ std::any AutoTen2MlirVisitor::visitTypeLit(AutoTenV1Parser::TypeLitContext* ctx)
   if (ctx->structType()) { return visit(ctx->structType()); }
   if (ctx->pointerType()) { return visit(ctx->pointerType()); }
   // TODO
+  return VisitorParserReturn();
 }
 
 //===----------------------------------------------------------------------===//

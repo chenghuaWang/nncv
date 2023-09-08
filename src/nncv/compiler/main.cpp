@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
 
   nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
 
-  fr.SetFilePath(InputFilename.getValue());
-  fr.SetShowCst(ShowCst.getValue());
-  fr.SetDumpMlir(ShowMlir.getValue());
-  fr.Do();
+  fr.setFilePath(InputFilename.getValue());
+  fr.setShowCst(ShowCst.getValue());
+  fr.setDumpMlir(ShowMlir.getValue());
+  fr.run();
 }

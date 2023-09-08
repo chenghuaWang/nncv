@@ -6,7 +6,7 @@ namespace nncv {
 namespace compiler {
 namespace pipeline {
 
-void FrontendPipeline::Do() {
+void FrontendPipeline::run() {
 #ifdef NNCV_ENABLE_ANTLR
   auto ino = std::ifstream(m_CurrentFilePath);
 

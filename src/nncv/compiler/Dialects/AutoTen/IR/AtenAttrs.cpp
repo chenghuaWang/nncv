@@ -1,3 +1,6 @@
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenAttrs.hpp"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenTypes.hpp"

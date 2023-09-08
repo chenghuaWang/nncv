@@ -1,3 +1,6 @@
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenAttrs.hpp"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenTypes.hpp"
@@ -25,6 +28,18 @@ using namespace mlir::aten;
 #include "AutoTen/IR/AutoTenOpsEnums.cpp.inc"
 #include "AutoTen/IR/AutoTenOpsAttributes.cpp.inc"
 #include "AutoTen/IR/AutoTenOpsDialect.cpp.inc"
+
+//===----------------------------------------------------------------------===//
+// Aten Dialect
+//===----------------------------------------------------------------------===//
+void aten::AtenDialect::initialize() {
+  registerTypes();
+  registerAttributes();
+  addOperations<
+#define GET_OP_LIST
+#include "AutoTen/IR/AutoTenOps.cpp.inc"
+      >();
+}
 
 //===----------------------------------------------------------------------===//
 // CastOp
@@ -399,6 +414,8 @@ LogicalResult aten::FuncOp::verifyType() {
   return success();
 }
 
+LogicalResult aten::FuncOp::verify() { return success(); }
+
 //===----------------------------------------------------------------------===//
 // Check Constant Op
 //===----------------------------------------------------------------------===//
@@ -538,6 +555,29 @@ LogicalResult aten::GetRefOp::inferReturnTypes(
   auto ptr2TheType = aten::PointerType::get(context, theType);
   inferredReturnTypes.insert(inferredReturnTypes.end(), ptr2TheType);
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Load Op
+//===----------------------------------------------------------------------===//
+
+LogicalResult aten::LoadOp::verify() { return success(); }
+
+//===----------------------------------------------------------------------===//
+// Aten store Op
+//===----------------------------------------------------------------------===//
+
+LogicalResult aten::StoreOp::verify() { return success(); }
+
+//===----------------------------------------------------------------------===//
+// Aten MakeStructSymbol Op.
+//===----------------------------------------------------------------------===//
+
+void aten::MakeStructSymbol::getSuccessorRegions(std::optional<unsigned> index,
+                                                 ArrayRef<Attribute> operands,
+                                                 SmallVectorImpl<RegionSuccessor>& regions) {
+  auto region = &getCtorRegion();
+  region = nullptr;
 }
 
 //===----------------------------------------------------------------------===//

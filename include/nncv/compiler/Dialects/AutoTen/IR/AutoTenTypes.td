@@ -231,7 +231,7 @@ def Aten_StructType : Aten_Type<"Struct", "struct", [
 //===----------------------------------------------------------------------===//
 
 def Aten_StructSelfType : Aten_Type<"StructSelf", "struct_self", [
-    DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
+    // DeclareTypeInterfaceMethods<DataLayoutTypeInterface>
 ]> {
     let summary = "The struct self type.";
 

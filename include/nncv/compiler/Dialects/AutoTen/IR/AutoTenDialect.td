@@ -26,7 +26,6 @@ def Aten_Dialect : Dialect {
         Aten(Auto tensor) is the dialects of Aten language. This language will translate with nncv.
     }];
     
-    let hasConstantMaterializer = 1;
     let useDefaultTypePrinterParser = 1;
 
     let dependentDialects = [

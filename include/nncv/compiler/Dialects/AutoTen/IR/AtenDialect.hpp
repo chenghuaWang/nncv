@@ -1,6 +1,10 @@
 #ifndef MLIR_ATEN_DIALECT_HPP
 #define MLIR_ATEN_DIALECT_HPP
 
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
+
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"

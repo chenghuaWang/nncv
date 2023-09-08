@@ -24,6 +24,8 @@
 
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 
+#include "nncv/compiler/Frontend/CodeGenCtx.hpp"
+
 using namespace antlrcpp;
 
 enum AutoTenParserType {
@@ -108,6 +110,10 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   // Method to process function declarations
   //===----------------------------------------------------------------------===//
   std::any visitFunctionDecl(AutoTenV1Parser::FunctionDeclContext* ctx) override;
+
+  std::any visitSignature(AutoTenV1Parser::SignatureContext* ctx) override;
+
+  std::any visitParameters(AutoTenV1Parser::ParametersContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Method to process type, mactch type or cast type.
@@ -426,6 +432,7 @@ enum class VisitorParserReturnType {
   kFloatLiteral,
   kAtenTypeDeclare,
   kAttribute,
+  kParametersAndReturn, /*for function decl and function call*/
   kNone,
 };
 
@@ -474,6 +481,8 @@ class VisitorParserReturn {
   VisitorParserReturn(int64_t value) : value(value), type(VisitorParserReturnType::kIntLiteral) {}
   VisitorParserReturn(mlir::Attribute& attr)
       : value(attr), type(VisitorParserReturnType::kAttribute) {}
+  VisitorParserReturn(FuncParameterAndReturn& attr)
+      : value(attr), type(VisitorParserReturnType::kParametersAndReturn) {}
 
  public:
   inline bool isa(VisitorParserReturnType t) { return type == t; }

@@ -1,6 +1,9 @@
 #ifndef MLIR_ATEN_ATTRS_HPP
 #define MLIR_ATEN_ATTRS_HPP
 
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 

@@ -13,7 +13,7 @@ class pipelineAll {};
 
 class pipeline {
  public:
-  virtual void Do() = 0;
+  virtual void run() = 0;
 };
 
 class FrontendPipeline : public pipeline {
@@ -21,13 +21,13 @@ class FrontendPipeline : public pipeline {
   FrontendPipeline(mlir::MLIRContext& context, mlir::OwningOpRef<mlir::ModuleOp>& module)
       : m_Context(context), m_Module(module) {}
 
-  void Do() override;
+  void run() override;
 
-  inline void SetShowCst(bool flag) { m_showCst = flag; }
-  inline bool IsShowCst(bool flag) const { return m_showCst; }
-  inline void SetDumpMlir(bool flag) { m_dumpMlir = flag; }
-  inline bool IsDumpMlir(bool flag) const { return m_dumpMlir; }
-  inline void SetFilePath(const std::string& _CurPath) { m_CurrentFilePath = _CurPath; }
+  inline void setShowCst(bool flag) { m_showCst = flag; }
+  inline bool ssShowCst(bool flag) const { return m_showCst; }
+  inline void setDumpMlir(bool flag) { m_dumpMlir = flag; }
+  inline bool ssDumpMlir(bool flag) const { return m_dumpMlir; }
+  inline void setFilePath(const std::string& _CurPath) { m_CurrentFilePath = _CurPath; }
 
  private:
   mlir::MLIRContext& m_Context;

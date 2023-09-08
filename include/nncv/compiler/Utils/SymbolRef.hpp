@@ -20,6 +20,10 @@
 #pragma once
 #endif  //! check msc version
 
+#ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
+#endif
+
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -34,6 +38,20 @@
 namespace nncv {
 namespace compiler {
 namespace utils {
+
+// A singleton for reference.
+// class Singleton {
+// public:
+// 	static Singleton& getInstance(){
+// 		static Singleton instance;
+// 		return instance;
+// 	}
+// private:
+// 	Singleton ()= default;
+// 	~Singleton ()= default;
+// 	Singleton (const Singleton &)= delete;
+// 	Singleton & operator=(const Singleton &)= delete;
+// };
 
 // only need namespace to generate function name.
 // lld will check if they are in the symbol table or not.
