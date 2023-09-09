@@ -27,6 +27,20 @@ static ParseResult parseStructMembers(AsmParser& parser, ArrayAttr& members);
 #define GET_ATTRDEF_CLASSES
 #include "AutoTen/IR/AutoTenOpsAttributes.cpp.inc"
 
+mlir::Attribute AtenDialect::parseAttribute(DialectAsmParser& parser, mlir::Type type) const {
+  llvm::SMLoc typeLoc = parser.getCurrentLocation();
+  StringRef mnemonic;
+  Attribute genAttr;
+  OptionalParseResult parseResult = generatedAttributeParser(parser, &mnemonic, type, genAttr);
+  if (parseResult.has_value()) return genAttr;
+  parser.emitError(typeLoc, "unknown attribute in Aten dialect");
+  return Attribute();
+}
+
+void AtenDialect::printAttribute(Attribute attr, DialectAsmPrinter& os) const {
+  if (failed(generatedAttributePrinter(attr, os))) llvm_unreachable("unexpected Aten type kind");
+}
+
 //===----------------------------------------------------------------------===//
 // Struct Members
 //===----------------------------------------------------------------------===//

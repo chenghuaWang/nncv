@@ -131,6 +131,20 @@ inline mlir::StringAttr genSymVisibilityAttr(mlir::MLIRContext* ctx, bool isPubl
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Helper functions: removeQuotationMark:
+// "main" -> main
+//
+//===----------------------------------------------------------------------===//
+inline std::string removeQuotationMark(const std::string& str) {
+  return str.substr(1, str.length() - 2);
+}
+
+//===----------------------------------------------------------------------===//
+// Helper functions: isMain:
+//===----------------------------------------------------------------------===//
+inline bool isPackageNameIsMain(const std::string& str) { return str == "main"; }
+
 }  // namespace frontend
 }  // namespace compiler
 }  // namespace nncv

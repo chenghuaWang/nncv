@@ -101,7 +101,7 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
   auto funcTy = mlir::aten::FuncType::get(m_OpBuilder.getContext(), paraTypes,
                                           std::get<1>(payload.ret), /*varArg*/ false);
 
-  llvm::SmallVector<mlir::DictionaryAttr, 4> _ub;
+  llvm::SmallVector<mlir::DictionaryAttr> _ub;
 
   // TODO
   if (ctx->block()) {
@@ -114,7 +114,6 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
         location, funcName, funcTy, funcFlags.genNamedAttrs(m_OpBuilder.getContext()), _ub);
     if (isPublic) {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
-
     } else {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
     }
@@ -132,12 +131,17 @@ std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* 
                      .getValue<FuncParameterAndReturn>();
 
   // TODO parse result.
-  if (ctx->ArrowReturnType()) {
+  if (!ctx->ArrowReturnType()) {
     mlir::Type resultTy = mlir::aten::VoidType();
+    payload.ret = {"", resultTy, /*has identifier*/ false};
   } else {
+    // FIXME: now we just visit type_
+    auto resultTy =
+        std::any_cast<VisitorParserReturn>(visit(ctx->result()->type_())).getValue<mlir::Type>();
+    payload.ret = {"", resultTy, /*has identifier*/ false};
   }
 
-  return VisitorParserReturn();
+  return VisitorParserReturn(payload);
 }
 
 //===----------------------------------------------------------------------===//
@@ -151,7 +155,7 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
 
   auto paras = ctx->parameterDecl();
   for (auto item : paras) {
-    auto ty = std::any_cast<VisitorParserReturn>(item->type_()).getValue<mlir::Type>();
+    auto ty = std::any_cast<VisitorParserReturn>(visit(item->type_())).getValue<mlir::Type>();
     std::string name;
     bool hasIdentifier = false;
 
@@ -159,7 +163,8 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
       // FIXME throw error, not support yet.
     }
     if (item->identifierList()) {
-      name = std::any_cast<VisitorParserReturn>(item->identifierList()).getValue<std::string>();
+      name =
+          std::any_cast<VisitorParserReturn>(visit(item->identifierList())).getValue<std::string>();
     }
     payload.parameters.emplace_back(name, ty, /*has identifier*/ hasIdentifier);
   }
@@ -205,12 +210,12 @@ std::any AutoTen2MlirVisitor::visitTypeDecl(AutoTenV1Parser::TypeDeclContext* ct
 // packageClause: At Package Assign StringLiteral;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) {
-  std::string pkgName = ctx->StringLiteral()->toString();
+  std::string pkgName = removeQuotationMark(ctx->StringLiteral()->getText());
   // change the module name in mlir to package name.
-  m_TheModule.setName("pk_" + pkgName);
+  if (!isPackageNameIsMain(pkgName)) { m_TheModule.setName("pk_" + pkgName); }
   // create a symbol table for the package(module or to say).
-  if (utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(pkgName) == nullptr) {
-    utils::AtenSymbolTable::getInstance()->createSymbolRefOfModule(pkgName);
+  if (utils::AtenSymbolTable::getInstance().getSymbolRefOfModule(pkgName) == nullptr) {
+    utils::AtenSymbolTable::getInstance().createSymbolRefOfModule(pkgName);
   }
   return VisitorParserReturn();
 }
@@ -235,8 +240,8 @@ std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext
   for (auto item : ctx->fieldDecl()) {
     bool isPublic = (item->parent->getText() == "pub");
     std::string varName =
-        std::any_cast<VisitorParserReturn>(item->identifierList()).getValue<std::string>();
-    mlir::Type ty = std::any_cast<VisitorParserReturn>(item->type_()).getValue<mlir::Type>();
+        std::any_cast<VisitorParserReturn>(visit(item->identifierList())).getValue<std::string>();
+    mlir::Type ty = std::any_cast<VisitorParserReturn>(visit(item->type_())).getValue<mlir::Type>();
     tys.emplace_back(ty);
 
     // insert to this lang's symbol table
@@ -509,6 +514,8 @@ std::any AutoTen2MlirVisitor::visitMapType(AutoTenV1Parser::MapTypeContext* ctx)
 // If you want to create a dynamic tensor, use `nncv.tensor(shape, nncv.type)` function.
 // And tensor is the first class of aten-lang, you don't need to free the mem of tensor
 // yourself. The mem bufferization will do everything for you.
+//
+// FIXME: Actually Tensor(in this lang) will translate to memref in mlir
 //
 // return: VisitorParserReturn(mlir::Type);
 //===----------------------------------------------------------------------===//

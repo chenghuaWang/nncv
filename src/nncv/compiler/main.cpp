@@ -53,8 +53,11 @@ int main(int argc, char* argv[]) {
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
+  // init dialect
+  mlir::DialectRegistry registry;
+
   // init MLIR
-  mlir::MLIRContext MlirContext;
+  mlir::MLIRContext MlirContext(registry);
   MlirContext.getOrLoadDialect<mlir::aten::AtenDialect>();
   mlir::OwningOpRef<mlir::ModuleOp> MlirModule;
 

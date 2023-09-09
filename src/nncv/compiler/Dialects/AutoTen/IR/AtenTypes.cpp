@@ -27,6 +27,20 @@ static void printFuncTypeArgs(::mlir::AsmPrinter& p, ::mlir::ArrayRef<::mlir::Ty
 using namespace mlir;
 using namespace mlir::aten;
 
+mlir::Type AtenDialect::parseType(DialectAsmParser& parser) const {
+  llvm::SMLoc typeLoc = parser.getCurrentLocation();
+  StringRef mnemonic;
+  Type genType;
+  OptionalParseResult parseResult = generatedTypeParser(parser, &mnemonic, genType);
+  if (parseResult.has_value()) return genType;
+  parser.emitError(typeLoc, "unknown type in Aten dialect");
+  return mlir::Type();
+}
+
+void AtenDialect::printType(Type type, DialectAsmPrinter& os) const {
+  if (failed(generatedTypePrinter(type, os))) llvm_unreachable("unexpected Aten type kind");
+}
+
 //===----------------------------------------------------------------------===//
 // Char Type
 //===----------------------------------------------------------------------===//
@@ -44,7 +58,7 @@ mlir::Type CharType::parse(mlir::AsmParser& p) {
 
   if (p.parseLess()) { return mlir::Type(); }
   if (p.parseInteger(width)) { return mlir::Type(); }
-  if (width != 8 || width != 16) { return mlir::Type(); }
+  if (width != 8 && width != 16) { return mlir::Type(); }
   if (p.parseGreater()) return mlir::Type();
 
   return CharType::get(p.getContext(), width, /*isUtf*/ width == 8 ? false : true);
@@ -84,7 +98,7 @@ mlir::Type IntType::parse(mlir::AsmParser& p) {
   if (p.parseComma()) { return mlir::Type(); }
   if (p.parseInteger(width)) { return mlir::Type(); }
 
-  if (width != 1 || width != 8 || width != 16 || width != 32 || width != 64) {
+  if (width != 1 && width != 8 && width != 16 && width != 32 && width != 64) {
     return mlir::Type();
   }
 
@@ -339,10 +353,10 @@ void StructType::computeSizeAndAlignment(const ::mlir::DataLayout& dataLayout) c
 
 mlir::LogicalResult IntType::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError,
                                     unsigned int width, bool isSigned) {
-  if (width != 1 || width != 8 || width != 16 || width != 32 || width != 64) {
-    return mlir::failure();
+  if (width == 1 || width == 8 || width == 16 || width == 32 || width == 64) {
+    return mlir::success();
   }
-  return mlir::success();
+  return mlir::failure();
 }
 
 //===----------------------------------------------------------------------===//

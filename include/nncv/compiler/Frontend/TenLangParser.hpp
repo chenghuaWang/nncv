@@ -44,7 +44,7 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
       : m_Lexer(nullptr), m_OpBuilder(&context), m_FileName(fileName) {
     m_TheModule = mlir::ModuleOp::create(m_OpBuilder.getUnknownLoc());
-    m_curSymbolTable = utils::AtenSymbolTable::getInstance()->getSymbolRefOfModule(fileName);
+    m_curSymbolTable = utils::AtenSymbolTable::getInstance().getSymbolRefOfModule(fileName);
     m_parseState = parseState::kNone;
   }
 

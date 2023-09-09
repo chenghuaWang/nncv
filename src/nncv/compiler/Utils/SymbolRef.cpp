@@ -94,8 +94,6 @@ bool AtenSymbolRef::readCache(const std::string& path) { return true; }
 //===----------------------------------------------------------------------===//
 // AtenSymbolTable Implement
 //===----------------------------------------------------------------------===//
-AtenSymbolTable::AtenSymbolTable() { instance = this; }
-
 AtenSymbolTable::~AtenSymbolTable() {
   for (auto& item : m_SymbolRefs) { delete item.second; }
 }

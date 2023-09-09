@@ -278,10 +278,15 @@ class AtenSymbolRef {
 
 class AtenSymbolTable {
  public:
-  AtenSymbolTable();
+  AtenSymbolTable() = default;
   ~AtenSymbolTable();
+  AtenSymbolTable(const AtenSymbolTable&) = delete;
+  AtenSymbolTable& operator=(const AtenSymbolTable&) = delete;
 
-  static AtenSymbolTable* getInstance() { return instance; }
+  static AtenSymbolTable& getInstance() {
+    static AtenSymbolTable instance;
+    return instance;
+  }
 
   inline AtenSymbolRef* getSymbolRefOfModule(const AtenModuleNameAttr& attr) {
     auto it = m_SymbolRefs.find(attr.name);
@@ -330,8 +335,6 @@ class AtenSymbolTable {
  private:
   std::unordered_map<std::string, AtenSymbolRef*> m_SymbolRefs;
   std::unordered_map<std::string, mlir::ModuleOp*> m_MLIRModule;
-
-  static AtenSymbolTable* instance;
 };
 
 }  // namespace utils

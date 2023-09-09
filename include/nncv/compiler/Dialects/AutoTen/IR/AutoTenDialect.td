@@ -26,7 +26,8 @@ def Aten_Dialect : Dialect {
         Aten(Auto tensor) is the dialects of Aten language. This language will translate with nncv.
     }];
     
-    let useDefaultTypePrinterParser = 1;
+    let useDefaultAttributePrinterParser = 0;
+    let useDefaultTypePrinterParser = 0;
 
     let dependentDialects = [
         "affine::AffineDialect",
@@ -43,6 +44,16 @@ def Aten_Dialect : Dialect {
     let extraClassDeclaration = [{
         void registerAttributes();
         void registerTypes();
+
+        ::mlir::Type parseType(::mlir::DialectAsmParser &parser) const override;
+        void printType(::mlir::Type type,
+                    ::mlir::DialectAsmPrinter &printer) const override;
+
+        ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
+                                        ::mlir::Type type) const override;
+
+        void printAttribute(::mlir::Attribute attr,
+                            ::mlir::DialectAsmPrinter &os) const override;
     }];
 }
 
