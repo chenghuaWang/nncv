@@ -90,6 +90,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   //===----------------------------------------------------------------------===//
   // Process types and atrributes
   //===----------------------------------------------------------------------===//
+  std::any visitDeclaration(AutoTenV1Parser::DeclarationContext* ctx) override;
+
   std::any visitType_(AutoTenV1Parser::Type_Context* ctx) override;
 
   std::any visitTypeLit(AutoTenV1Parser::TypeLitContext* ctx) override;
@@ -430,6 +432,7 @@ enum class VisitorParserReturnType {
   kStringLiteral,
   kIntLiteral, /*all int literal will return as int64*/
   kFloatLiteral,
+  kBooleanLiteral,
   kAtenTypeDeclare,
   kAttribute,
   kParametersAndReturn, /*for function decl and function call*/

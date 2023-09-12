@@ -88,7 +88,7 @@ class FuncCompilerFlag {
     return false;
   }
 
-  inline llvm::SmallVector<mlir::NamedAttribute> genNamedAttrs(mlir::MLIRContext* ctx) {
+  inline mlir::DictionaryAttr genDictAttrs(mlir::MLIRContext* ctx) {
     llvm::SmallVector<mlir::NamedAttribute> attrs;
     // [1] Kernel.AutoParallel
     if (asKernelAndEnableParallel) {
@@ -100,7 +100,7 @@ class FuncCompilerFlag {
                                        mlir::StringAttr::get(ctx, deviceType));
       attrs.emplace_back(_nda);
     }
-    return attrs;
+    return mlir::DictionaryAttr::get(ctx, attrs);
   }
 
  private:

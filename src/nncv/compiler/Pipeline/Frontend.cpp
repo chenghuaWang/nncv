@@ -24,6 +24,9 @@ void FrontendPipeline::run() {
     frontend::AutoTen2MlirVisitor visitor(m_CurrentFilePath, m_Context);
     visitor.visit(tree);
     m_Module = visitor.getModule();
+    if (mlir::verify(m_Module->getOperation()).failed()) {
+      // FIXME throw error.
+    }
     m_Module->dump();
   }
   ino.close();

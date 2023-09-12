@@ -118,8 +118,8 @@ LogicalResult IntAttr::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()>
 
   auto intType = type.cast<aten::IntType>();
 
-  if (intType.getWidth() != 1 || intType.getWidth() != 8 || intType.getWidth() != 16
-      || intType.getWidth() != 32 || intType.getWidth() != 64) {
+  if (intType.getWidth() != 1 && intType.getWidth() != 8 && intType.getWidth() != 16
+      && intType.getWidth() != 32 && intType.getWidth() != 64) {
     emitError() << "expected width in [1, 8, 16, 32, 64], but get width: " << intType.getWidth();
   }
 

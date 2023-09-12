@@ -32,7 +32,9 @@ std::optional<std::tuple<bool, size_t>> AtenStructSymbolPayload::getVisibilityAn
 //===----------------------------------------------------------------------===//
 // AtenSymbolRef Implement
 //===----------------------------------------------------------------------===//
-AtenSymbolRef::AtenSymbolRef(const std::string& name) : m_name(name) {}
+AtenSymbolRef::AtenSymbolRef(const std::string& name) : m_name(name) {
+  m_stack.push(new AtenSymbolTableG(AtenSymbolTableState::kGlobal));
+}
 
 AtenSymbolRef::~AtenSymbolRef() {
   while (m_stack.size()) {

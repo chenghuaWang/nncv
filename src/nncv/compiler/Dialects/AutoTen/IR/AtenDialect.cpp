@@ -374,7 +374,7 @@ void aten::FuncOp::print(OpAsmPrinter& p) {
   // print function name, args, types.
   p.printSymbolName(getSymName());
   auto funcType = getFunctionType();
-  SmallVector<Type, 1> resultType;
+  llvm::SmallVector<Type, 1> resultType;
   if (!funcType.isVoid()) {
     // let mlir do it.
     function_interface_impl::printFunctionSignature(p, *this, funcType.getInputs(),

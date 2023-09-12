@@ -216,4 +216,14 @@ def WithoutInitAttr : Aten_Attr<"WithoutInit", "without_init", [TypedAttrInterfa
   let assemblyFormat = [{}];
 }
 
+def ZeroAttr : Aten_Attr<"Zero", "zero", [TypedAttrInterface]> {
+  let summary = "Attribute to represent zero initialization";
+  let description = [{
+    The ZeroAttr is used to indicate zero initialization on structs/array.
+  }];
+
+  let parameters = (ins AttributeSelfTypeParameter<"">:$type);
+  let assemblyFormat = [{}];
+}
+
 #endif //! AUTOTEN_IR_ATTRI_TD

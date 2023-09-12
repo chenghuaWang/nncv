@@ -1,5 +1,9 @@
 @package = "main";
 
-func WithoutRetValue(w int32, h int32, c int32, b int32);
+func none();
 
-func WithRetValue(w int32, h int32, c int32, b int32) -> int32;
+func noneWithRet() -> int32;
+
+func withoutRetValue(w int32, h int32, c int32, b int32);
+
+func withRetValue(w int32, h int32, c int32, b int32) -> int32;

@@ -33,8 +33,8 @@ std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext
   visit(ctx->packageClause());
   auto functionDeclCtxs = ctx->functionDecl();
   auto declarationCtxs = ctx->declaration();
-  for (auto& item : functionDeclCtxs) { visit(item); }
   for (auto& item : declarationCtxs) { visit(item); }
+  for (auto& item : functionDeclCtxs) { visit(item); }
   // TODO
   return VisitorParserReturn();
 }
@@ -102,6 +102,10 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
                                           std::get<1>(payload.ret), /*varArg*/ false);
 
   llvm::SmallVector<mlir::DictionaryAttr> _ub;
+  llvm::SmallVector<mlir::NamedAttribute> _attrs;
+
+  auto extraEx = mlir::aten::ExtFuncAttr::get(m_OpBuilder.getContext(),
+                                              funcFlags.genDictAttrs(m_OpBuilder.getContext()));
 
   // TODO
   if (ctx->block()) {
@@ -110,12 +114,17 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     // symbol table stack pop
   } else /*no function body*/ {
     // TODO WAIT: Support Package and Function rename
-    auto op = m_OpBuilder.create<mlir::aten::FuncOp>(
-        location, funcName, funcTy, funcFlags.genNamedAttrs(m_OpBuilder.getContext()), _ub);
+    auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
+
+    // important!!!
+    op.setExtraAttrsAttr(extraEx);
+
     if (isPublic) {
-      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
+      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+      // FIXME emit error, declaration can only be private
     } else {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+      op.setPrivate();
     }
     m_TheModule.push_back(op);
   }
@@ -132,7 +141,7 @@ std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* 
 
   // TODO parse result.
   if (!ctx->ArrowReturnType()) {
-    mlir::Type resultTy = mlir::aten::VoidType();
+    mlir::Type resultTy = mlir::aten::VoidType::get(m_OpBuilder.getContext());
     payload.ret = {"", resultTy, /*has identifier*/ false};
   } else {
     // FIXME: now we just visit type_
@@ -172,6 +181,15 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
   visit(ctx->RightParen());
 
   return VisitorParserReturn(payload);
+}
+
+//===----------------------------------------------------------------------===//
+// declaration : typeDecl | varDecl;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitDeclaration(AutoTenV1Parser::DeclarationContext* ctx) {
+  if (ctx->typeDecl()) { visit(ctx->typeDecl()); }
+  if (ctx->varDecl()) { visit(ctx->varDecl()); }
+  return VisitorParserReturn();
 }
 
 //===----------------------------------------------------------------------===//
@@ -215,7 +233,7 @@ std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseC
   if (!isPackageNameIsMain(pkgName)) { m_TheModule.setName("pk_" + pkgName); }
   // create a symbol table for the package(module or to say).
   if (utils::AtenSymbolTable::getInstance().getSymbolRefOfModule(pkgName) == nullptr) {
-    utils::AtenSymbolTable::getInstance().createSymbolRefOfModule(pkgName);
+    m_curSymbolTable = utils::AtenSymbolTable::getInstance().createSymbolRefOfModule(pkgName);
   }
   return VisitorParserReturn();
 }
@@ -297,189 +315,317 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
                                 theVarSpec->identifierList()->getStart()->getCharPositionInLine());
 
   // build values.
-  auto atvAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->type_()));
+  auto type = std::any_cast<VisitorParserReturn>(visit(theVarSpec->type_())).getValue<mlir::Type>();
 
-  if (!atvAny.isa(VisitorParserReturnType::kAtenTypeDeclare)) {
-    // FIXME: throw error
+  // case 1. declare int type
+  if (type.isa<mlir::aten::IntType>()) {
+    if (!theVarSpec->Assign()) {
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+          location, type, mlir::aten::IntAttr::get(type, 0));
+      m_curSymbolTable->registerVarSymbol(symbolName, value);
+      return VisitorParserReturn(value);
+    } else {
+      /* if this expr return a mlir::Value. We just need to record this value;*/
+      auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+      if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+        auto value = exprAny.getValue<mlir::Value>();
+
+        // TODO if value's type is mismatch with type, do cast.
+
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
+        return VisitorParserReturn(value);
+      }
+      /*if the return is just a int literal. I use `ConstantOp` to create one*/
+      if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+          || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+        int64_t intValue;
+        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+          intValue = (int64_t)exprAny.getValue<float>();
+        } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+          intValue = exprAny.getValue<int64_t>();
+        }
+        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, type, mlir::aten::IntAttr::get(type, intValue));
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
+        return VisitorParserReturn(value);
+      }
+      // FIXME Throw error. Unreachable.
+    }
   }
-  auto atv = atvAny.getValue<VisitorParserAtenTypeDecl>();
-  switch (atv.type) {
-    case VisitorParserAtenTypeDeclType::kBool: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
-    }
-    case VisitorParserAtenTypeDeclType::kInt1: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
-    }
-    case VisitorParserAtenTypeDeclType::kInt8: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
-    }
-    case VisitorParserAtenTypeDeclType::kInt16: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(16)
-    }
-    case VisitorParserAtenTypeDeclType::kInt32: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(32)
-    }
-    case VisitorParserAtenTypeDeclType::kInt64: {
-      // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(64);
-    }
-    case VisitorParserAtenTypeDeclType::kFloat32: {
-      if (!theVarSpec->Assign()) {
-        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-            location, mlir::Float32Type::get(m_OpBuilder.getContext()),
-            m_OpBuilder.getF32FloatAttr(0.f));
-        m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+
+  // case 2. declare Float type
+  if (type.isa<mlir::FloatType>()) {
+    if (!theVarSpec->Assign()) {
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+          location, type, mlir::FloatAttr::get(type, 0.0));
+      m_curSymbolTable->registerVarSymbol(symbolName, value);
+      return VisitorParserReturn(value);
+    } else {
+      /* if this expr return a mlir::Value. We just need to record this value;*/
+      auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+      if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+        auto value = exprAny.getValue<mlir::Value>();
+
+        // TODO if value's type is mismatch with type, do cast.
+
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
         return VisitorParserReturn(value);
-      } else {
-        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
-        /* if this expr return a mlir::Value. We just need to record this value;*/
-        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
-          auto v = exprAny.getValue<mlir::Value>();
-
-          // if value's type is mismatch with Float32
-          // TODO do cast.
-
-          m_curSymbolTable->registerVarSymbol(symbolName, v);  // FIXME error info
-          return VisitorParserReturn(v);
+      }
+      /*if the return is just a int literal. I use `ConstantOp` to create one*/
+      if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+          || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+        double floatValue;
+        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+          floatValue = exprAny.getValue<double>();
+        } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+          floatValue = (double)exprAny.getValue<int64_t>();
         }
-        /*if the return is just a int literal. We use `ConstantOp` to create one*/
-        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
-            || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-          float f = 0.f;
-          if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
-            f = exprAny.getValue<float>();
-          } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-            f = exprAny.getValue<int64_t>();
-          }
-          mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-              location, mlir::Float32Type::get(m_OpBuilder.getContext()),
-              m_OpBuilder.getF32FloatAttr(f));
-          m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-          return VisitorParserReturn(value);
+        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, type, mlir::FloatAttr::get(type, floatValue));
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
+        return VisitorParserReturn(value);
+      }
+      // FIXME Throw error. Unreachable.
+    }
+  }
+
+  // case 3. declare bool type
+  if (type.isa<mlir::aten::BoolType>()) {
+    if (!theVarSpec->Assign()) {
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+          location, type,
+          mlir::aten::BoolAttr::get(m_OpBuilder.getContext(), type.cast<mlir::aten::BoolType>(),
+                                    false));
+      m_curSymbolTable->registerVarSymbol(symbolName, value);
+      return VisitorParserReturn(value);
+    } else {
+      /* if this expr return a mlir::Value. We just need to record this value;*/
+      auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+      if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+        auto value = exprAny.getValue<mlir::Value>();
+
+        // TODO if value's type is mismatch with type, do cast.
+
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
+        return VisitorParserReturn(value);
+      }
+      /*if the return is just a int literal. I use `ConstantOp` to create one*/
+      if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+          || exprAny.isa(VisitorParserReturnType::kIntLiteral)
+          || exprAny.isa(VisitorParserReturnType::kBooleanLiteral)) {
+        bool boolValue = true;
+        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+          boolValue = exprAny.getValue<double>();
+        } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+          boolValue = (double)exprAny.getValue<int64_t>();
+        } else if (exprAny.isa(VisitorParserReturnType::kBooleanLiteral)) {
+          boolValue = exprAny.getValue<bool>();
         }
-        /* FIXME: throw error*/
-        return VisitorParserReturn();
+        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, type,
+            mlir::aten::BoolAttr::get(m_OpBuilder.getContext(), type.cast<mlir::aten::BoolType>(),
+                                      boolValue));
+        m_curSymbolTable->registerVarSymbol(symbolName, value);
+        return VisitorParserReturn(value);
       }
     }
-    case VisitorParserAtenTypeDeclType::kFloat64: {
-      if (!theVarSpec->Assign()) {
-        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-            location, mlir::Float64Type::get(m_OpBuilder.getContext()),
-            m_OpBuilder.getF64FloatAttr(0.f));
-        m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-        return VisitorParserReturn(value);
-      } else {
-        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
-        /* if this expr return a mlir::Value. We just need to record this value;*/
-        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
-          auto v = exprAny.getValue<mlir::Value>();
+  }
 
-          // if value's type is mismatch with Float64
-          // TODO do cast.
+  // TODO case 4. declare char type
+  // TODO case 5. declare string type
+  // TODO case 6. declare void type
+  // TODO case 7. declare tensor type
 
-          m_curSymbolTable->registerVarSymbol(symbolName, v);  // FIXME error info
-          return VisitorParserReturn(v);
-        }
-        /*if the return is just a int literal. We use `ConstantOp` to create one*/
-        if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
-            || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-          float f = 0.f;
-          if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
-            f = exprAny.getValue<float>();
-          } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-            f = exprAny.getValue<int64_t>();
-          }
-          mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-              location, mlir::Float64Type::get(m_OpBuilder.getContext()),
-              m_OpBuilder.getF64FloatAttr(f));
-          m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-          return VisitorParserReturn(value);
-        }
-        /* FIXME: throw error*/
-        return VisitorParserReturn();
-      }
-    }
-    case VisitorParserAtenTypeDeclType::kMap: {
+  // case 8. declare ConstantArray type
+  if (type.isa<mlir::aten::ArrayType>()) {
+    if (!theVarSpec->Assign()) {
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+          location, type, mlir::aten::ZeroAttr::get(m_OpBuilder.getContext(), type));
+      m_curSymbolTable->registerVarSymbol(symbolName, value);
+      return VisitorParserReturn(value);
+    } else {
       // TODO
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kArray: {
-      // get the Element type and length
-      auto payload = atv.arrayPayload;
-      auto ty = payload.first;
-      auto len = payload.second;
-      auto arrayTy = mlir::aten::ArrayType::get(m_OpBuilder.getContext(), ty, len);
-      // create all values.
-      if (!theVarSpec->Assign()) {
-        // init types with default attribute if they don't have a assign.
-        mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
-            location, arrayTy,
-            mlir::aten::ConstArrayAttr::get(
-                arrayTy, mlir::aten::WithoutInitAttr::get(m_OpBuilder.getContext(), arrayTy)));
-        m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-        return VisitorParserReturn(value);
-      } else {
-        // expressionList->expression->primaryExpr->operand->literal->compositeLit->
-        auto res = visit(theVarSpec->expressionList());
-        // TODO
-      }
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kPtr: {
-      auto pointeeType = atv.ptrPayload;
-      if (!theVarSpec->Assign()) {
-        auto ptrAttr = mlir::aten::NilAttr::get(m_OpBuilder.getContext(), pointeeType);
-        mlir::Value value =
-            m_OpBuilder.create<mlir::aten::ConstantOp>(location, pointeeType, ptrAttr);
-        m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-        return VisitorParserReturn(value);
-      } else {
-        auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
-        if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
-          auto value = exprAny.getValue<mlir::Value>();
-
-          if (!value.getType().isa<mlir::aten::PointerType>()) {
-            // FIXME throw error.
-          }
-
-          m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
-          return VisitorParserReturn(value);
-        }
-      }
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kSlice: {
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kString: {
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kChar: {
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kFunc: {
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kStruct: {
-      return VisitorParserReturn();
-    }
-    case VisitorParserAtenTypeDeclType::kTensor: {
-      auto payload = atv.tensorPayload;
-      if (std::get<1>(payload).size() == 0) {
-        // TODO
-      } else {
-        if (theVarSpec->Assign()) {
-          // TODO
-        } else {
-          // TODO Pass correct value to empty op. Use mlir::tensor::empty method to build the value.
-          // TODO register value to the table it belong to.
-          // https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorempty-tensoremptyop
-          // mlir::Value value = m_OpBuilder.create<mlir::tensor::EmptyOp>(location);
-          // return value;
-          return VisitorParserReturn();
-        }
-      }
     }
   }
+
+  // switch (atv.type) {
+  //   case VisitorParserAtenTypeDeclType::kBool: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kInt1: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kInt8: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(8)
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kInt16: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(16)
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kInt32: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(32)
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kInt64: {
+  //     // HANDLE_VISITOR_PARSER_FOR_INT_WIDTH(64);
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kFloat32: {
+  //     if (!theVarSpec->Assign()) {
+  //       mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+  //           location, mlir::Float32Type::get(m_OpBuilder.getContext()),
+  //           m_OpBuilder.getF32FloatAttr(0.f));
+  //       m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //       return VisitorParserReturn(value);
+  //     } else {
+  //       auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+  //       /* if this expr return a mlir::Value. We just need to record this value;*/
+  //       if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+  //         auto v = exprAny.getValue<mlir::Value>();
+
+  //         // if value's type is mismatch with Float32
+  //         // TODO do cast.
+
+  //         m_curSymbolTable->registerVarSymbol(symbolName, v);  // FIXME error info
+  //         return VisitorParserReturn(v);
+  //       }
+  //       /*if the return is just a int literal. We use `ConstantOp` to create one*/
+  //       if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+  //           || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+  //         float f = 0.f;
+  //         if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+  //           f = exprAny.getValue<float>();
+  //         } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+  //           f = exprAny.getValue<int64_t>();
+  //         }
+  //         mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+  //             location, mlir::Float32Type::get(m_OpBuilder.getContext()),
+  //             m_OpBuilder.getF32FloatAttr(f));
+  //         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //         return VisitorParserReturn(value);
+  //       }
+  //       /* FIXME: throw error*/
+  //       return VisitorParserReturn();
+  //     }
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kFloat64: {
+  //     if (!theVarSpec->Assign()) {
+  //       mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+  //           location, mlir::Float64Type::get(m_OpBuilder.getContext()),
+  //           m_OpBuilder.getF64FloatAttr(0.f));
+  //       m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //       return VisitorParserReturn(value);
+  //     } else {
+  //       auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+  //       /* if this expr return a mlir::Value. We just need to record this value;*/
+  //       if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+  //         auto v = exprAny.getValue<mlir::Value>();
+
+  //         // if value's type is mismatch with Float64
+  //         // TODO do cast.
+
+  //         m_curSymbolTable->registerVarSymbol(symbolName, v);  // FIXME error info
+  //         return VisitorParserReturn(v);
+  //       }
+  //       /*if the return is just a int literal. We use `ConstantOp` to create one*/
+  //       if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
+  //           || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+  //         float f = 0.f;
+  //         if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
+  //           f = exprAny.getValue<float>();
+  //         } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
+  //           f = exprAny.getValue<int64_t>();
+  //         }
+  //         mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+  //             location, mlir::Float64Type::get(m_OpBuilder.getContext()),
+  //             m_OpBuilder.getF64FloatAttr(f));
+  //         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //         return VisitorParserReturn(value);
+  //       }
+  //       /* FIXME: throw error*/
+  //       return VisitorParserReturn();
+  //     }
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kMap: {
+  //     // TODO
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kArray: {
+  //     // get the Element type and length
+  //     auto payload = atv.arrayPayload;
+  //     auto ty = payload.first;
+  //     auto len = payload.second;
+  //     auto arrayTy = mlir::aten::ArrayType::get(m_OpBuilder.getContext(), ty, len);
+  //     // create all values.
+  //     if (!theVarSpec->Assign()) {
+  //       // init types with default attribute if they don't have a assign.
+  //       mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(
+  //           location, arrayTy,
+  //           mlir::aten::ConstArrayAttr::get(
+  //               arrayTy, mlir::aten::WithoutInitAttr::get(m_OpBuilder.getContext(), arrayTy)));
+  //       m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //       return VisitorParserReturn(value);
+  //     } else {
+  //       // expressionList->expression->primaryExpr->operand->literal->compositeLit->
+  //       auto res = visit(theVarSpec->expressionList());
+  //       // TODO
+  //     }
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kPtr: {
+  //     auto pointeeType = atv.ptrPayload;
+  //     if (!theVarSpec->Assign()) {
+  //       auto ptrAttr = mlir::aten::NilAttr::get(m_OpBuilder.getContext(), pointeeType);
+  //       mlir::Value value =
+  //           m_OpBuilder.create<mlir::aten::ConstantOp>(location, pointeeType, ptrAttr);
+  //       m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //       return VisitorParserReturn(value);
+  //     } else {
+  //       auto exprAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->expressionList()));
+  //       if (exprAny.isa(VisitorParserReturnType::kMlirValue)) {
+  //         auto value = exprAny.getValue<mlir::Value>();
+
+  //         if (!value.getType().isa<mlir::aten::PointerType>()) {
+  //           // FIXME throw error.
+  //         }
+
+  //         m_curSymbolTable->registerVarSymbol(symbolName, value);  // FIXME error info
+  //         return VisitorParserReturn(value);
+  //       }
+  //     }
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kSlice: {
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kString: {
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kChar: {
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kFunc: {
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kStruct: {
+  //     return VisitorParserReturn();
+  //   }
+  //   case VisitorParserAtenTypeDeclType::kTensor: {
+  //     auto payload = atv.tensorPayload;
+  //     if (std::get<1>(payload).size() == 0) {
+  //       // TODO
+  //     } else {
+  //       if (theVarSpec->Assign()) {
+  //         // TODO
+  //       } else {
+  //         // TODO Pass correct value to empty op. Use mlir::tensor::empty method to build the
+  //         value.
+  //         // TODO register value to the table it belong to.
+  //         // https://mlir.llvm.org/docs/Dialects/TensorOps/#tensorempty-tensoremptyop
+  //         // mlir::Value value = m_OpBuilder.create<mlir::tensor::EmptyOp>(location);
+  //         // return value;
+  //         return VisitorParserReturn();
+  //       }
+  //     }
+  //   }
+  // }
   return VisitorParserReturn();
 }
 
