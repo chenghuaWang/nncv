@@ -1,6 +1,7 @@
 #ifndef NNCV_VM_ALLOC_CUDA_CUH
 #define NNCV_VM_ALLOC_CUDA_CUH
 
+#include <cstddef>
 #include "nncv/vm/cuda/vm_cuda_error.cuh"
 
 namespace nncv {

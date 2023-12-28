@@ -10,10 +10,18 @@
  * @copyright Copyright (c) 2023
  *
  */
+
+#ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
   "version is 0.0.1(pre-build).\n"                          \
   "author: chenghua.wang\n"
+#else
+#define VERSION_STR                                               \
+  "NNCV Compiler(build for amd64, general-linux, using clang15);" \
+  "version is 0.0.1(pre-build).\n"                                \
+  "author: chenghua.wang\n"
+#endif
 
 // make complex warning silence
 #ifdef _WIN32

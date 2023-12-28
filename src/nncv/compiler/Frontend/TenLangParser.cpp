@@ -758,50 +758,42 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
 
     mlir::Location location = loc(ctx->mul_op->getLine(), ctx->mul_op->getCharPositionInLine());
 
-    switch (mulOpType) {
-      case m_Lexer.Star: {
-        // TODO bulder is incorrect.
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Mul),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Div: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Div),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Mod: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Mod),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.LeftShift: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue,
-                                                                       m_OpBuilder.getUnitAttr());
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.RightShift: {
-        mlir::Value retValue =
-            m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.And: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::And),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
+    if (mulOpType == m_Lexer.Star) {
+      // TODO bulder is incorrect.
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Mul),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (mulOpType == m_Lexer.Div) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Div),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (mulOpType == m_Lexer.Mod) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Mod),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (mulOpType == m_Lexer.LeftShift) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue,
+                                                                     m_OpBuilder.getUnitAttr());
+      return VisitorParserReturn(retValue);
+    } else if (mulOpType == m_Lexer.RightShift) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::ShiftOp>(location, lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (mulOpType == m_Lexer.And) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::And),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
     }
   }
   // expression add_op = (Plus|Minus|Or|Caret) expression
@@ -811,40 +803,36 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
 
     mlir::Location location = loc(ctx->add_op->getLine(), ctx->add_op->getCharPositionInLine());
-    switch (addOpType) {
-      case m_Lexer.Plus: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Add),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Minus: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Sub),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Or: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Or),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Caret: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
-            location,
-            mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::BinOpPredicate::Xor),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
+    if (addOpType == m_Lexer.Plus) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Add),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (addOpType == m_Lexer.Minus) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Sub),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (addOpType == m_Lexer.Or) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Or),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (addOpType == m_Lexer.Caret) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Xor),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
     }
+
   }
   // expression rel_op = (Equal|NotEqual|Less|LessEqual|Greater|GreaterEqual) expression
   else if (ctx->rel_op) {
@@ -854,56 +842,50 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
 
     mlir::Location location = loc(ctx->rel_op->getLine(), ctx->rel_op->getCharPositionInLine());
 
-    switch (relOpType) {
-      case m_Lexer.Equal: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::eq),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.NotEqual: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::ne),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Less: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::lt),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.LessEqual: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::le),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.Greater: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::gt),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
-      case m_Lexer.GreaterEqual: {
-        mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
-            location,
-            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                                mlir::aten::CmpOpPredicate::ge),
-            lhsValue, rhsValue);
-        return VisitorParserReturn(retValue);
-      }
+    if (relOpType == m_Lexer.Equal) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::eq),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (relOpType == m_Lexer.NotEqual) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::ne),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (relOpType == m_Lexer.Less) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::lt),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (relOpType == m_Lexer.LessEqual) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::le),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (relOpType == m_Lexer.Greater) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::gt),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
+    } else if (relOpType == m_Lexer.GreaterEqual) {
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+          location,
+          mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::CmpOpPredicate::ge),
+          lhsValue, rhsValue);
+      return VisitorParserReturn(retValue);
     }
+
   }
   // expression AndAnd expression
   else if (ctx->AndAnd()) {

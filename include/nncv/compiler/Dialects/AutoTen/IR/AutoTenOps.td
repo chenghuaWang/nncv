@@ -14,12 +14,12 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/FunctionInterfaces.td"
+include "mlir/Interfaces/DataLayoutInterfaces.td"
 
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/EnumAttr.td"
-include "mlir/IR/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
-include "mlir/Interfaces/DataLayoutInterfaces.td"
 
 //===----------------------------------------------------------------------===//
 // Aten Ops
@@ -549,6 +549,7 @@ def Aten_FuncOp : Aten_Op <"func", [
 
 def CallOp : Aten_Op<"call", [
     CallOpInterface, 
+    DeclareOpInterfaceMethods<CallOpInterface>,
     DeclareOpInterfaceMethods<SymbolUserOpInterface>
 ]> {
     let summary = "call operation";
@@ -587,11 +588,6 @@ def CallOp : Aten_Op<"call", [
         }
         operand_iterator arg_operand_end() { return operand_end(); }
 
-        /// Get the argument operands to the called function.
-        operand_range getArgOperands() {
-            return {arg_operand_begin(), arg_operand_end()};
-        }
-
         /// Return the operand at index 'i', accounts for indirect call.
         Value getArgOperand(unsigned i) {
             if (!getCallee()) i++;
@@ -603,19 +599,6 @@ def CallOp : Aten_Op<"call", [
             if (!getCallee())
                 return this->getOperation()->getNumOperands()-1;
             return this->getOperation()->getNumOperands();
-        }
-
-        /// Return the callee of this operation.
-        CallInterfaceCallable getCallableForCallee() {
-            return (*this)->getAttrOfType<SymbolRefAttr>("callee");
-        }
-
-        /// Set the callee for this operation.
-        void setCalleeFromCallable(mlir::CallInterfaceCallable callee) {
-            if (auto calling =
-                (*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
-                (*this)->setAttr(getCalleeAttrName(), callee.get<mlir::SymbolRefAttr>());
-            setOperand(0, callee.get<mlir::Value>());
         }
     }];
 

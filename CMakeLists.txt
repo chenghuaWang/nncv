@@ -198,7 +198,7 @@ if(nncv_build_model_compiler)
     include(TableGen)
     include(AddLLVM)
     include(AddMLIR)
-    # include(HandleLLVMOptions)
+    include(HandleLLVMOptions)
 
     set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
     message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
@@ -219,7 +219,6 @@ if(nncv_build_model_compiler)
 
     include_directories(${LLVM_INCLUDE_DIRS})
     include_directories(${MLIR_INCLUDE_DIRS})
-    # link_directories(D:/commonlib/llvm-project/build/Debug/lib)
     add_definitions(${LLVM_DEFINITIONS})
 
     include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/nncv/compiler/Dialects/)

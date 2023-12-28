@@ -12,7 +12,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/FunctionImplementation.h"
+#include "mlir/Interfaces/FunctionImplementation.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
@@ -154,6 +154,20 @@ LogicalResult UnaryOp::verify() {
 //===----------------------------------------------------------------------===//
 // Aten Func Call Op
 //===----------------------------------------------------------------------===//
+
+OperandRange aten::CallOp::getArgOperands() { return {arg_operand_begin(), arg_operand_end()}; }
+
+MutableOperandRange aten::CallOp::getArgOperandsMutable() { return getOperandsMutable(); }
+
+CallInterfaceCallable aten::CallOp::getCallableForCallee() {
+  return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+}
+
+void aten::CallOp::setCalleeFromCallable(::mlir::CallInterfaceCallable callee) {
+  if (auto calling = (*this)->getAttrOfType<mlir::SymbolRefAttr>(getCalleeAttrName()))
+    (*this)->setAttr(getCalleeAttrName(), callee.get<mlir::SymbolRefAttr>());
+  setOperand(0, callee.get<mlir::Value>());
+}
 
 LogicalResult aten::CallOp::verifySymbolUses(SymbolTableCollection& symbolTable) {
   // I just support flat attribute like what `func.func` does.
@@ -573,8 +587,7 @@ LogicalResult aten::StoreOp::verify() { return success(); }
 // Aten MakeStructSymbol Op.
 //===----------------------------------------------------------------------===//
 
-void aten::MakeStructSymbol::getSuccessorRegions(std::optional<unsigned> index,
-                                                 ArrayRef<Attribute> operands,
+void aten::MakeStructSymbol::getSuccessorRegions(mlir::RegionBranchPoint point,
                                                  SmallVectorImpl<RegionSuccessor>& regions) {
   auto region = &getCtorRegion();
   region = nullptr;

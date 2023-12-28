@@ -20,6 +20,10 @@
 #define IMPORT_DLL __declspec(dllimport)
 #endif
 
+#ifndef _WIN32
+#define NNCV_EXPORT_DLL
+#endif
+
 #if (defined(__clang__) || defined(_GNU_)) && !(defined(_MSC_VER))
 #define NNCV_FORCE_INLINE __attribute__((always_inline))
 #elif defined(_MSC_VER)

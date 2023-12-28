@@ -1,4 +1,5 @@
 #include "nncv/vm/op/conv2d_x86.hpp"
+#include <vector>
 
 namespace nncv {
 namespace vm {

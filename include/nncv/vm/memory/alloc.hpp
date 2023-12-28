@@ -79,7 +79,7 @@ NNCV_FORCE_INLINE _Tp* AlignPtr(_Tp* ptr, int n = (int)sizeof(_Tp)) {
  * @param _size
  * @return void*
  */
-NNCV_FORCE_INLINE void* MemAlloc(size_t _size, const Device& _device) {
+NNCV_FORCE_INLINE static void* MemAlloc(size_t _size, const Device& _device) {
   switch (_device.Type) {
     case kHost:
 #if defined(_MSC_VER)
@@ -90,8 +90,8 @@ NNCV_FORCE_INLINE void* MemAlloc(size_t _size, const Device& _device) {
     {
       void* ptr = nullptr;
       if (posix_memalign(&ptr, NNCV_ALLOC_ALIGNED_BITS, _size + NNCV_ALLOC_SAFEGUARD))
-        _ptr = nullptr;
-      return _ptr;
+        ptr = nullptr;
+      return ptr;
     }
 #else
     {
@@ -113,7 +113,7 @@ NNCV_FORCE_INLINE void* MemAlloc(size_t _size, const Device& _device) {
   return nullptr;
 }
 
-NNCV_FORCE_INLINE void MemFree(void* _ptr, const Device& _device) {
+NNCV_FORCE_INLINE static void MemFree(void* _ptr, const Device& _device) {
   switch (_device.Type) {
     case kHost:
 #if defined(_MSC_VER)
