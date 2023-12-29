@@ -13,6 +13,7 @@ class pipelineAll {};
 
 class pipeline {
  public:
+  virtual ~pipeline(){};
   virtual void run() = 0;
 };
 
@@ -20,6 +21,7 @@ class FrontendPipeline : public pipeline {
  public:
   FrontendPipeline(mlir::MLIRContext& context, mlir::OwningOpRef<mlir::ModuleOp>& module)
       : m_Context(context), m_Module(module) {}
+  ~FrontendPipeline() {}
 
   void run() override;
 

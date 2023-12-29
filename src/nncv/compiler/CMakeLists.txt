@@ -3,6 +3,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(nncv_compiler_use_antlr "Enable antlr for frontend" ON)
 
+
 if (nncv_compiler_use_antlr)
 
 if (MSVC)
@@ -48,7 +49,7 @@ get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 # The compiler target
-add_llvm_executable(nncv-c 
+add_llvm_executable(nncv-c
     # Cli Driver files
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/main.cpp
 
@@ -90,6 +91,7 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/STrap.hpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/SymbolRef.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/SymbolRef.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/PlatformCtx.hpp
 
     DEPENDS
     # dialect itself
@@ -108,6 +110,9 @@ if (nncv_compiler_use_antlr)
 
         # antlr4
         antlr4_static
+
+        # cpu info
+        cpuinfo
     )
 else()
     target_link_libraries(nncv-c PRIVATE
@@ -118,7 +123,16 @@ else()
 
         # Third-party
         fmt::fmt-header-only
+
+        # Cpu info
+        cpuinfo
     )
 endif()
+
+if (nncv_enable_cuda)
+    target_link_libraries(nncv-c PRIVATE
+        CUDA::cudart
+    )
+endif (nncv_enable_cuda)
 mlir_check_all_link_libraries(nncv-c)
 llvm_update_compile_flags(nncv-c)
