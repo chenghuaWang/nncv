@@ -50,15 +50,18 @@
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
-                                         llvm::cl::Required);
+                                         llvm::cl::Optional);
 llvm::cl::opt<bool> ShowCst("show-cst", llvm::cl::desc("<show CST>"), llvm::cl::Optional);
 llvm::cl::opt<bool> ShowMlir("show-mlir", llvm::cl::desc("<show MLIR>"), llvm::cl::Optional);
+llvm::cl::opt<bool> GetPlatformInfoOnly("get-platform-info-only",
+                                        llvm::cl::desc("<get platform infomation only>"),
+                                        llvm::cl::Optional);
 
 mlir::FailureOr<std::string> ReadWholeFile(std::string& FilePath) {
   auto fd = llvm::sys::fs::openNativeFileForRead(FilePath);
   if (!fd) {
     llvm::consumeError(fd.takeError());
-    // FIXME Emit error
+    printf("[ INFO ] Can not open file %s\n", FilePath.c_str());
     return mlir::failure();
   }
   std::optional exit = llvm::make_scope_exit([&fd] { llvm::sys::fs::closeFile(*fd); });
@@ -66,7 +69,7 @@ mlir::FailureOr<std::string> ReadWholeFile(std::string& FilePath) {
   {
     auto error = llvm::sys::fs::status(*fd, Status);
     if (error) {
-      // FIXME throw error
+      printf("[ INFO ] File descriptor is not available");
       return mlir::failure();
     }
   }
@@ -74,13 +77,16 @@ mlir::FailureOr<std::string> ReadWholeFile(std::string& FilePath) {
   auto read = llvm::sys::fs::readNativeFile(*fd, {Content.data(), Content.size()});
   if (!read) {
     llvm::consumeError(fd.takeError());
-    // FIXME throw error
+    printf("[ INFO ] Can not read file %s\n", FilePath.c_str());
     return mlir::failure();
   }
   return {std::move(Content)};
 }
 
 int main(int argc, char* argv[]) {
+  // ---------------------------------------------------------------------
+  //  Preparation for cli.
+  // ---------------------------------------------------------------------
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
   // mlir::registerPassManagerCLOptions();
@@ -89,7 +95,8 @@ int main(int argc, char* argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   // detecting platform
-  nncv::compiler::utils::PlatformCtxInit();
+  nncv::compiler::utils::PlatformCtx pctx = nncv::compiler::utils::PlatformCtxInit();
+  if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
 
   // init dialect
   mlir::DialectRegistry registry;
@@ -102,6 +109,9 @@ int main(int argc, char* argv[]) {
   std::string CurFilePath = InputFilename.getValue();
   std::string SuffixStr = CurFilePath.substr(CurFilePath.find_last_of('.') + 1);
 
+  // ---------------------------------------------------------------------
+  //  Front end. Import materials.
+  // ---------------------------------------------------------------------
   if (SuffixStr == "aten") {
     // compile aten-lang
     nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
@@ -113,9 +123,7 @@ int main(int argc, char* argv[]) {
   } else if (SuffixStr == "nncv") {
     // compile dnn mlir from torch-mlir linag-on-tensor option on.
     auto StrContent = ReadWholeFile(CurFilePath);
-    if (mlir::failed(StrContent)) {
-      // FIXME Throw error
-    }
+    if (mlir::failed(StrContent)) { exit(-1); }
 
     // config
     auto Config = mlir::ParserConfig(&MlirContext, /*verifyAfterParse=*/false);
@@ -123,11 +131,14 @@ int main(int argc, char* argv[]) {
     if (auto Buffer = llvm::MemoryBufferRef(*StrContent, CurFilePath); mlir::isBytecode(Buffer)) {
       auto Body = std::make_unique<mlir::Block>();
       if (mlir::failed(mlir::readBytecodeFile(Buffer, Body.get(), Config))) {
-        // FIXME throw error
+        printf("[ Erro ] Failed to read bytecode file(failed from mlir).\n");
       }
-      // TODO bugs.
       MlirModule = mlir::parseSourceString<mlir::ModuleOp>(*StrContent, Config);
       MlirModule->dump();
     }
   }
+
+  // ---------------------------------------------------------------------
+  //  Middle end. Register Some Pass for optimize and lowering.
+  // ---------------------------------------------------------------------
 }

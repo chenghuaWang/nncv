@@ -47,9 +47,10 @@ std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext
 // )?;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclContext* ctx) {
+  int __line = ctx->Function()->getSymbol()->getLine();
+  int __row = ctx->Function()->getSymbol()->getCharPositionInLine();
   // get the location
-  mlir::Location location = loc(ctx->Function()->getSymbol()->getLine(),
-                                ctx->Function()->getSymbol()->getCharPositionInLine());
+  mlir::Location location = loc(__line, __row);
 
   // eats and load all compile flags to func decl.
   auto compileFlagsCtxs = ctx->compileFlags();
@@ -63,19 +64,27 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     // gather value
     if (item->True_()) {
       if (!funcFlags.setFlagsKV(sig, true)) {
-        // FIXME emit error.
+        printf("[ Erro ] %d:%d Key: %s is not supported or can not be apllied to Boolean.\n",
+               __line, __row, sig.c_str());
+        exit(-1);
       }
     } else if (item->False_()) {
       if (!funcFlags.setFlagsKV(sig, false)) {
-        // FIXME emit error.
+        printf("[ Erro ] %d:%d Key: %s is not supported or can not be apllied to Boolean.\n",
+               __line, __row, sig.c_str());
+        exit(-1);
       }
     } else {
       auto strRetValue = std::any_cast<VisitorParserReturn>(visit(item->expression()));
       if (!strRetValue.isa(VisitorParserReturnType::kStringLiteral)) {
-        // FIXME emit error
+        printf("[ Erro ] %d:%d You'r trying to assign a value with non-string type.\n", __line,
+               __row);
+        exit(-1);
       }
       if (!funcFlags.setFlagsKV(sig, strRetValue.getValue<std::string>())) {
-        // FIXME emit error
+        printf("[ Erro ] %d:%d Key: %s has no option %s\n", __line, __row, sig.c_str(),
+               strRetValue.getValue<std::string>().c_str());
+        exit(-1);
       }
     }
   }
@@ -107,9 +116,8 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
   auto extraEx = mlir::aten::ExtFuncAttr::get(m_OpBuilder.getContext(),
                                               funcFlags.genDictAttrs(m_OpBuilder.getContext()));
 
-  // TODO
   if (ctx->block()) {
-    // TODO symbol table stack push
+    // FIXME register function symbol
 
     // symbol table stack pop
   } else /*no function body*/ {
@@ -121,7 +129,10 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
 
     if (isPublic) {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
-      // FIXME emit error, declaration can only be private
+      printf("[ Erro ] %d:%d fucntion declaration with no function body can only be made as "
+             "private.\n",
+             __line, __row);
+      exit(-1);
     } else {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
       op.setPrivate();
@@ -156,6 +167,8 @@ std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* 
 //===----------------------------------------------------------------------===//
 // parameters:
 //	LeftParen (parameterDecl (Comma parameterDecl)* Comma?)? RightParen;
+//
+// All done. Code Freezed!!!
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext* ctx) {
   visit(ctx->LeftParen());
@@ -169,7 +182,9 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
     bool hasIdentifier = false;
 
     if (item->Ellipsis()) {
-      // FIXME throw error, not support yet.
+      int __line = item->Ellipsis()->getSymbol()->getLine();
+      int __row = item->Ellipsis()->getSymbol()->getCharPositionInLine();
+      printf("[ Erro ] %d:%d nncv not support mutable argument list right now.\n", __line, __row);
     }
     if (item->identifierList()) {
       name =
@@ -185,6 +200,8 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
 
 //===----------------------------------------------------------------------===//
 // declaration : typeDecl | varDecl;
+//
+// All done. Code Freezed!!!
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitDeclaration(AutoTenV1Parser::DeclarationContext* ctx) {
   if (ctx->typeDecl()) { visit(ctx->typeDecl()); }
@@ -247,6 +264,8 @@ std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseC
 // NOTE: This `visitStructType` function will only be visited when struct is declaring.
 //
 // return: VisitorParserReturn(mlir::Type);
+//
+// FIXME: Struct is not support yet.
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitStructType(AutoTenV1Parser::StructTypeContext* ctx) {
   visit(ctx->Struct());
@@ -300,6 +319,9 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   }
   auto theVarSpec = varSpec[0];
 
+  int __line = ctx->Var()->getSymbol()->getLine();
+  int __row = ctx->Var()->getSymbol()->getCharPositionInLine();
+
   // get the symbol name in identifier list.
   auto symbolNameAny = std::any_cast<VisitorParserReturn>(
       visit(theVarSpec->identifierList()));  // TODO identifier list on working
@@ -307,7 +329,8 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   if (symbolNameAny.isa(VisitorParserReturnType::kStringLiteral)) {
     symbolName = symbolNameAny.getValue<std::string>();
   } else {
-    // FIXME: throw error at location
+    printf("[ error ] %d:%d symbol name can't cast to string literal\n", __line, __row);
+    exit(-1);
   }
 
   // get the identifier list's position
@@ -349,7 +372,8 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
         m_curSymbolTable->registerVarSymbol(symbolName, value);
         return VisitorParserReturn(value);
       }
-      // FIXME Throw error. Unreachable.
+      printf("[ error ] %d:%d can't handle this int type declaration.\n", __line, __row);
+      exit(-1);
     }
   }
 
@@ -385,7 +409,8 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
         m_curSymbolTable->registerVarSymbol(symbolName, value);
         return VisitorParserReturn(value);
       }
-      // FIXME Throw error. Unreachable.
+      printf("[ error ] %d:%d can't handle this float type declaration.\n", __line, __row);
+      exit(-1);
     }
   }
 
