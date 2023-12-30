@@ -56,6 +56,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   parseState m_parseState;
   std::string m_curParsingTypeDeclName;  ///< record current parsing Type Decl Name
 
+  ParserState Ps;
+
  private:
   AutoTenV1Lexer m_Lexer;
   mlir::ModuleOp m_TheModule;
@@ -86,6 +88,15 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
 
   std::any visitQualifiedIdent(AutoTenV1Parser::QualifiedIdentContext* ctx) override;
+
+  std::any visitBlock(AutoTenV1Parser::BlockContext* ctx) override;
+
+  //===----------------------------------------------------------------------===//
+  // Process All Statements
+  //===----------------------------------------------------------------------===//
+  std::any visitStatement(AutoTenV1Parser::StatementContext* ctx) override;
+
+  std::any visitReturnStmt(AutoTenV1Parser::ReturnStmtContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Process types and atrributes

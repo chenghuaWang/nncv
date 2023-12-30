@@ -117,9 +117,12 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
                                               funcFlags.genDictAttrs(m_OpBuilder.getContext()));
 
   if (ctx->block()) {
-    // FIXME register function symbol
+    // FIXME register function symbol. Register to CodeGenCtx.
 
     // symbol table stack pop
+
+    // Pop state of CodeGenCtx
+    Ps.Pop();
   } else /*no function body*/ {
     // TODO WAIT: Support Package and Function rename
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
@@ -140,6 +143,77 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     m_TheModule.push_back(op);
   }
   // no need to register to symbol table. Using mlir's symbol table is enough.
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// signature: LeftBrace statementList? RightBrace;
+//
+// All done. Code Freezed!!!
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitBlock(AutoTenV1Parser::BlockContext* ctx) {
+  visit(ctx->LeftBrace());
+
+  for (auto item : ctx->statementList()->statement()) { visit(item); }
+
+  visit(ctx->RightBrace());
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// signature:
+// statement:
+//	declaration
+//	| labeledStmt
+//	| simpleStmt
+//	| returnStmt
+//	| breakStmt
+//	| continueStmt
+//	| gotoStmt
+//	| fallthroughStmt
+//	| block
+//	| ifStmt
+//	| switchStmt
+//	| forStmt
+//	| whileStmt
+//	| doWhileStmt;
+//
+// All done. Code Freezed!!!
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitStatement(AutoTenV1Parser::StatementContext* ctx) {
+  if (ctx->declaration()) visit(ctx->declaration());
+  if (ctx->simpleStmt()) visit(ctx->simpleStmt());
+  if (ctx->returnStmt()) visit(ctx->returnStmt());
+  if (ctx->breakStmt()) visit(ctx->breakStmt());
+  if (ctx->continueStmt()) visit(ctx->continueStmt());
+  if (ctx->gotoStmt()) visit(ctx->gotoStmt());
+  if (ctx->fallthroughStmt()) visit(ctx->fallthroughStmt());
+  if (ctx->block()) visit(ctx->block());
+  if (ctx->ifStmt()) visit(ctx->ifStmt());
+  if (ctx->switchStmt()) visit(ctx->switchStmt());
+  if (ctx->forStmt()) visit(ctx->forStmt());
+  if (ctx->whileStmt()) visit(ctx->whileStmt());
+  if (ctx->doWhileStmt()) visit(ctx->doWhileStmt());
+  return VisitorParserReturn();
+}
+//===----------------------------------------------------------------------===//
+// returnStmt: Return expressionList?;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitReturnStmt(AutoTenV1Parser::ReturnStmtContext* ctx) {
+  int __line = ctx->Return()->getSymbol()->getLine();
+  int __row = ctx->Return()->getSymbol()->getCharPositionInLine();
+  // get the location
+  mlir::Location location = loc(__line, __row);
+  visit(ctx->Return());
+
+  auto value =
+      std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
+
+  auto op = m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+
+  // register to mlir's current block.
+  Ps.GetBlock()->push_back(op);
+
   return VisitorParserReturn();
 }
 

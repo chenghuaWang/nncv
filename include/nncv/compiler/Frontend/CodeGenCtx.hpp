@@ -7,6 +7,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <stack>
 
 #ifndef _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
 #define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
@@ -15,6 +16,9 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Types.h"
+#include "mlir/IR/Block.h"
+
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 
 namespace nncv {
 namespace compiler {
@@ -23,8 +27,72 @@ namespace frontend {
 //===----------------------------------------------------------------------===//
 // ParserState
 //===----------------------------------------------------------------------===//
+
+enum class _ParserSateEnum : int32_t {
+  kGlobal = 0,
+  kFunction = 1,  // has block
+  kIf = 2,        // has block
+  kWhile = 3,     // has block
+  kSwitch = 4     // has block
+};
+
 class ParserState {
-  // register function actions.
+ public:
+  ParserState() {}
+  ~ParserState() {
+    if (m_StateStack.size() != 0)
+      printf("[ Erro ] The stack of parser state is not 0, get %lu instead\n", m_StateStack.size());
+  }
+
+  inline mlir::aten::FuncOp* GetFuncOp() {
+    if (m_FuncOp != nullptr)
+      return m_FuncOp;
+    else { printf("[ Error ] When lowering to MLIR. Fonud m_FuncOp is null.\n"); }
+    exit(-1);
+  }
+
+  inline void PushFuncStmt(mlir::aten::FuncOp* op) {
+    m_StateStack.push(_ParserSateEnum::kFunction);
+    m_FuncOp = op;
+    m_BlockState.push(mlir::Block());
+  }
+
+  inline void Pop() {
+    auto top = m_StateStack.top();
+    switch (top) {
+      case _ParserSateEnum::kGlobal: {
+        break;
+      }
+      case _ParserSateEnum::kFunction: {
+        m_FuncOp->getFunctionBody().push_back(&m_BlockState.top());
+        m_BlockState.pop();  // FIXME May have bug.
+        m_FuncOp = nullptr;
+        break;
+      }
+      case _ParserSateEnum::kIf: {
+        break;
+      }
+      case _ParserSateEnum::kWhile: {
+        break;
+      }
+      case _ParserSateEnum::kSwitch: {
+        break;
+      }
+    }
+    m_StateStack.pop();
+  }
+
+  inline mlir::Block* GetBlock() { return &m_BlockState.top(); }
+
+ private:
+  // 1. Struct state
+
+  // 2. function state
+  mlir::aten::FuncOp* m_FuncOp;
+
+  // stack record
+  std::stack<_ParserSateEnum> m_StateStack;
+  std::stack<mlir::Block> m_BlockState;
 };
 
 //===----------------------------------------------------------------------===//

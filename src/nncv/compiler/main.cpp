@@ -30,6 +30,7 @@
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
@@ -44,6 +45,9 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/Support/FileUtilities.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/MLProgram/IR/MLProgram.h"
 
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Pipeline/Frontend.hpp"
@@ -57,30 +61,11 @@ llvm::cl::opt<bool> GetPlatformInfoOnly("get-platform-info-only",
                                         llvm::cl::desc("<get platform infomation only>"),
                                         llvm::cl::Optional);
 
-mlir::FailureOr<std::string> ReadWholeFile(std::string& FilePath) {
-  auto fd = llvm::sys::fs::openNativeFileForRead(FilePath);
-  if (!fd) {
-    llvm::consumeError(fd.takeError());
-    printf("[ INFO ] Can not open file %s\n", FilePath.c_str());
-    return mlir::failure();
-  }
-  std::optional exit = llvm::make_scope_exit([&fd] { llvm::sys::fs::closeFile(*fd); });
-  llvm::sys::fs::file_status Status;
-  {
-    auto error = llvm::sys::fs::status(*fd, Status);
-    if (error) {
-      printf("[ INFO ] File descriptor is not available");
-      return mlir::failure();
-    }
-  }
-  std::string Content(Status.getSize(), '\0');
-  auto read = llvm::sys::fs::readNativeFile(*fd, {Content.data(), Content.size()});
-  if (!read) {
-    llvm::consumeError(fd.takeError());
-    printf("[ INFO ] Can not read file %s\n", FilePath.c_str());
-    return mlir::failure();
-  }
-  return {std::move(Content)};
+void LoadMLIRDialects(mlir::MLIRContext& context) {
+  context.loadDialect<mlir::arith::ArithDialect, mlir::memref::MemRefDialect,
+                      mlir::func::FuncDialect, mlir::bufferization::BufferizationDialect,
+                      mlir::linalg::LinalgDialect, mlir::ml_program::MLProgramDialect>();
+  mlir::registerLLVMDialectTranslation(context);
 }
 
 int main(int argc, char* argv[]) {
@@ -112,6 +97,7 @@ int main(int argc, char* argv[]) {
   // ---------------------------------------------------------------------
   //  Front end. Import materials.
   // ---------------------------------------------------------------------
+  LoadMLIRDialects(MlirContext);
   if (SuffixStr == "aten") {
     // compile aten-lang
     nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
@@ -121,21 +107,18 @@ int main(int argc, char* argv[]) {
     fr.setDumpMlir(ShowMlir.getValue());
     fr.run();
   } else if (SuffixStr == "nncv") {
-    // compile dnn mlir from torch-mlir linag-on-tensor option on.
-    auto StrContent = ReadWholeFile(CurFilePath);
-    if (mlir::failed(StrContent)) { exit(-1); }
-
-    // config
-    auto Config = mlir::ParserConfig(&MlirContext, /*verifyAfterParse=*/false);
-
-    if (auto Buffer = llvm::MemoryBufferRef(*StrContent, CurFilePath); mlir::isBytecode(Buffer)) {
-      auto Body = std::make_unique<mlir::Block>();
-      if (mlir::failed(mlir::readBytecodeFile(Buffer, Body.get(), Config))) {
-        printf("[ Erro ] Failed to read bytecode file(failed from mlir).\n");
-      }
-      MlirModule = mlir::parseSourceString<mlir::ModuleOp>(*StrContent, Config);
-      MlirModule->dump();
+    std::string ErrorMessage;
+    auto __file = mlir::openInputFile(CurFilePath, &ErrorMessage);
+    if (!__file) {
+      printf("[ Erro ] %s\n", ErrorMessage.c_str());
+      return -1;
     }
+    std::unique_ptr<llvm::MemoryBuffer> Buffer = std::move(__file);
+    llvm::SourceMgr SourceMgr;
+    SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
+    mlir::ParserConfig config(&MlirContext);
+    MlirModule = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
+    if (ShowMlir.getValue()) { MlirModule->dump(); }
   }
 
   // ---------------------------------------------------------------------
