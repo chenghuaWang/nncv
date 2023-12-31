@@ -1,6 +1,6 @@
-@package = "main"
+@package = "main";
 
-func testBinaryOp(int32 a, int32 b) -> int32 {
+func testBinaryOp(a int32, b int32) -> int32 {
     var c int32;
     c = a + b;
     return c;

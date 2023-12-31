@@ -117,12 +117,39 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
                                               funcFlags.genDictAttrs(m_OpBuilder.getContext()));
 
   if (ctx->block()) {
-    // FIXME register function symbol. Register to CodeGenCtx.
+    // TODO WAIT: Support Package and Function rename
+    // Register function symbol to Global Symbol Table
+    utils::AtenFunctionSymbolPayload __payload;
+    __payload.funcScope = utils::AtenFunctionType::kGeneral;
+    __payload.funcType = funcTy;
+    m_curSymbolTable->registerFuncSymbol(funcName, __payload);
 
-    // symbol table stack pop
+    // Create a new symbol table belong to this function
+    m_curSymbolTable->createVarSymbolTableOnTop();
+
+    // Generate a fucntion operator
+    auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    if (isPublic) {
+      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
+    } else {
+      mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    }
+
+    // Register to CodeGenCtx
+    Ps.PushFuncStmt(&op);
+
+    // ------ Wait Block visit Done ------
+    visit(ctx->block());
+    // ----------- Block visit Done ------
+
+    // Pop the symbol table belong to this function
+    m_curSymbolTable->deleteVarSymbolTableOnTop();
 
     // Pop state of CodeGenCtx
     Ps.Pop();
+    m_TheModule.push_back(op);
+    return VisitorParserReturn();
   } else /*no function body*/ {
     // TODO WAIT: Support Package and Function rename
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
@@ -852,8 +879,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   // expression mul_op = (Star|Div|Mod|LeftShift|RightShift|And)expression
   else if (ctx->mul_op) {
     auto mulOpType = ctx->mul_op->getType();
-    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
-    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    mlir::Value lhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Value rhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
     mlir::Location location = loc(ctx->mul_op->getLine(), ctx->mul_op->getCharPositionInLine());
 
@@ -898,8 +927,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   // expression add_op = (Plus|Minus|Or|Caret) expression
   else if (ctx->add_op) {
     auto addOpType = ctx->add_op->getType();
-    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
-    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    mlir::Value lhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Value rhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
     mlir::Location location = loc(ctx->add_op->getLine(), ctx->add_op->getCharPositionInLine());
     if (addOpType == m_Lexer.Plus) {
@@ -936,8 +967,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   // expression rel_op = (Equal|NotEqual|Less|LessEqual|Greater|GreaterEqual) expression
   else if (ctx->rel_op) {
     auto relOpType = ctx->add_op->getType();
-    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
-    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    mlir::Value lhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Value rhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
     mlir::Location location = loc(ctx->rel_op->getLine(), ctx->rel_op->getCharPositionInLine());
 
@@ -988,8 +1021,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   }
   // expression AndAnd expression
   else if (ctx->AndAnd()) {
-    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
-    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    mlir::Value lhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Value rhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());
@@ -1004,8 +1039,10 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   }
   // expression OrOr expression;
   else if (ctx->OrOr()) {
-    mlir::Value lhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[0]));
-    mlir::Value rhsValue = std::any_cast<mlir::Value>(visit(ctx->expression()[1]));
+    mlir::Value lhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Value rhsValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());

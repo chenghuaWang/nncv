@@ -31,6 +31,8 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenTypes.hpp"
+
 #include <vector>
 #include <optional>
 #include <unordered_map>
@@ -75,11 +77,9 @@ enum class AtenSymbolTableState { kGlobal = 0, kInner = 1 };
 enum class AtenFunctionType { kGeneral = 0, kImpl = 1 };
 
 struct AtenFunctionSymbolPayload {
-  // basic type check
-  mlir::Type retType;
-  mlir::TypeRange argumentsType;
+  mlir::aten::FuncType funcType;
 
-  AtenFunctionType funcType;  ///< this function is belong to impl type or in general place.
+  AtenFunctionType funcScope;  ///< this function is belong to impl type or in general place.
   // visibility
   bool isPublic;
 };
@@ -229,8 +229,7 @@ class AtenSymbolRef {
   AtenSymbolRef(const std::string& name);
   ~AtenSymbolRef();
 
-  inline bool funcVerify(const std::string& funcName, const mlir::Type& retType,
-                         const mlir::TypeRange& argumentsType) {
+  inline bool funcVerify(const std::string& funcName, const mlir::aten::FuncType& type) {
     // step 1. access the top level symbol table.
     auto symbolTable = m_stack.randomAccess(0);
     // step2. search func in this table.
@@ -238,7 +237,7 @@ class AtenSymbolRef {
     if (!funcSymbol.has_value()) return false;
     // step 3. check ok.
     auto value = funcSymbol.value();
-    if (value.retType == retType && value.argumentsType == argumentsType) return true;
+    if (value.funcType == type) return true;
     return false;
   }
 
