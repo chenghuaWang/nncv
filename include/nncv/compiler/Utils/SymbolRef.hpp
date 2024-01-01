@@ -212,7 +212,7 @@ class AtenSymbolTableG {
   }
 
   inline bool registerVarSymbol(const std::string& varName, mlir::Value value) {
-    if (varSymbolTable.find(varName) == varSymbolTable.end()) return false;
+    if (varSymbolTable.find(varName) != varSymbolTable.end()) return false;
     varSymbolTable[varName] = value;
     return true;
   }

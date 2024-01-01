@@ -117,15 +117,14 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
                                               funcFlags.genDictAttrs(m_OpBuilder.getContext()));
 
   if (ctx->block()) {
+    m_OpBuilder.setInsertionPointToEnd(m_TheModule.getBody());
+
     // TODO WAIT: Support Package and Function rename
     // Register function symbol to Global Symbol Table
     utils::AtenFunctionSymbolPayload __payload;
     __payload.funcScope = utils::AtenFunctionType::kGeneral;
     __payload.funcType = funcTy;
     m_curSymbolTable->registerFuncSymbol(funcName, __payload);
-
-    // Create a new symbol table belong to this function
-    m_curSymbolTable->createVarSymbolTableOnTop();
 
     // Generate a fucntion operator
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
@@ -134,6 +133,18 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
     } else {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    }
+    mlir::Block* entryBlock = op.addEntryBlock();
+    m_OpBuilder.setInsertionPointToStart(entryBlock);
+
+    // Create a new symbol table belong to this function
+    m_curSymbolTable->createVarSymbolTableOnTop();
+
+    // Register Function argument name to symbol table.
+    size_t argsLen = entryBlock->getNumArguments();
+    for (size_t i = 0; i < argsLen; ++i) {
+      m_curSymbolTable->registerVarSymbol(std::get<0>(payload.parameters[i]),
+                                          entryBlock->getArguments()[i]);
     }
 
     // Register to CodeGenCtx
@@ -148,9 +159,11 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
 
     // Pop state of CodeGenCtx
     Ps.Pop();
-    m_TheModule.push_back(op);
+
     return VisitorParserReturn();
   } else /*no function body*/ {
+    m_OpBuilder.setInsertionPointToEnd(m_TheModule.getBody());
+
     // TODO WAIT: Support Package and Function rename
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
 
@@ -167,7 +180,6 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
       op.setPrivate();
     }
-    m_TheModule.push_back(op);
   }
   // no need to register to symbol table. Using mlir's symbol table is enough.
   return VisitorParserReturn();
@@ -238,9 +250,6 @@ std::any AutoTen2MlirVisitor::visitReturnStmt(AutoTenV1Parser::ReturnStmtContext
 
   auto op = m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
 
-  // register to mlir's current block.
-  Ps.GetBlock()->push_back(op);
-
   return VisitorParserReturn();
 }
 
@@ -306,7 +315,7 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitDeclaration(AutoTenV1Parser::DeclarationContext* ctx) {
   if (ctx->typeDecl()) { visit(ctx->typeDecl()); }
-  if (ctx->varDecl()) { visit(ctx->varDecl()); }
+  if (ctx->varDecl()) { return visit(ctx->varDecl()); }
   return VisitorParserReturn();
 }
 
@@ -843,6 +852,62 @@ std::any AutoTen2MlirVisitor::visitExpressionList(AutoTenV1Parser::ExpressionLis
 }
 
 //===----------------------------------------------------------------------===//
+// primaryExpr:
+// 	operand
+// 	| conversion
+// 	| methodExpr
+// 	| primaryExpr (
+// 		Dot Identifier
+// 		| index
+// 		| slice_
+// 		| typeAssertion
+// 		| arguments
+// 	);
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitPrimaryExpr(AutoTenV1Parser::PrimaryExprContext* ctx) {
+  if (ctx->operand()) { return visit(ctx->operand()); }
+  if (ctx->conversion()) { return visit(ctx->conversion()); }
+  if (ctx->methodExpr()) { return visit(ctx->methodExpr()); }
+  if (ctx->primaryExpr()) {
+    // TODO
+  }
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// operand:
+// 	literal
+// 	| operandName
+// 	| LeftParen expression RightParen;
+//
+// All done. Code Freezed!!!
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitOperand(AutoTenV1Parser::OperandContext* ctx) {
+  if (ctx->literal()) {
+    return visit(ctx->literal());
+  } else if (ctx->operandName()) {
+    return visit(ctx->operandName());
+  } else if (ctx->LeftParen()) {
+    return visit(ctx->expression());
+  }
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// operandName: Identifier;
+//
+// All done. Code Freezed!!!
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameContext* ctx) {
+  auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
+  if (!_value.has_value()) {
+    printf("[ Erro ] Identifier Symbol (%s) can not fond.\n", ctx->Identifier()->getText().c_str());
+    exit(-1);
+  }
+  return VisitorParserReturn(_value.value());
+}
+
+//===----------------------------------------------------------------------===//
 // expression:
 // 	primaryExpr
 // 	| unary_op = (Plus | Minus | Not | Caret | Star | And) expression
@@ -869,7 +934,6 @@ std::any AutoTen2MlirVisitor::visitExpressionList(AutoTenV1Parser::ExpressionLis
 std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext* ctx) {
   // primaryExpr
   if (ctx->primaryExpr()) {
-    // TODO
     return visit(ctx->primaryExpr());
   }
   // unary_op = (Plus | Minus | Not | Caret | Star | And) expression

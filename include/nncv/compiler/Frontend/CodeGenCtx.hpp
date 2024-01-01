@@ -54,7 +54,6 @@ class ParserState {
   inline void PushFuncStmt(mlir::aten::FuncOp* op) {
     m_StateStack.push(_ParserSateEnum::kFunction);
     m_FuncOp = op;
-    m_BlockState.push(new mlir::Block());
   }
 
   inline void Pop() {
@@ -64,8 +63,6 @@ class ParserState {
         break;
       }
       case _ParserSateEnum::kFunction: {
-        m_FuncOp->getFunctionBody().push_back(m_BlockState.top());
-        m_BlockState.pop();  // FIXME May have bug.
         m_FuncOp = nullptr;
         break;
       }

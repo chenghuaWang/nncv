@@ -289,6 +289,7 @@ void aten::FuncOp::build(OpBuilder& builder, OperationState& result, StringRef n
                          ArrayRef<DictionaryAttr> argAttrs) {
   // Create a region that should be attached to the operation.
   result.addRegion();
+
   // attach this result with specified name (symbol).
   result.addAttribute(SymbolTable::getSymbolAttrName(), builder.getStringAttr(name));
   result.addAttribute(getFunctionTypeAttrName(result.name), TypeAttr::get(type));

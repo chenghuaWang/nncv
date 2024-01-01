@@ -14,7 +14,8 @@ void FrontendPipeline::run() {
     auto ino = std::ifstream(m_CurrentFilePath);
 
     if (!ino.good()) {
-      // TODO
+      printf("[ Erro ] Cant't Open File %s\n", m_CurrentFilePath.c_str());
+      exit(-1);
     }
 
     antlr4::ANTLRInputStream input(ino);
@@ -28,14 +29,16 @@ void FrontendPipeline::run() {
       visitor.visit(tree);
       m_Module = visitor.getModule();
       if (mlir::verify(m_Module->getOperation()).failed()) {
-        // FIXME throw error.
+        printf("[ Erro ] MLIR Self verify failed\n");
+        exit(-1);
       }
       m_Module->dump();
     }
     ino.close();
 #endif
   } else {
-    // FIXME throw error.
+    printf("[ Erro ] Can't Open File with %s Suffix.(Support .aten/.nncv)\n", SuffixStr.c_str());
+    exit(-1);
   }
 }
 

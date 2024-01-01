@@ -1,7 +1,31 @@
 @package = "main";
 
-func testBinaryOp(a int32, b int32) -> int32 {
+func testAddOp(a int32, b int32) -> int32 {
     var c int32;
     c = a + b;
+    return c;
+};
+
+func testMinusOp(a int32, b int32) -> int32 {
+    var c int32;
+    c = a + b;
+    return c;
+};
+
+func testMulOp(a int32, b int32) -> int32 {
+    var c int32;
+    c = a * b;
+    return c;
+};
+
+func testDivOp(a int32, b int32) -> int32 {
+    var c int32;
+    c = a / b;
+    return c;
+};
+
+func testLongArithExpr(a int32, b int32) -> int32 {
+    var c int32;
+    c = ((a + b) / a) * b + (a * b);
     return c;
 };

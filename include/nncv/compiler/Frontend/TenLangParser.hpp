@@ -85,6 +85,12 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitExpression(AutoTenV1Parser::ExpressionContext* ctx) override;
 
+  std::any visitPrimaryExpr(AutoTenV1Parser::PrimaryExprContext* ctx) override;
+
+  std::any visitOperand(AutoTenV1Parser::OperandContext* ctx) override;
+
+  std::any visitOperandName(AutoTenV1Parser::OperandNameContext* ctx) override;
+
   std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
 
   std::any visitQualifiedIdent(AutoTenV1Parser::QualifiedIdentContext* ctx) override;
