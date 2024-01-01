@@ -104,6 +104,10 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitReturnStmt(AutoTenV1Parser::ReturnStmtContext* ctx) override;
 
+  std::any visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext* ctx) override;
+
+  std::any visitAssignment(AutoTenV1Parser::AssignmentContext* ctx) override;
+
   //===----------------------------------------------------------------------===//
   // Process types and atrributes
   //===----------------------------------------------------------------------===//

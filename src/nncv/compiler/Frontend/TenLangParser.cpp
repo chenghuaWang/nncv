@@ -220,19 +220,32 @@ std::any AutoTen2MlirVisitor::visitBlock(AutoTenV1Parser::BlockContext* ctx) {
 // All done. Code Freezed!!!
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitStatement(AutoTenV1Parser::StatementContext* ctx) {
-  if (ctx->declaration()) visit(ctx->declaration());
-  if (ctx->simpleStmt()) visit(ctx->simpleStmt());
-  if (ctx->returnStmt()) visit(ctx->returnStmt());
-  if (ctx->breakStmt()) visit(ctx->breakStmt());
-  if (ctx->continueStmt()) visit(ctx->continueStmt());
-  if (ctx->gotoStmt()) visit(ctx->gotoStmt());
-  if (ctx->fallthroughStmt()) visit(ctx->fallthroughStmt());
-  if (ctx->block()) visit(ctx->block());
-  if (ctx->ifStmt()) visit(ctx->ifStmt());
-  if (ctx->switchStmt()) visit(ctx->switchStmt());
-  if (ctx->forStmt()) visit(ctx->forStmt());
-  if (ctx->whileStmt()) visit(ctx->whileStmt());
-  if (ctx->doWhileStmt()) visit(ctx->doWhileStmt());
+  if (ctx->declaration())
+    visit(ctx->declaration());
+  else if (ctx->simpleStmt())
+    visit(ctx->simpleStmt());
+  else if (ctx->returnStmt())
+    visit(ctx->returnStmt());
+  else if (ctx->breakStmt())
+    visit(ctx->breakStmt());
+  else if (ctx->continueStmt())
+    visit(ctx->continueStmt());
+  else if (ctx->gotoStmt())
+    visit(ctx->gotoStmt());
+  else if (ctx->fallthroughStmt())
+    visit(ctx->fallthroughStmt());
+  else if (ctx->block())
+    visit(ctx->block());
+  else if (ctx->ifStmt())
+    visit(ctx->ifStmt());
+  else if (ctx->switchStmt())
+    visit(ctx->switchStmt());
+  else if (ctx->forStmt())
+    visit(ctx->forStmt());
+  else if (ctx->whileStmt())
+    visit(ctx->whileStmt());
+  else if (ctx->doWhileStmt())
+    visit(ctx->doWhileStmt());
   return VisitorParserReturn();
 }
 //===----------------------------------------------------------------------===//
@@ -249,6 +262,69 @@ std::any AutoTen2MlirVisitor::visitReturnStmt(AutoTenV1Parser::ReturnStmtContext
       std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
 
   auto op = m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// simpleStmt:
+// 	incDecStmt
+// 	| assignment
+// 	| expressionStmt
+// 	| shortVarDecl;
+//
+// All done. Code Freezed
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext* ctx) {
+  if (ctx->incDecStmt()) {
+    visit(ctx->incDecStmt());
+  } else if (ctx->assignment()) {
+    visit(ctx->assignment());
+  } else if (ctx->expressionStmt()) {
+    visit(ctx->expressionStmt());
+  } else if (ctx->shortVarDecl()) {
+    visit(ctx->expressionStmt());
+  }
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// assignment: expressionList assign_op expressionList;
+//
+// assign_op: (
+// 		Plus
+// 		| Minus
+// 		| Or
+// 		| Caret
+// 		| Star
+// 		| Div
+// 		| Mod
+// 		| LeftShift
+// 		| RightShift
+// 		| And
+// 	)? Assign;
+//
+// Example:
+// 1. c = a + b. Done.
+// TODO 2. dst[0][0] = src[0][0] + src2[0][0]
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext* ctx) {
+  auto lhs = std::any_cast<VisitorParserReturn>(visit(ctx->expressionList()[0]));
+  auto rhs = std::any_cast<VisitorParserReturn>(visit(ctx->expressionList()[1]));
+
+  if (lhs.isa(VisitorParserReturnType::kMlirValue)) {
+    auto lhsValue = lhs.getValue<mlir::Value>();
+    auto rhsValue = rhs.getValue<mlir::Value>();
+
+    auto lhsValueName = m_curSymbolTable->getVarValueName(lhsValue);
+    if (!lhsValueName.has_value()) {
+      // FIXME throw error
+      exit(-1);
+    }
+    m_curSymbolTable->updateVarSymbol(lhsValueName.value(), rhsValue);
+  } else {
+    // TODO
+  }
 
   return VisitorParserReturn();
 }

@@ -196,6 +196,17 @@ class AtenSymbolTableG {
     }
   }
 
+  std::optional<std::string> getVarValueName(mlir::Value value) {
+    for (auto item : varSymbolTable) {
+      if (item.second == value) return item.first;
+    }
+    return std::nullopt;
+  }
+
+  void updateVatSymbol(const std::string& varName, mlir::Value value) {
+    varSymbolTable[varName] = value;
+  }
+
   inline bool registerFuncSymbol(const std::string& funcName, AtenFunctionSymbolPayload& payload) {
     if (stateLevel == AtenSymbolTableState::kInner) return false;
     if (funcSymbolTable.find(funcName) == funcSymbolTable.end()) return false;
@@ -262,6 +273,8 @@ class AtenSymbolRef {
   bool registerStructSymbol(const std::string& structName, AtenStructSymbolPayload& payload);
 
   std::optional<mlir::Value> getVarValueSymbol(const std::string& varName);
+  std::optional<std::string> getVarValueName(mlir::Value value);
+  bool updateVarSymbol(const std::string& varName, mlir::Value value);
   bool registerVarSymbol(const std::string& varName, mlir::Value value);
 
   void createVarSymbolTableOnTop();

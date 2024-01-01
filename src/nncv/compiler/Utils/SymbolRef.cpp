@@ -74,6 +74,29 @@ std::optional<mlir::Value> AtenSymbolRef::getVarValueSymbol(const std::string& v
   return std::nullopt;
 }
 
+std::optional<std::string> AtenSymbolRef::getVarValueName(mlir::Value value) {
+  size_t depth = m_stack.size();
+  while (depth) {
+    auto item = m_stack.randomAccess(depth - 1)->getVarValueName(value);
+    if (item.has_value()) { return item; }
+    depth--;
+  }
+  return std::nullopt;
+}
+
+bool AtenSymbolRef::updateVarSymbol(const std::string& varName, mlir::Value value) {
+  size_t depth = m_stack.size();
+  while (depth) {
+    auto item = m_stack.randomAccess(depth - 1)->getVarSymbol(varName);
+    if (item.has_value()) {
+      m_stack.randomAccess(depth - 1)->updateVatSymbol(varName, value);
+      return true;
+    }
+    depth--;
+  }
+  return false;
+}
+
 bool AtenSymbolRef::registerVarSymbol(const std::string& varName, mlir::Value value) {
   return m_stack.top()->registerVarSymbol(varName, value);
 }
