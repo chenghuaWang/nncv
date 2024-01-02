@@ -595,6 +595,36 @@ void aten::MakeStructSymbol::getSuccessorRegions(mlir::RegionBranchPoint point,
 }
 
 //===----------------------------------------------------------------------===//
+// Aten If Stmt Op.
+//===----------------------------------------------------------------------===//
+bool omitRegionTerm(mlir::Region& r) {
+  auto singleNonEmptyBlock = r.hasOneBlock() && !r.back().empty();
+  auto yieldsNothing = [&r]() {
+    aten::YieldOp y = dyn_cast<aten::YieldOp>(r.back().getTerminator());
+    return y && y.isPlain() && y.getArgs().empty();
+  };
+  return singleNonEmptyBlock && yieldsNothing();
+}
+
+ParseResult aten::IfOp::parse(OpAsmParser& parser, OperationState& result) {}
+
+void aten::IfOp::print(OpAsmPrinter& p) {
+  p << " " << getCondition() << " then";
+  auto& thenRegion = this->getThenRegion();
+  p.printRegion(thenRegion, false, !omitRegionTerm(thenRegion));
+
+  auto& elseRegion = this->getElseRegion();
+  if (!elseRegion.empty()) {
+    p << " else ";
+    p.printRegion(elseRegion, false, !omitRegionTerm(elseRegion));
+  }
+
+  p.printOptionalAttrDict(getOperation()->getAttrs());
+}
+
+LogicalResult aten::IfOp::verify() { return success(); }
+
+//===----------------------------------------------------------------------===//
 // Aten self defined traits
 //===----------------------------------------------------------------------===//
 

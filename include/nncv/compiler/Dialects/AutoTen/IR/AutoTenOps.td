@@ -688,6 +688,36 @@ def Aten_MakeStructSymbol : Aten_Op<"make_struct_symbol", [
 }
 
 //===----------------------------------------------------------------------===//
+// Aten If Op
+//===----------------------------------------------------------------------===//
+def IfOp : Aten_Op<"if", [
+    DeclareOpInterfaceMethods<RegionBranchOpInterface>,
+    RecursivelySpeculatable, 
+    AutomaticAllocationScope, 
+    NoRegionArguments
+]> {
+    let summary = "if else";
+    let description = [{
+
+    }];
+
+    let arguments = (ins Aten_BoolType:$condition);
+    let regions = (region AnyRegion:$thenRegion, AnyRegion:$elseRegion);
+
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
+
+    let skipDefaultBuilders = 1;
+    let builders = [
+        OpBuilder<(ins "Value":$cond, "bool":$withElseRegion,
+            CArg<"function_ref<void(OpBuilder &, Location)>",
+                "buildTerminatedBody">:$thenBuilder,
+            CArg<"function_ref<void(OpBuilder &, Location)>",
+                "nullptr">:$elseBuilder)>
+    ];
+}
+
+//===----------------------------------------------------------------------===//
 // Global Value
 //===----------------------------------------------------------------------===//
 

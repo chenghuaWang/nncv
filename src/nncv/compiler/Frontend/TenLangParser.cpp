@@ -330,6 +330,45 @@ std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext
 }
 
 //===----------------------------------------------------------------------===//
+// ifStmt:
+// 	If LeftParen (
+// 		expression
+// 		| eos expression
+// 		| simpleStmt eos expression
+// 	) RightParen block (Else (ifStmt | block))?;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
+  int __line = ctx->If()->getSymbol()->getLine();
+  int __row = ctx->If()->getSymbol()->getCharPositionInLine();
+
+  mlir::Location location = loc(__line, __row);
+
+  visit(ctx->If());
+  visit(ctx->LeftParen());
+
+  // auto op = m_OpBuilder.create<mlir::scf::IfOp>(location, );
+
+  if (ctx->simpleStmt()) {
+    // TODO
+  } else if (ctx->eos()) {
+    // TODO
+  } else {
+    visit(ctx->expression());
+  }
+
+  m_curSymbolTable->createVarSymbolTableOnTop();
+  visit(ctx->block()[0]);
+  m_curSymbolTable->deleteVarSymbolTableOnTop();
+
+  if (ctx->Else()) {
+    // TODO
+  }
+
+  visit(ctx->RightParen());
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // signature: parameters ArrowReturnType result | parameters;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* ctx) {
@@ -433,7 +472,15 @@ std::any AutoTen2MlirVisitor::visitTypeDecl(AutoTenV1Parser::TypeDeclContext* ct
 std::any AutoTen2MlirVisitor::visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) {
   std::string pkgName = removeQuotationMark(ctx->StringLiteral()->getText());
   // change the module name in mlir to package name.
-  if (!isPackageNameIsMain(pkgName)) { m_TheModule.setName("pk_" + pkgName); }
+  if (!isPackageNameIsMain(pkgName)) {
+    std::string moduleName = "pkg_" + pkgName;
+    auto sa = mlir::StringAttr::get(m_TheModule->getContext(), moduleName);
+    m_TheModule->setAttr("sym_name", sa);
+  } else {
+    std::string moduleName = "__main";
+    auto sa = mlir::StringAttr::get(m_TheModule->getContext(), moduleName);
+    m_TheModule->setAttr("sym_name", sa);
+  }
   // create a symbol table for the package(module or to say).
   if (utils::AtenSymbolTable::getInstance().getSymbolRefOfModule(pkgName) == nullptr) {
     m_curSymbolTable = utils::AtenSymbolTable::getInstance().createSymbolRefOfModule(pkgName);
@@ -1106,7 +1153,7 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   }
   // expression rel_op = (Equal|NotEqual|Less|LessEqual|Greater|GreaterEqual) expression
   else if (ctx->rel_op) {
-    auto relOpType = ctx->add_op->getType();
+    auto relOpType = ctx->rel_op->getType();
     mlir::Value lhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
     mlir::Value rhsValue =

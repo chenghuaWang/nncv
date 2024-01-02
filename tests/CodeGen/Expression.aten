@@ -5,3 +5,27 @@ func testLongArithExpr(a int32, b int32) -> int32 {
     c = ((a + b) / a) * b + (a + b);
     return c;
 };
+
+func testArithInt64Expr(a int64, b int64) -> int64 {
+    var c int64;
+    c =  a + b;
+    return c;
+};
+
+func testArithFloat32Expr(a float32, b float32) -> float32 {
+    var c float32;
+    c = a + b;
+    return c;
+};
+
+func testArithFloat64Expr(a float64, b float64) -> float64 {
+    var c float64;
+    c = a + b;
+    return c;
+};
+
+func testBoolExpr(a int32, b int32) -> bool {
+    return a < b;
+};
+
+
