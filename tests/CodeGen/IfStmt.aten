@@ -7,3 +7,26 @@ func testIfWoElse(a int32, b int32) -> int32 {
     };
     return c;
 };
+
+func testIfWElse(a int32, b int32) -> int32 {
+    var c int32;
+    if (a < b) {
+        c = a + b;
+    } else {
+        c = a - b;
+    };
+    return c;
+};
+
+func testNestedIf() -> bool {
+    var lhs int32;
+    var rhs int32;
+    if (lhs < rhs) {
+        if (lhs < rhs) {
+            var c int32;
+        } else {
+            var c int32;
+        };
+    };
+    return lhs < rhs;
+};

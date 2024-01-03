@@ -202,7 +202,7 @@ class AtenSymbolTableG {
     }
   }
 
-  std::optional<std::string> getVarValueName(mlir::Value value) {
+  [[deprecated]] std::optional<std::string> getVarValueName(mlir::Value value) {
     for (auto item : varSymbolTable) {
       if (item.second == value) return item.first;
     }
@@ -291,9 +291,9 @@ class AtenSymbolRef {
   bool registerStructSymbol(const std::string& structName, AtenStructSymbolPayload& payload);
 
   std::optional<mlir::Value> getVarValueSymbol(const std::string& varName);
-  std::optional<std::string> getVarValueName(mlir::Value value);
+  [[deprecated]] std::optional<std::string> getVarValueName(mlir::Value value);
   VarSymbolKind getVarValueSymbolKind(const std::string& varName);
-  bool isInTheTopSymbolTable(std::string& vn);
+  [[deprecated]] bool isInTheTopSymbolTable(std::string& vn);
   [[deprecated]] bool updateVarSymbol(const std::string& varName, mlir::Value value);
   bool registerVarSymbol(const std::string& varName, mlir::Value value, VarSymbolKind kind);
 

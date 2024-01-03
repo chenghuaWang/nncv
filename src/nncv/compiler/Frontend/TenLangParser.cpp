@@ -346,26 +346,7 @@ std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext
 // 		| simpleStmt eos expression
 // 	) RightParen block (Else (ifStmt | block))?;
 //
-//
-//===------------------------------------------------------// if
-//(lhs.isa(VisitorParserReturnType::kMlirValue)) {
-//   auto lhsValue = lhs.getValue<mlir::Value>();
-//   auto rhsValue = rhs.getValue<mlir::Value>();
-
-//   auto lhsValueName = m_curSymbolTable->getVarValueName(lhsValue);
-//   if (!lhsValueName.has_value()) {
-//     // FIXME throw error
-//     exit(-1);
-//   }
-//   m_curSymbolTable->updateVarSymbol(lhsValueName.value(), rhsValue);
-
-//   // If in If Scope, We need return SSA from If Scope
-//   if (Ps.IsInIfScope() && !m_curSymbolTable->isInTheTopSymbolTable(lhsValueName.value())) {
-//     Ps.SetIfStmtValueUsed(lhsValueName.value());
-//   }
-// } else {
-//   // TODO
-// }---------------===//
+//===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
   int __line = ctx->If()->getSymbol()->getLine();
   int __row = ctx->If()->getSymbol()->getCharPositionInLine();

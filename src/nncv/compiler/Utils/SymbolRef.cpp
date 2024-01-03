@@ -74,7 +74,7 @@ std::optional<mlir::Value> AtenSymbolRef::getVarValueSymbol(const std::string& v
   return std::nullopt;
 }
 
-std::optional<std::string> AtenSymbolRef::getVarValueName(mlir::Value value) {
+[[deprecated]] std::optional<std::string> AtenSymbolRef::getVarValueName(mlir::Value value) {
   size_t depth = m_stack.size();
   while (depth) {
     auto item = m_stack.randomAccess(depth - 1)->getVarValueName(value);
@@ -94,7 +94,7 @@ VarSymbolKind AtenSymbolRef::getVarValueSymbolKind(const std::string& varName) {
   return VarSymbolKind::kNone;
 }
 
-bool AtenSymbolRef::isInTheTopSymbolTable(std::string& vn) {
+[[deprecated]] bool AtenSymbolRef::isInTheTopSymbolTable(std::string& vn) {
   auto item = m_stack.randomAccess(m_stack.size() - 1)->getVarSymbol(vn);
   if (item.has_value()) { return true; }
   return false;
