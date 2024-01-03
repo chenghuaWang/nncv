@@ -93,6 +93,13 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/SymbolRef.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/PlatformCtx.hpp
 
+    # Runner
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/InitJit.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/InitAllPass.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/RunnerCtx.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Runner/InitJit.cpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Runner/InitAllPass.cpp
+
     DEPENDS
     # dialect itself
     MLIRAtenLang

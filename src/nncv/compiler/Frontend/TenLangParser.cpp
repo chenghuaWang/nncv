@@ -411,6 +411,68 @@ std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
 }
 
 //===----------------------------------------------------------------------===//
+// breakStmt: Break Identifier?;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitBreakStmt(AutoTenV1Parser::BreakStmtContext* ctx) {
+  visit(ctx->Break());
+
+  int __line = ctx->Break()->getSymbol()->getLine();
+  int __row = ctx->Break()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __row);
+
+  if (Ps.IsInIfScope()) {
+    m_OpBuilder.create<mlir::aten::YieldOp>(location, mlir::aten::YieldOpPredict::Break);
+    Ps.SetIfHasTerminatedByBreak();
+  }
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// forStmt:
+//    For LeftParen (expression? | forClause) RightParen block;
+//
+// forClause:
+//    initStmt = simpleStmt ? eos expression ? eos postStmt = simpleStmt ? ;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx) {
+  visit(ctx->For());
+
+  int __line = ctx->For()->getSymbol()->getLine();
+  int __row = ctx->For()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __row);
+
+  Ps.PushForStmt();
+  if (ctx->expression()) {
+    // TODO
+  } else if (ctx->forClause()) {
+    // init cond + cond + main body + step SHARED Same SymbolTable.
+    m_curSymbolTable->createVarSymbolTableOnTop();
+
+    // init cond
+    visit(ctx->forClause()->initStmt);
+
+    // build for loop
+    m_OpBuilder.create<mlir::aten::LoopOp>(
+        location, mlir::aten::LoopOpPredict::For, /*cond Body*/
+        [&](mlir::OpBuilder& builder, mlir::Location loc) {
+          visit(ctx->forClause()->expression());
+        },
+        /*Main Body*/
+        [&](mlir::OpBuilder& builder, mlir::Location loc) {
+          visit(ctx->block());
+          // TODO terminator
+        },
+        /*Step Body*/
+        [&](mlir::OpBuilder& builder, mlir::Location loc) { visit(ctx->forClause()->postStmt); });
+    m_curSymbolTable->deleteVarSymbolTableOnTop();
+  }
+  Ps.Pop();
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // signature: parameters ArrowReturnType result | parameters;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* ctx) {

@@ -35,6 +35,7 @@ enum class _ParserSateEnum : int32_t {
   kWhile = 3,     // has block
   kSwitch = 4,    // has block
   kAssignStmt = 5,
+  kFor = 6,
 };
 
 class ParserState {
@@ -47,6 +48,7 @@ class ParserState {
 
   inline bool IsInIfScope() { return m_StateStack.top() == _ParserSateEnum::kIf; }
   inline bool IsInAssignStmt() { return m_StateStack.top() == _ParserSateEnum::kAssignStmt; }
+  inline bool IsInForScope() { return m_StateStack.top() == _ParserSateEnum::kFor; }
 
   inline mlir::aten::FuncOp* GetFuncOp() {
     if (m_FuncOp != nullptr)
@@ -74,6 +76,8 @@ class ParserState {
   inline std::vector<std::string>& GetIfStmtValueUsed() { return m_IfSSARet.top(); }
 
   inline void PushAssignStmt() { m_StateStack.push(_ParserSateEnum::kAssignStmt); }
+
+  inline void PushForStmt() { m_StateStack.push(_ParserSateEnum::kFor); }
 
   inline void Pop() {
     auto top = m_StateStack.top();
