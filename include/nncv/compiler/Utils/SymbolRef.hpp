@@ -142,6 +142,12 @@ class RandomAccessSymbolStack {
   std::vector<_Ty> _data;
 };
 
+enum class VarSymbolKind {
+  kNone = 0,
+  kNormal = 1,
+  kFuncArgument = 2,
+};
+
 class AtenSymbolTableG {
  public:
   inline AtenSymbolTableG(AtenSymbolTableState level = AtenSymbolTableState::kGlobal)
@@ -203,7 +209,17 @@ class AtenSymbolTableG {
     return std::nullopt;
   }
 
-  void updateVatSymbol(const std::string& varName, mlir::Value value) {
+  std::optional<VarSymbolKind> getVarSymbolKind(const std::string& name) {
+    auto item = varSymbolTable_Kind.find(name);
+    if (item == varSymbolTable_Kind.end()) {
+      // FIXME emit error
+      return std::nullopt;
+    } else {
+      return item->second;
+    }
+  }
+
+  [[deprecated]] void updateVatSymbol(const std::string& varName, mlir::Value value) {
     varSymbolTable[varName] = value;
   }
 
@@ -222,15 +238,17 @@ class AtenSymbolTableG {
     return true;
   }
 
-  inline bool registerVarSymbol(const std::string& varName, mlir::Value value) {
+  inline bool registerVarSymbol(const std::string& varName, mlir::Value value, VarSymbolKind kind) {
     if (varSymbolTable.find(varName) != varSymbolTable.end()) return false;
     varSymbolTable[varName] = value;
+    varSymbolTable_Kind[varName] = kind;
     return true;
   }
 
  private:
   AtenSymbolTableState stateLevel;
   std::unordered_map<std::string, mlir::Value> varSymbolTable;
+  std::unordered_map<std::string, VarSymbolKind> varSymbolTable_Kind;
   std::unordered_map<std::string, AtenStructSymbolPayload> structSymbolTable;
   std::unordered_map<std::string, AtenFunctionSymbolPayload> funcSymbolTable;
 };
@@ -274,8 +292,10 @@ class AtenSymbolRef {
 
   std::optional<mlir::Value> getVarValueSymbol(const std::string& varName);
   std::optional<std::string> getVarValueName(mlir::Value value);
-  bool updateVarSymbol(const std::string& varName, mlir::Value value);
-  bool registerVarSymbol(const std::string& varName, mlir::Value value);
+  VarSymbolKind getVarValueSymbolKind(const std::string& varName);
+  bool isInTheTopSymbolTable(std::string& vn);
+  [[deprecated]] bool updateVarSymbol(const std::string& varName, mlir::Value value);
+  bool registerVarSymbol(const std::string& varName, mlir::Value value, VarSymbolKind kind);
 
   void createVarSymbolTableOnTop();
   void deleteVarSymbolTableOnTop();

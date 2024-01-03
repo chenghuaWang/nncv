@@ -54,6 +54,11 @@ class SameFirstOperandAndResultType
 };
 
 }  // namespace OpTrait
+
+namespace aten {
+void buildTerminatedBody(OpBuilder& builder, Location loc);
+}
+
 }  // namespace mlir
 
 #define GET_OP_CLASSES

@@ -33,7 +33,8 @@ enum class _ParserSateEnum : int32_t {
   kFunction = 1,  // has block
   kIf = 2,        // has block
   kWhile = 3,     // has block
-  kSwitch = 4     // has block
+  kSwitch = 4,    // has block
+  kAssignStmt = 5,
 };
 
 class ParserState {
@@ -43,6 +44,9 @@ class ParserState {
     if (m_StateStack.size() != 0)
       printf("[ Erro ] The stack of parser state is not 0, get %lu instead\n", m_StateStack.size());
   }
+
+  inline bool IsInIfScope() { return m_StateStack.top() == _ParserSateEnum::kIf; }
+  inline bool IsInAssignStmt() { return m_StateStack.top() == _ParserSateEnum::kAssignStmt; }
 
   inline mlir::aten::FuncOp* GetFuncOp() {
     if (m_FuncOp != nullptr)
@@ -56,6 +60,21 @@ class ParserState {
     m_FuncOp = op;
   }
 
+  inline void PushIfStmt() {
+    m_StateStack.push(_ParserSateEnum::kIf);
+    m_IfHasTerminatedByBreak.push(false);
+    m_IfSSARet.push(std::vector<std::string>{});
+  };
+  inline void SetIfHasTerminatedByBreak() {
+    m_IfHasTerminatedByBreak.pop();
+    m_IfHasTerminatedByBreak.push(true);
+  }
+  inline bool IsIfHadTerminated() { return m_IfHasTerminatedByBreak.top(); }
+  inline void SetIfStmtValueUsed(std::string& vn) { m_IfSSARet.top().push_back(vn); }
+  inline std::vector<std::string>& GetIfStmtValueUsed() { return m_IfSSARet.top(); }
+
+  inline void PushAssignStmt() { m_StateStack.push(_ParserSateEnum::kAssignStmt); }
+
   inline void Pop() {
     auto top = m_StateStack.top();
     switch (top) {
@@ -67,6 +86,8 @@ class ParserState {
         break;
       }
       case _ParserSateEnum::kIf: {
+        m_IfHasTerminatedByBreak.pop();
+        m_IfSSARet.pop();
         break;
       }
       case _ParserSateEnum::kWhile: {
@@ -75,6 +96,7 @@ class ParserState {
       case _ParserSateEnum::kSwitch: {
         break;
       }
+      default: break;
     }
     m_StateStack.pop();
   }
@@ -86,6 +108,10 @@ class ParserState {
 
   // 2. function state
   mlir::aten::FuncOp* m_FuncOp;
+
+  // 3. If State
+  std::stack<bool> m_IfHasTerminatedByBreak;
+  std::stack<std::vector<std::string>> m_IfSSARet;
 
   // stack record
   std::stack<_ParserSateEnum> m_StateStack;

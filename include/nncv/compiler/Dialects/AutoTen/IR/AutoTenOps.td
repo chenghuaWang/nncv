@@ -179,17 +179,64 @@ def ConstantOp : Aten_Op<"const", [
 }
 
 //===----------------------------------------------------------------------===//
-// Aten Alloca Op
+// Aten Alloca Op. Alloc mem on stack!!!.
+//
+// Reference from ClangIR
 //===----------------------------------------------------------------------===//
+class AllocaTypesMatchWith<string summary, string lhsArg, string rhsArg,
+                     string transform, string comparator = "std::equal_to<>()">
+  : PredOpTrait<summary, CPred<
+      comparator # "(" #
+      !subst("$_self", "$" # lhsArg # ".getType()", transform) #
+             ", $" # rhsArg # ")">> {
+  string lhs = lhsArg;
+  string rhs = rhsArg;
+  string transformer = transform;
+}
 
-// TODO
+def AllocaOp : Aten_Op<"alloca", [
+  AllocaTypesMatchWith<"'allocaType' matches pointee type of 'addr'",
+                 "addr", "allocaType",
+                 "$_self.cast<PointerType>().getPointee()">]> {
+    let summary = "Defines a scope-local variable";
+    let description = [{
+    }];
 
-//===----------------------------------------------------------------------===//
-// Aten Delete Op
-//===----------------------------------------------------------------------===//
+    let arguments = (ins
+        Optional<Aten_IntegerType>:$dynAllocSize,
+        TypeAttr:$allocaType,
+        StrAttr:$name,
+        UnitAttr:$init,
+        ConfinedAttr<OptionalAttr<I64Attr>, [IntMinValue<0>]>:$alignment
+    );
 
-// TODO
+    let results = (outs Res<Aten_PointerType, "", [MemAlloc<AutomaticAllocationScopeResource>]>:$addr);
+    
+    let skipDefaultBuilders = 1;
+    let builders = [
+        OpBuilder<(ins "Type":$addr, "Type":$allocaType, "StringRef":$name, "IntegerAttr":$alignment)>,
+        OpBuilder<(ins "Type":$addr, "Type":$allocaType, "StringRef":$name, "IntegerAttr":$alignment, "Value":$dynAllocSize), [{
+            if (dynAllocSize)
+                $_state.addOperands(dynAllocSize);
+            build($_builder, $_state, addr, allocaType, name, alignment);
+        }]>
+    ];
+    let extraClassDeclaration = [{
+        bool isPointerType() { return getAllocaType().isa<::mlir::aten::PointerType>(); }
 
+        bool isDynamic() { return (bool)getDynAllocSize(); }
+    }];
+
+    let assemblyFormat = [{
+        $allocaType `,` `aten.ptr` type($addr) `,`
+        ($dynAllocSize^ `:` type($dynAllocSize) `,`)?
+        `[` $name
+        (`,` `init` $init^)?
+        `]` attr-dict
+    }];
+
+    let hasVerifier = 0;
+}
 
 //===----------------------------------------------------------------------===//
 // Aten Ptr Get Refernce Op
@@ -716,6 +763,112 @@ def IfOp : Aten_Op<"if", [
                 "nullptr">:$elseBuilder)>
     ];
 }
+
+//===----------------------------------------------------------------------===//
+// Aten Yield Op
+//===----------------------------------------------------------------------===//
+def Aten_YieldOp_BK : I32EnumAttrCase<"Break", 1, "break">;
+def Aten_YieldOp_CE : I32EnumAttrCase<"Continue", 2, "continue">;
+
+def YieldOpPredict : I32EnumAttr<
+    "YieldOpPredict",
+    "yield kind",
+    [Aten_YieldOp_BK, Aten_YieldOp_CE]> {
+  let cppNamespace = "::mlir::aten";
+}
+
+def YieldOp : Aten_Op<"yield", [
+    ReturnLike, 
+    Terminator,
+    ParentOneOf<["IfOp", "LoopOp"]>
+]> {
+    let summary = "Terminate a region";
+    let description = [{
+
+    }];
+
+    let arguments = (ins OptionalAttr<YieldOpPredict>:$kind, Variadic<AnyType>:$args);
+    let builders = [
+        OpBuilder<(ins), [{
+            /* not empty, bu do nothing */
+        }]>,
+        OpBuilder<(ins "YieldOpPredict":$kind), [{
+            mlir::aten::YieldOpPredictAttr kattr = mlir::aten::YieldOpPredictAttr::get($_builder.getContext(), kind);
+            $_state.addAttribute(getKindAttrName($_state.name), kattr);
+        }]>,
+        OpBuilder<(ins "ValueRange":$results), [{
+            $_state.addOperands(results);
+        }]>
+    ];
+    let assemblyFormat = [{
+        ($kind^)? ($args^ `:` type($args))? attr-dict
+    }];
+    let extraClassDeclaration = [{
+        // None of the below
+        bool isPlain() {
+            return !getKind();
+        }
+        bool isBreak() {
+            return !isPlain() && *getKind() == YieldOpPredict::Break;
+        }
+        bool isContinue() {
+            return !isPlain() && *getKind() == YieldOpPredict::Continue;
+        }
+    }];
+    let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Loop Op
+//===----------------------------------------------------------------------===//
+def Aten_LoopOp_For : I32EnumAttrCase<"For", 1, "for">;
+def Aten_LoopOp_While : I32EnumAttrCase<"While", 2, "while">;
+
+def LoopOpPredict : I32EnumAttr<
+    "LoopOpPredict",
+    "Loop op predict",
+    [Aten_LoopOp_For, Aten_LoopOp_While]> {
+  let cppNamespace = "::mlir::aten";
+}
+
+def LoopOp : Aten_Op<"loop", [
+    DeclareOpInterfaceMethods<LoopLikeOpInterface>,
+    DeclareOpInterfaceMethods<RegionBranchOpInterface>,
+    RecursivelySpeculatable, 
+    NoRegionArguments]> {
+
+    let summary = "Loop";
+    let description = [{
+
+    }];
+    let arguments = (ins Arg<LoopOpPredict, "loop op predict">:$kind);
+    let regions = (region AnyRegion:$cond, AnyRegion:$body, SizedRegion<1>:$step);
+    let assemblyFormat = [{
+        $kind
+        `(`
+        `cond` `:` $cond `,`
+        `step` `:` $step
+        `)`
+        $body
+        attr-dict
+    }];
+    let skipDefaultBuilders = 1;
+    let builders = [
+        OpBuilder<(ins
+        "aten::LoopOpPredict":$kind,
+        CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$condBuilder,
+        CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilder,
+        CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$stepBuilder
+        )>
+    ];
+
+    let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten Switch Op
+//===----------------------------------------------------------------------===//
+
 
 //===----------------------------------------------------------------------===//
 // Global Value

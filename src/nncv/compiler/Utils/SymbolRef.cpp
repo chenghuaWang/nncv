@@ -84,6 +84,22 @@ std::optional<std::string> AtenSymbolRef::getVarValueName(mlir::Value value) {
   return std::nullopt;
 }
 
+VarSymbolKind AtenSymbolRef::getVarValueSymbolKind(const std::string& varName) {
+  size_t depth = m_stack.size();
+  while (depth) {
+    auto item = m_stack.randomAccess(depth - 1)->getVarSymbolKind(varName);
+    if (item.has_value()) { return item.value(); }
+    depth--;
+  }
+  return VarSymbolKind::kNone;
+}
+
+bool AtenSymbolRef::isInTheTopSymbolTable(std::string& vn) {
+  auto item = m_stack.randomAccess(m_stack.size() - 1)->getVarSymbol(vn);
+  if (item.has_value()) { return true; }
+  return false;
+}
+
 bool AtenSymbolRef::updateVarSymbol(const std::string& varName, mlir::Value value) {
   size_t depth = m_stack.size();
   while (depth) {
@@ -97,8 +113,9 @@ bool AtenSymbolRef::updateVarSymbol(const std::string& varName, mlir::Value valu
   return false;
 }
 
-bool AtenSymbolRef::registerVarSymbol(const std::string& varName, mlir::Value value) {
-  return m_stack.top()->registerVarSymbol(varName, value);
+bool AtenSymbolRef::registerVarSymbol(const std::string& varName, mlir::Value value,
+                                      VarSymbolKind kind) {
+  return m_stack.top()->registerVarSymbol(varName, value, kind);
 }
 
 void AtenSymbolRef::createVarSymbolTableOnTop() {

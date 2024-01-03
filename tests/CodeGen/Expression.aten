@@ -27,5 +27,3 @@ func testArithFloat64Expr(a float64, b float64) -> float64 {
 func testBoolExpr(a int32, b int32) -> bool {
     return a < b;
 };
-
-

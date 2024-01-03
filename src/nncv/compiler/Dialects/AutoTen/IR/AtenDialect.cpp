@@ -42,7 +42,19 @@ void aten::AtenDialect::initialize() {
 }
 
 //===----------------------------------------------------------------------===//
-// CastOp
+// Aten AllocaOp
+//===----------------------------------------------------------------------===//
+void aten::AllocaOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::OperationState& odsState,
+                           ::mlir::Type addr, ::mlir::Type allocaType, ::llvm::StringRef name,
+                           ::mlir::IntegerAttr alignment) {
+  odsState.addAttribute(getAllocaTypeAttrName(odsState.name), ::mlir::TypeAttr::get(allocaType));
+  odsState.addAttribute(getNameAttrName(odsState.name), odsBuilder.getStringAttr(name));
+  if (alignment) { odsState.addAttribute(getAlignmentAttrName(odsState.name), alignment); }
+  odsState.addTypes(addr);
+}
+
+//===----------------------------------------------------------------------===//
+// Aten CastOp
 //===----------------------------------------------------------------------===//
 LogicalResult CastOp::verify() {
   auto resType = getResult().getType();
@@ -597,6 +609,43 @@ void aten::MakeStructSymbol::getSuccessorRegions(mlir::RegionBranchPoint point,
 //===----------------------------------------------------------------------===//
 // Aten If Stmt Op.
 //===----------------------------------------------------------------------===//
+void mlir::aten::buildTerminatedBody(OpBuilder& builder, Location loc) {}
+
+mlir::LogicalResult validRegionTerm(OpAsmParser& parser, Region& region, SMLoc errLoc) {
+  Location eLoc = parser.getEncodedSourceLoc(parser.getCurrentLocation());
+  OpBuilder builder(parser.getBuilder().getContext());
+
+  if (region.empty() || (region.back().mightHaveTerminator() && region.back().getTerminator())) {
+    return success();
+  }
+  if (!region.hasOneBlock()) {
+    return parser.emitError(errLoc, "multi-block region must not omit terminator");
+  }
+  if (region.back().empty()) {
+    return parser.emitError(errLoc, "empty region must not omit terminator");
+  }
+  region.back().push_back(builder.create<aten::YieldOp>(eLoc));
+  return success();
+}
+
+void aten::IfOp::build(OpBuilder& builder, OperationState& result, Value cond, bool withElseRegion,
+                       function_ref<void(OpBuilder&, Location)> thenBuilder,
+                       function_ref<void(OpBuilder&, Location)> elseBuilder) {
+  if (!thenBuilder) { printf("[ Erro ] When parse mlir, IfOp must have then statement.\n"); }
+  result.addOperands(cond);
+
+  OpBuilder::InsertionGuard guard(builder);
+  Region* thenRegion = result.addRegion();
+  builder.setInsertionPointToStart(builder.createBlock(thenRegion));
+  thenBuilder(builder, result.location);
+
+  Region* elseRegion = result.addRegion();
+  if (!withElseRegion) { return; }
+
+  builder.setInsertionPointToStart(builder.createBlock(elseRegion));
+  elseBuilder(builder, result.location);
+}
+
 bool omitRegionTerm(mlir::Region& r) {
   auto singleNonEmptyBlock = r.hasOneBlock() && !r.back().empty();
   auto yieldsNothing = [&r]() {
@@ -606,7 +655,30 @@ bool omitRegionTerm(mlir::Region& r) {
   return singleNonEmptyBlock && yieldsNothing();
 }
 
-ParseResult aten::IfOp::parse(OpAsmParser& parser, OperationState& result) {}
+mlir::ParseResult aten::IfOp::parse(OpAsmParser& parser, OperationState& result) {
+  result.regions.reserve(2);
+  Region* thenRegion = result.addRegion();
+  Region* elseRegion = result.addRegion();
+
+  auto& builder = parser.getBuilder();
+  OpAsmParser::UnresolvedOperand cond;
+  Type boolType = ::mlir::aten::BoolType::get(builder.getContext());
+
+  if (parser.parseOperand(cond) || parser.resolveOperand(cond, boolType, result.operands)) {
+    return failure();
+  }
+  if (!parser.parseKeyword("then")) return failure();
+  auto parseThenLoc = parser.getCurrentLocation();
+  if (parser.parseRegion(*thenRegion, {}, {})) return failure();
+  if (validRegionTerm(parser, *thenRegion, parseThenLoc).failed()) return failure();
+  if (!parser.parseOptionalKeyword("else")) {
+    auto parseElseLoc = parser.getCurrentLocation();
+    if (parser.parseRegion(*elseRegion, {}, {})) { return failure(); }
+    if (validRegionTerm(parser, *elseRegion, parseElseLoc).failed()) { return failure(); }
+  }
+  if (parser.parseOptionalAttrDict(result.attributes)) { return failure(); }
+  return success();
+}
 
 void aten::IfOp::print(OpAsmPrinter& p) {
   p << " " << getCondition() << " then";
@@ -622,13 +694,112 @@ void aten::IfOp::print(OpAsmPrinter& p) {
   p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
-LogicalResult aten::IfOp::verify() { return success(); }
+mlir::LogicalResult aten::IfOp::verify() { return success(); }
+
+void IfOp::getSuccessorRegions(mlir::RegionBranchPoint point,
+                               SmallVectorImpl<RegionSuccessor>& regions) {
+  if (!point.isParent()) {
+    regions.push_back(RegionSuccessor());
+    return;
+  }
+
+  Region* elseRegion = &this->getElseRegion();
+  if (elseRegion->empty()) { elseRegion = nullptr; }
+
+  regions.push_back(RegionSuccessor(&getThenRegion()));
+
+  if (elseRegion) { regions.push_back(RegionSuccessor(elseRegion)); }
+  return;
+}
+
+//===----------------------------------------------------------------------===//
+// Aten LoopOp
+//===----------------------------------------------------------------------===//
+void aten::LoopOp::build(OpBuilder& builder, OperationState& result, aten::LoopOpPredict kind,
+                         function_ref<void(OpBuilder&, Location)> condBuilder,
+                         function_ref<void(OpBuilder&, Location)> bodyBuilder,
+                         function_ref<void(OpBuilder&, Location)> stepBuilder) {
+  OpBuilder::InsertionGuard guard(builder);
+  mlir::aten::LoopOpPredictAttr kindAttr = aten::LoopOpPredictAttr::get(builder.getContext(), kind);
+  result.addAttribute(getKindAttrName(result.name), kindAttr);
+
+  Region* condRegion = result.addRegion();
+  builder.createBlock(condRegion);
+  condBuilder(builder, result.location);
+
+  Region* bodyRegion = result.addRegion();
+  builder.createBlock(bodyRegion);
+  bodyBuilder(builder, result.location);
+
+  Region* stepRegion = result.addRegion();
+  builder.createBlock(stepRegion);
+  stepBuilder(builder, result.location);
+}
+
+mlir::LogicalResult aten::LoopOp::verify() {
+  auto terminateError = [&]() {
+    return emitOpError() << "cond region must be terminated with "
+                            "'aten.yield' or 'aten.yield continue'";
+  };
+
+  auto& blocks = getCond().getBlocks();
+  for (Block& block : blocks) {
+    if (block.empty()) { continue; }
+    auto& op = block.back();
+    if (!isa<YieldOp>(op)) { terminateError(); }
+    auto y = cast<YieldOp>(op);
+    if (!(y.isPlain() || y.isContinue())) { terminateError(); }
+  }
+
+  return success();
+}
+
+void aten::LoopOp::getSuccessorRegions(mlir::RegionBranchPoint point,
+                                       SmallVectorImpl<RegionSuccessor>& regions) {
+  if (!point.isParent()) {
+    regions.push_back(RegionSuccessor());
+    return;
+  }
+
+  regions.push_back(RegionSuccessor(&this->getCond()));
+  regions.push_back(RegionSuccessor(&this->getBody()));
+  regions.push_back(RegionSuccessor(&this->getStep()));
+}
+
+llvm::SmallVector<Region*> aten::LoopOp::getLoopRegions() { return {&getBody()}; }
+
+//===----------------------------------------------------------------------===//
+// Aten YieldOp
+//===----------------------------------------------------------------------===//
+mlir::LogicalResult aten::YieldOp::verify() {
+  auto isDominatedByLoop = [](Operation* parentOp) {
+    while (!llvm::isa<aten::FuncOp>(parentOp)) {
+      if (llvm::isa<aten::LoopOp>(parentOp)) { return true; }
+      parentOp = parentOp->getParentOp();
+    }
+    return false;
+  };
+
+  if (isBreak()) {
+    if (!isDominatedByLoop(getOperation()->getParentOp())) { return mlir::failure(); }
+    return mlir::success();
+  }
+
+  if (isContinue()) {
+    if (!isDominatedByLoop(getOperation()->getParentOp())) {
+      return emitOpError() << "shall be dominated by 'aten.loop'";
+    }
+    return mlir::success();
+  }
+
+  return mlir::success();
+}
 
 //===----------------------------------------------------------------------===//
 // Aten self defined traits
 //===----------------------------------------------------------------------===//
 
-LogicalResult OpTrait::impl::verifySameFirstOperandAndResultType(Operation* op) {
+mlir::LogicalResult OpTrait::impl::verifySameFirstOperandAndResultType(Operation* op) {
   if (failed(verifyAtLeastNOperands(op, 1)) || failed(verifyOneResult(op))) return failure();
 
   auto type = op->getResult(0).getType();
