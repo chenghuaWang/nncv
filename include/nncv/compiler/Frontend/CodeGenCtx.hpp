@@ -77,7 +77,15 @@ class ParserState {
 
   inline void PushAssignStmt() { m_StateStack.push(_ParserSateEnum::kAssignStmt); }
 
-  inline void PushForStmt() { m_StateStack.push(_ParserSateEnum::kFor); }
+  inline void PushForStmt() {
+    m_StateStack.push(_ParserSateEnum::kFor);
+    m_ForHasTerminatedByBreak.push(false);
+  }
+  inline void SetForHasTerminatedByBreak() {
+    m_ForHasTerminatedByBreak.pop();
+    m_ForHasTerminatedByBreak.push(true);
+  }
+  inline bool IsForHadTerminated() { return m_ForHasTerminatedByBreak.top(); }
 
   inline void Pop() {
     auto top = m_StateStack.top();
@@ -100,6 +108,10 @@ class ParserState {
       case _ParserSateEnum::kSwitch: {
         break;
       }
+      case _ParserSateEnum::kFor: {
+        m_ForHasTerminatedByBreak.pop();
+        break;
+      }
       default: break;
     }
     m_StateStack.pop();
@@ -116,6 +128,9 @@ class ParserState {
   // 3. If State
   std::stack<bool> m_IfHasTerminatedByBreak;
   std::stack<std::vector<std::string>> m_IfSSARet;
+
+  // 4. For State
+  std::stack<bool> m_ForHasTerminatedByBreak;
 
   // stack record
   std::stack<_ParserSateEnum> m_StateStack;

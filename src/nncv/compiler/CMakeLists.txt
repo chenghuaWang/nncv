@@ -76,8 +76,13 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserListener.h
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/AntlrBackend/AutoTenV1ParserVisitor.h
 
+    # Pipeline
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Frontend.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Frontend.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/LinalgTensorLowering.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/LinalgTensorLowering.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/DnnModelLowering.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/DnnModelLowering.hpp
 
     # CodeGen
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp

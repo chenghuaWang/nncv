@@ -7,4 +7,5 @@ func testFor() -> bool {
     for (c = c + a; c < a; c = c + b) {
         a = a + b;
     };
+    return a < b;
 };

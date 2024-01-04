@@ -457,14 +457,18 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
         location, mlir::aten::LoopOpPredict::For, /*cond Body*/
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
           visit(ctx->forClause()->expression());
+          builder.create<mlir::aten::YieldOp>(loc);
         },
         /*Main Body*/
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
           visit(ctx->block());
-          // TODO terminator
+          if (!Ps.IsForHadTerminated()) { builder.create<mlir::aten::YieldOp>(loc); }
         },
         /*Step Body*/
-        [&](mlir::OpBuilder& builder, mlir::Location loc) { visit(ctx->forClause()->postStmt); });
+        [&](mlir::OpBuilder& builder, mlir::Location loc) {
+          visit(ctx->forClause()->postStmt);
+          builder.create<mlir::aten::YieldOp>(loc);
+        });
     m_curSymbolTable->deleteVarSymbolTableOnTop();
   }
   Ps.Pop();
