@@ -42,6 +42,7 @@ find_package(fmt CONFIG REQUIRED)
 add_subdirectory(Dialects)
 # Add Convertion into this project
 add_subdirectory(Conversion)
+add_subdirectory(Pipeline)
 # Add all include to this project
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
@@ -83,6 +84,10 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/LinalgTensorLowering.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/DnnModelLowering.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/DnnModelLowering.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/Pass/MLProgramBufferize.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Pass/MLProgramBufferize.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Pass/PassDetails.hpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/Pass/Passes.hpp
 
     # CodeGen
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp
@@ -108,6 +113,8 @@ add_llvm_executable(nncv-c
     DEPENDS
     # dialect itself
     MLIRAtenLang
+    # Pass
+    NncvRunner
 )
 
 if (nncv_compiler_use_antlr)
@@ -116,6 +123,23 @@ if (nncv_compiler_use_antlr)
         ${dialect_libs}
         ${conversion_libs}
         ${extension_libs}
+
+        # common libs
+        MLIRAnalysis
+        MLIRBuiltinToLLVMIRTranslation
+        MLIRCallInterfaces
+        MLIRCastInterfaces
+        MLIRExecutionEngine
+        MLIRFunctionInterfaces
+        MLIRIR
+        MLIRLLVMCommonConversion
+        MLIRLLVMToLLVMIRTranslation
+        MLIRMemRefDialect
+        MLIRParser
+        MLIRPass
+        MLIRSideEffectInterfaces
+        MLIRTargetLLVMIRExport
+        MLIRTransforms
 
         # Third-party
         fmt::fmt-header-only
@@ -132,6 +156,23 @@ else()
         ${dialect_libs}
         ${conversion_libs}
         ${extension_libs}
+
+        # common libs
+        MLIRAnalysis
+        MLIRBuiltinToLLVMIRTranslation
+        MLIRCallInterfaces
+        MLIRCastInterfaces
+        MLIRExecutionEngine
+        MLIRFunctionInterfaces
+        MLIRIR
+        MLIRLLVMCommonConversion
+        MLIRLLVMToLLVMIRTranslation
+        MLIRMemRefDialect
+        MLIRParser
+        MLIRPass
+        MLIRSideEffectInterfaces
+        MLIRTargetLLVMIRExport
+        MLIRTransforms
 
         # Third-party
         fmt::fmt-header-only
