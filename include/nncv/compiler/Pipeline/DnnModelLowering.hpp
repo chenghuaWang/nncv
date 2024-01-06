@@ -20,12 +20,19 @@ namespace pipeline {
 
 class DnnModelLowering {
  public:
-  DnnModelLowering(mlir::PassManager* pm) : usingNncvIR(false), m_PM(pm) {}
+  DnnModelLowering(mlir::PassManager* pm) : m_UsingNncvIR(false), m_PM(pm) {}
 
   void registerAllPass();
+  inline void setGenNVPTX() { m_GenNVPTX = true; }
+  inline void setGenHostWoParallel() { m_GenHostWoParallel = true; }
+  inline void setGenHostWParallel() { m_GenHostWParallel = true; }
+  inline void setUsingNncvIR() { m_UsingNncvIR = true; }
 
  private:
-  bool usingNncvIR;
+  bool m_GenNVPTX;
+  bool m_GenHostWoParallel;
+  bool m_GenHostWParallel;
+  bool m_UsingNncvIR;
   mlir::PassManager* m_PM;
 };
 

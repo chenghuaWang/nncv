@@ -1,17 +1,9 @@
-#include "nncv/compiler/Pipeline/Pass/MLProgramBufferize.hpp"
-#include "nncv/compiler/Pipeline/Pass/PassDetails.hpp"
+#include "nncv/compiler/Dialects/NncvFrontend/Transforms/PassDetails.hpp"
+#include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
 
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MLProgram/IR/MLProgram.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
-
-//===----------------------------------------------------------------------===//
-// Pass registration
-//===----------------------------------------------------------------------===//
-
-namespace {
-#define GEN_PASS_REGISTRATION
-#include "Pass/Passes.h.inc"
-}  // end namespace
 
 //===----------------------------------------------------------------------===//
 // MLProgram Bufferize

@@ -1,0 +1,7 @@
+set(LLVM_TARGET_DEFINITIONS NncvGraph.td)
+mlir_tablegen(NncvGraph.h.inc -gen-op-decls)
+mlir_tablegen(NncvGraph.cpp.inc -gen-op-defs)
+mlir_tablegen(NncvGraphDialect.h.inc -gen-dialect-decls)
+mlir_tablegen(NncvGraphDialect.cpp.inc -gen-dialect-defs)
+add_public_tablegen_target(MLIRNncvGraphOpsIncGen)
+add_dependencies(mlir-headers MLIRNncvGraphOpsIncGen)
