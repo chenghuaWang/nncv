@@ -249,7 +249,7 @@ LogicalResult mlir::aten::ConstArrayAttr::verify(
 
     if (!intTy || intTy.getWidth() != 8) {
       emitError() << "constant array element for string literals expects "
-                     "!cir.int<u, 8> element type";
+                     "!aten.int<u, 8> element type";
       return failure();
     }
     return success();
