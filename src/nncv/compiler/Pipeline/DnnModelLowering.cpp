@@ -88,7 +88,10 @@ void DnnModelLowering::registerAllPass() {
 
     return;
   }
-  if (m_GenHostWoParallel) { return; }
+  if (m_GenHostWoParallel) {
+    mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
+    return;
+  }
   if (m_GenHostWParallel) { return; }
 }
 

@@ -2,6 +2,8 @@ add_mlir_library(NncvFrontendPasses
 # Source file.
     Passes.cpp
     MLProgramBufferize.cpp
+    Conv2d1x1ToMatMul.cpp
+    Conv2dToImgToCol.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SRC_DIR}/include/nncv/compiler/Dialects/NncvFrontend/Transforms

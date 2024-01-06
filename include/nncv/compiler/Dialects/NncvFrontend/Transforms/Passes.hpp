@@ -11,6 +11,10 @@ class ModuleOp;
 namespace nncv {
 std::unique_ptr<mlir::OperationPass<mlir::ModuleOp>> createMLProgramBufferizePass();
 
+std::unique_ptr<mlir::Pass> createConvertConv2D1x1ToMatmulPass();
+
+std::unique_ptr<mlir::Pass> createConvertConv2DToImg2ColPass();
+
 void createNncvFrontendToNormalPipeline(OpPassManager& pm);
 
 #define GEN_PASS_REGISTRATION
