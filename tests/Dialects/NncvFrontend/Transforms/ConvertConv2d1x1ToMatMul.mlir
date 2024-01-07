@@ -1,8 +1,5 @@
-func.func @conv() -> tensor<1x2x2x4xf32> {
+func.func @conv(%0 : tensor<1x2x2x3xf32>, %1 : tensor<1x1x3x4xf32>, %2 : tensor<1x2x2x4xf32>) -> tensor<1x2x2x4xf32> {
   %cst = arith.constant 0.000000e+00 : f32
-  %0 = tensor.empty() : tensor<1x2x2x3xf32>
-  %1 = tensor.empty() : tensor<1x1x3x4xf32>
-  %2 = tensor.empty() : tensor<1x2x2x4xf32>
   %3 = linalg.fill ins(%cst : f32) outs(%2 : tensor<1x2x2x4xf32>) -> tensor<1x2x2x4xf32>
   %4 = linalg.conv_2d_nhwc_hwcf {dilations = dense<1> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} ins(%0, %1 : tensor<1x2x2x3xf32>, tensor<1x1x3x4xf32>) outs(%3 : tensor<1x2x2x4xf32>) -> tensor<1x2x2x4xf32>
   return %4 : tensor<1x2x2x4xf32>

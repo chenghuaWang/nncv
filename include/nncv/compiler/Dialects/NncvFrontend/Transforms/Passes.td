@@ -40,4 +40,16 @@ def ConvertConv2DToImg2Col : Pass<"nncv-frontend-convert-conv2d-to-img2col", "">
   }];
 }
 
+//===----------------------------------------------------------------------===//
+// Padding Linalg Ops to pad-size=4(default)
+//===----------------------------------------------------------------------===//
+def PadLinalgOps :
+    Pass<"iree-preprocessing-pad-linalg-ops", ""> {
+  let summary = "Pad linalg ops to the next integer multiple of paddingSize.";
+  let constructor = "mlir::nncv::createPadLinalgOpsToIntegerMultiplePass()";
+  let options = [
+    Option<"paddingSize", "pad-size", "int", /*default=*/"4", "Specify the padding size">,
+  ];
+}
+
 #endif // NNCV_NNCV_FRONTEND_PASSES

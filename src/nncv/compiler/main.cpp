@@ -53,6 +53,8 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
+#include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                                          llvm::cl::Optional);
 llvm::cl::opt<bool> ShowCst("show-cst", llvm::cl::desc("<show CST>"), llvm::cl::Optional);
@@ -60,6 +62,8 @@ llvm::cl::opt<bool> ShowMlir("show-mlir", llvm::cl::desc("<show MLIR>"), llvm::c
 llvm::cl::opt<bool> GetPlatformInfoOnly("get-platform-info-only",
                                         llvm::cl::desc("<get platform infomation only>"),
                                         llvm::cl::Optional);
+llvm::cl::opt<std::string> SetLowerTarget("target", llvm::cl::desc("<to target>"),
+                                          llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context.loadDialect<mlir::arith::ArithDialect, mlir::memref::MemRefDialect,
@@ -106,7 +110,7 @@ int main(int argc, char* argv[]) {
     fr.setShowCst(ShowCst.getValue());
     fr.setDumpMlir(ShowMlir.getValue());
     fr.run();
-  } else if (SuffixStr == "nncv") {
+  } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
     std::string ErrorMessage;
     auto __file = mlir::openInputFile(CurFilePath, &ErrorMessage);
     if (!__file) {
@@ -121,7 +125,28 @@ int main(int argc, char* argv[]) {
     if (ShowMlir.getValue()) { MlirModule->dump(); }
   }
 
+  if (SetLowerTarget.empty()) { return -1; }
+
+  mlir::PassManager pm(MlirModule.get()->getName());
+
   // ---------------------------------------------------------------------
   //  Middle end. Register Some Pass for optimize and lowering.
   // ---------------------------------------------------------------------
+  nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(&pm);
+  if (SetLowerTarget.getValue() == "HostWParallel") {
+    dnnModelLowerPipeline.setGenHostWParallel();
+  } else if (SetLowerTarget.getValue() == "HostWoParallel") {
+    dnnModelLowerPipeline.setGenHostWoParallel();
+  } else if (SetLowerTarget.getValue() == "NVPTX") {
+    dnnModelLowerPipeline.setGenNVPTX();
+  }
+  dnnModelLowerPipeline.registerAllPass();
+
+  // ---------------------------------------------------------------------
+  // Run all passes
+  // ---------------------------------------------------------------------
+  if (mlir::failed(pm.run(*MlirModule))) { return -1; }
+
+  // for debug purpose
+  MlirModule->dump();
 }
