@@ -3,9 +3,8 @@
 func testFor() -> bool {
     var a int32;
     var b int32;
-    var c int32;
-    for (c = c + a; c < a; c = c + b) {
-        a = a + b;
-    };
+    for (i := 0; i < 32; i = i + 1) {
+        a = a + 1;
+    }
     return a < b;
 };

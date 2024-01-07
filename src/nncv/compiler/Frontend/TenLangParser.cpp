@@ -289,7 +289,7 @@ std::any AutoTen2MlirVisitor::visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext
   } else if (ctx->expressionStmt()) {
     visit(ctx->expressionStmt());
   } else if (ctx->shortVarDecl()) {
-    visit(ctx->expressionStmt());
+    visit(ctx->shortVarDecl());
   }
   return VisitorParserReturn();
 }
@@ -477,6 +477,42 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
 }
 
 //===----------------------------------------------------------------------===//
+// shortVarDecl: identifierList DeclareAssign expressionList;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitShortVarDecl(AutoTenV1Parser::ShortVarDeclContext* ctx) {
+  int __line = ctx->DeclareAssign()->getSymbol()->getLine();
+  int __col = ctx->DeclareAssign()->getSymbol()->getCharPositionInLine();
+
+  mlir::Location location = loc(__line, __col);
+
+  mlir::Value value =
+      std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
+  std::string valueName =
+      std::any_cast<VisitorParserReturn>(visit(ctx->identifierList())).getValue<std::string>();
+
+  int64_t alignement;
+
+  if (value.getType().isa<mlir::aten::IntType>()) {
+    alignement = value.getType().dyn_cast<mlir::aten::IntType>().getWidth() / 8;
+  } else if (value.getType().isa<mlir::FloatType>()) {
+    alignement = value.getType().dyn_cast<mlir::FloatType>().getWidth() / 8;
+  } else if (value.getType().isa<mlir::aten::BoolType>()) {
+    alignement = 4;
+  }  // TODO
+
+  mlir::Value ptrValue = m_OpBuilder.create<mlir::aten::AllocaOp>(
+      location,
+      /*address type*/ mlir::aten::PointerType::get(m_OpBuilder.getContext(), value.getType()),
+      /*alloca type*/ value.getType(), /*name*/ valueName,
+      /*alignment is 4B*/ m_OpBuilder.getI64IntegerAttr(alignement));
+
+  m_OpBuilder.create<mlir::aten::StoreOp>(location, value, ptrValue);
+
+  m_curSymbolTable->registerVarSymbol(valueName, ptrValue, utils::VarSymbolKind::kNormal);
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // signature: parameters ArrowReturnType result | parameters;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSignature(AutoTenV1Parser::SignatureContext* ctx) {
@@ -655,7 +691,8 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   if (varSpec.size() != 1) {
     utils::CliFormatOutput::ErrorAt(
         m_FileName, ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine(),
-        "varSpec.size() != 1. nncv-c synatic only support single variable specifier, such as `var "
+        "varSpec.size() != 1. nncv-c synatic only support single variable specifier, such as "
+        "`var "
         "a int32;`. The [LeftParen (varSpec eos)* RightParen] pattern is not support yet.");
   }
   auto theVarSpec = varSpec[0];
@@ -954,6 +991,55 @@ std::any AutoTen2MlirVisitor::visitOperand(AutoTenV1Parser::OperandContext* ctx)
     return visit(ctx->operandName());
   } else if (ctx->LeftParen()) {
     return visit(ctx->expression());
+  }
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// literal: basicLit | compositeLit | functionLit;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitLiteral(AutoTenV1Parser::LiteralContext* ctx) {
+  if (ctx->basicLit()) { return visit(ctx->basicLit()); }
+  if (ctx->compositeLit()) { return visit(ctx->compositeLit()); }
+  if (ctx->functionLit()) { return visit(ctx->functionLit()); }
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// basicLit:
+// 	Nilptr
+// 	| IntegerLiteral
+// 	| StringLiteral
+// 	| FloatingLiteral
+// 	| CharacterLiteral;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitBasicLit(AutoTenV1Parser::BasicLitContext* ctx) {
+  if (ctx->Nilptr()) {
+    // TODO
+  }
+  if (ctx->IntegerLiteral()) {
+    int __line = ctx->IntegerLiteral()->getSymbol()->getLine();
+    int __col = ctx->IntegerLiteral()->getSymbol()->getCharPositionInLine();
+
+    mlir::Location location = loc(__line, __col);
+
+    std::string integerStr = ctx->IntegerLiteral()->getText();
+    long long num = std::stoll(integerStr);
+
+    auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
+    auto attri = mlir::aten::IntAttr::get(intType, num);
+
+    mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(location, intType, attri);
+    return VisitorParserReturn(value);
+  }
+  if (ctx->StringLiteral()) {
+    // TODO
+  }
+  if (ctx->FloatingLiteral()) {
+    // TODO
+  }
+  if (ctx->CharacterLiteral()) {
+    // TODO
   }
   return VisitorParserReturn();
 }
@@ -1330,7 +1416,8 @@ std::any AutoTen2MlirVisitor::visitTypeLit(AutoTenV1Parser::TypeLitContext* ctx)
 //===----------------------------------------------------------------------===//
 // arrayType: LeftBracket arrayLength RightBracket elementType;
 //
-// NOTE: To be simplified. Array type do not support length infer. Such as `a [...]int = {1, 2, 3}`
+// NOTE: To be simplified. Array type do not support length infer. Such as `a [...]int = {1, 2,
+// 3}`
 //
 // return: return: VisitorParserReturn(mlir::Type);
 //===----------------------------------------------------------------------===//

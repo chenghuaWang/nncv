@@ -89,6 +89,10 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitOperand(AutoTenV1Parser::OperandContext* ctx) override;
 
+  std::any visitLiteral(AutoTenV1Parser::LiteralContext* ctx) override;
+
+  std::any visitBasicLit(AutoTenV1Parser::BasicLitContext* ctx) override;
+
   std::any visitOperandName(AutoTenV1Parser::OperandNameContext* ctx) override;
 
   std::any visitIdentifierList(AutoTenV1Parser::IdentifierListContext* ctx) override;
@@ -113,6 +117,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitBreakStmt(AutoTenV1Parser::BreakStmtContext* ctx) override;
 
   std::any visitForStmt(AutoTenV1Parser::ForStmtContext* ctx) override;
+
+  std::any visitShortVarDecl(AutoTenV1Parser::ShortVarDeclContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Process types and atrributes

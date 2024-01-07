@@ -11,7 +11,12 @@ class PadLinalgOpsToIntegerMultiple : public PadLinalgOpsBase<PadLinalgOpsToInte
     return;
   }
 
-  void runOnOperation() override { return; }
+  void runOnOperation() override {
+    MLIRContext* context = &getContext();
+    RewritePatternSet patterns(context);
+
+    return;
+  }
 };
 }  // namespace
 
