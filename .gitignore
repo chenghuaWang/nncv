@@ -17,3 +17,4 @@ docs/site/
 out/
 site/
 deps/
+third_party/glfw/

@@ -26,6 +26,7 @@ option(nncv_build_test "Build Test module" ON)
 option(nncv_build_python_toolset "Build Python toolset for quickly test" OFF)
 option(nncv_build_model_compiler "Build model compiler for optimize kernel" ON)
 option(nncv_build_vm "Build Virtual machine for execute networks" ON)
+option(nncv_build_visual_profiler "Build nncv visual profiler" ON)
 # Reference:
 # https://medium.com/@alasher/colored-c-compiler-output-with-ninja-clang-gcc-10bfe7f2b949
 option(nccv_force_colored_diagnostics "Always produce ANSI-colored diagnostics (GNU/Clang only)." ON)
@@ -138,6 +139,10 @@ if(nncv_build_python_toolset)
     message(STATUS "Building NNCV Python Toolset")
     # TODO
 endif(nncv_build_python_toolset)
+
+if(nncv_build_visual_profiler)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/nncv/VisualProfiler)
+endif()
 
 if(nncv_build_vm)
     message(STATUS "Building NNCV Virtual Machine")
