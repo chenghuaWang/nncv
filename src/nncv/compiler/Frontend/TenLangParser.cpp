@@ -417,7 +417,12 @@ std::any AutoTen2MlirVisitor::visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext
 // incDecStmt: expression (PlusPlus | MinusMinus);
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext* ctx) {
-  auto value = std::any_cast<VisitorParserReturn>(ctx->expression()).getValue<mlir::Value>();
+  Ps.PushIncDecStmt();
+  auto valuePtr =
+      std::any_cast<VisitorParserReturn>(visit(ctx->expression())).getValue<mlir::Value>();
+  Ps.Pop();
+
+  auto value = m_OpBuilder.create<mlir::aten::LoadOp>(valuePtr.getLoc(), valuePtr);
 
   if (ctx->PlusPlus()) {
     int __line = ctx->PlusPlus()->getSymbol()->getLine();
@@ -438,11 +443,14 @@ std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext
     }
 
     // create add operation in aten dialect.
-    m_OpBuilder.create<mlir::aten::BinOp>(
+    mlir::Value result = m_OpBuilder.create<mlir::aten::BinOp>(
         location,
         mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
                                             mlir::aten::BinOpPredicate::Add),
         value, one);
+
+    // store to value;
+    m_OpBuilder.create<mlir::aten::StoreOp>(location, result, valuePtr);
 
   }  // TODO else if(ctx->MinusMinus) {}
   return VisitorParserReturn();
@@ -1241,6 +1249,13 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
   if (!_value.has_value()) {
     printf("[ Erro ] Identifier Symbol (%s) can not fond.\n", ctx->Identifier()->getText().c_str());
     exit(-1);
+  }
+
+  // i++, return pointer of i
+  if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())
+          == utils::VarSymbolKind::kNormal
+      && Ps.IsInIncDecStmt()) {
+    return VisitorParserReturn(_value.value());
   }
 
   // a[i, j]. The i and j should be load.

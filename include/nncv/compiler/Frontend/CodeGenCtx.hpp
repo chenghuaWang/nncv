@@ -37,6 +37,7 @@ enum class _ParserSateEnum : int32_t {
   kAssignStmt = 5,
   kFor = 6,
   kSlice = 7,
+  kIncDec = 8,
 };
 
 class ParserState {
@@ -96,6 +97,9 @@ class ParserState {
 
   inline void PushSliceStmt() { m_StateStack.push(_ParserSateEnum::kSlice); }
   inline bool IsInSliceStmt() { return m_StateStack.top() == _ParserSateEnum::kSlice; }
+
+  inline void PushIncDecStmt() { m_StateStack.push(_ParserSateEnum::kIncDec); }
+  inline bool IsInIncDecStmt() { return m_StateStack.top() == _ParserSateEnum::kIncDec; }
 
   inline void Pop() {
     auto top = m_StateStack.top();
