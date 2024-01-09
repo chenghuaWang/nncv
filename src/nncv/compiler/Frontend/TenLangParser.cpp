@@ -16,6 +16,125 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+// Utilities
+
+llvm::SmallVector<mlir::Value, 4> AutoTen2MlirVisitor::castAtenArithToMlirArith(
+    llvm::SmallVector<mlir::Value, 4>& valueArry) {
+  llvm::SmallVector<mlir::Value, 4> res;
+
+  for (const auto item : valueArry) {
+    if (item.getType().isa<mlir::IndexType>()) {
+      res.emplace_back(item);
+    } else {
+      // the input is not mlir::index. Then, build a aten::CastOp
+      // casting aten::IntType to mlir::IndexType
+      mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+          item.getLoc(),
+          /*result type*/ mlir::IndexType::get(m_OpBuilder.getContext()),
+          /*predict*/
+          mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                             mlir::aten::CastPredicate::int_to_mlir_index),
+          /*input*/ item);
+      res.emplace_back(value);
+    }
+  }
+  return res;
+}
+
+//===----------------------------------------------------------------------===//
+// slice_:
+// 	LeftBracket (
+// 		expression? Colon expression?
+// 		| expression? Colon expression Colon expression
+// 		| expression
+// 	) (
+// 		Comma (
+// 			expression? Colon expression?
+// 			| expression? Colon expression Colon expression
+// 			| expression
+// 		)
+// 	)* RightBracket;
+//
+// FIXME: Now, Just support: expression Comma expression Comma ...
+//===----------------------------------------------------------------------===//
+VisitorParserReturn AutoTen2MlirVisitor::parseSlice_(AutoTenV1Parser::Slice_Context* ctx,
+                                                     VisitorParserReturn& value) {
+  auto _value = value.getValue<mlir::Value>();
+
+  int __line = ctx->LeftBracket()->getSymbol()->getLine();
+  int __col = ctx->LeftBracket()->getSymbol()->getCharPositionInLine();
+
+  mlir::Location location = loc(__line, __col);
+
+  llvm::SmallVector<mlir::Value, 4> indexArray;
+
+  Ps.PushSliceStmt();
+  for (const auto item : ctx->expression()) {
+    indexArray.emplace_back(
+        std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>());
+  }
+  Ps.Pop();
+
+  auto castedIdnexArray = castAtenArithToMlirArith(indexArray);
+
+  if (Ps.IsInAssignStmt()
+      && (_value.getType().isa<mlir::MemRefType>()
+          || _value.getType().isa<mlir::UnrankedMemRefType>())) {
+    Ps.SetCurSliceIndex(castedIdnexArray);
+    return value;
+  }
+
+  if (_value.getType().isa<mlir::MemRefType>()
+      || _value.getType().isa<mlir::UnrankedMemRefType>()) {
+    // 1. cast all aten's type to mlir's builtin index type. (castAtenArithToMlirArith).
+    // 2. create memref load op. Will return arith value.
+    mlir::Value retValue =
+        m_OpBuilder.create<mlir::memref::LoadOp>(location, _value, castedIdnexArray);
+    return VisitorParserReturn(retValue);
+  }
+
+  return VisitorParserReturn();
+}
+
+// auto cast v1 type and v2 type to the same type.
+// !!! mlir::Index should be casted manully, not in this function !!!
+inline llvm::SmallVector<mlir::Value, 2> AutoTen2MlirVisitor::autoTypeCastSolver(mlir::Value& v1,
+                                                                                 mlir::Value& v2) {
+  auto type1 = v1.getType();
+  auto type2 = v2.getType();
+
+  llvm::SmallVector<mlir::Value> result;
+
+  // case 1. int32 and float32. case int32 to float32
+  if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::Float32Type>()) {
+    mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+        v1.getLoc(), type2,
+        mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                           mlir::aten::CastPredicate::int_to_float),
+        v1);
+    result.emplace_back(value);
+    result.emplace_back(v2);
+    return result;
+  }
+  if ((type1.isa<mlir::Float32Type>() && type2.isa<mlir::aten::IntType>())) {
+    mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+        v2.getLoc(), type2,
+        mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                           mlir::aten::CastPredicate::int_to_float),
+        v2);
+    result.emplace_back(v1);
+    result.emplace_back(value);
+    return result;
+  }
+
+  // case 2.
+  // TODO
+
+  result.emplace_back(v1);
+  result.emplace_back(v2);
+  return result;
+}
+
 //===----------------------------------------------------------------------===//
 // The visitor is for generating MLIR form CST(concrete synatic tree) directly.
 //
@@ -295,6 +414,41 @@ std::any AutoTen2MlirVisitor::visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext
 }
 
 //===----------------------------------------------------------------------===//
+// incDecStmt: expression (PlusPlus | MinusMinus);
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext* ctx) {
+  auto value = std::any_cast<VisitorParserReturn>(ctx->expression()).getValue<mlir::Value>();
+
+  if (ctx->PlusPlus()) {
+    int __line = ctx->PlusPlus()->getSymbol()->getLine();
+    int __col = ctx->PlusPlus()->getSymbol()->getCharPositionInLine();
+
+    mlir::Location location = loc(__line, __col);
+    mlir::Value one;
+
+    if (value.getType().isa<mlir::aten::IntType>()) {
+      auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
+      auto attri = mlir::aten::IntAttr::get(intType, 1);
+      one = m_OpBuilder.create<mlir::aten::ConstantOp>(location, intType, attri);
+    } else if (value.getType().isa<mlir::FloatType>()) {
+      // TODO
+    } else {
+      // FIXME throw error.
+      return VisitorParserReturn();
+    }
+
+    // create add operation in aten dialect.
+    m_OpBuilder.create<mlir::aten::BinOp>(
+        location,
+        mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                            mlir::aten::BinOpPredicate::Add),
+        value, one);
+
+  }  // TODO else if(ctx->MinusMinus) {}
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // assignment: expressionList assign_op expressionList;
 //
 // assign_op: (
@@ -312,7 +466,7 @@ std::any AutoTen2MlirVisitor::visitSimpleStmt(AutoTenV1Parser::SimpleStmtContext
 //
 // Example:
 // 1. c = a + b. Done.
-// TODO 2. dst[0][0] = src[0][0] + src2[0][0]
+// 2. dst[0][0] = src[0][0] + src2[0][0]
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext* ctx) {
   int __line = ctx->assign_op()->Assign()->getSymbol()->getLine();
@@ -332,8 +486,9 @@ std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext
 
   if (!lhs.getType().isa<mlir::MemRefType>()) {
     m_OpBuilder.create<mlir::aten::StoreOp>(location, rhs, lhs);
-  } else {
-    // TODO
+  } else /*the lhs type is memref or memref-like type*/ {
+    // create memref store op
+    m_OpBuilder.create<mlir::memref::StoreOp>(location, rhs, lhs, Ps.GetCurSliceIndex());
   }
   return VisitorParserReturn();
 }
@@ -863,6 +1018,15 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
       // TODO
     }
   }
+
+  // case 9. declare Tensor type(MemRef)
+  if (type.isa<mlir::MemRefType>()) {
+    mlir::Value value =
+        m_OpBuilder.create<mlir::memref::AllocOp>(location, type.dyn_cast<mlir::MemRefType>());
+    m_curSymbolTable->registerVarSymbol(symbolName, value, utils::VarSymbolKind::kNormal);
+  } else if (type.isa<mlir::UnrankedMemRefType>()) {
+    // TODO
+  }
   return VisitorParserReturn();
 }
 
@@ -921,18 +1085,22 @@ std::any AutoTen2MlirVisitor::visitTensorType(AutoTenV1Parser::TensorTypeContext
   // parse shape
   std::vector<VisitorParserReturn> dimsExpr;
   if (ctx->Less()) {
+    Ps.SetExpressionLiteralGenMlirValue(false);
     for (auto item : ctx->expression()) {
       dimsExpr.emplace_back(std::any_cast<VisitorParserReturn>(visit(item)));
     }
+    Ps.SetExpressionLiteralGenMlirValue(true);
   }
-  llvm::SmallVector<int64_t, 4> shape;
+  llvm::SmallVector<int64_t, 4> memRefShape;
   for (auto item : dimsExpr) {
     if (item.isa(VisitorParserReturnType::kIntLiteral)) {
-      shape.emplace_back(item.getValue<int64_t>());
+      memRefShape.emplace_back(item.getValue<int64_t>());
     }
   }
-  auto ty = mlir::RankedTensorType::get(shape, type);
-  return VisitorParserReturn(ty);
+
+  auto memrefType = mlir::MemRefType::get(memRefShape, type);
+
+  return VisitorParserReturn(memrefType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -971,7 +1139,18 @@ std::any AutoTen2MlirVisitor::visitPrimaryExpr(AutoTenV1Parser::PrimaryExprConte
   if (ctx->conversion()) { return visit(ctx->conversion()); }
   if (ctx->methodExpr()) { return visit(ctx->methodExpr()); }
   if (ctx->primaryExpr()) {
-    // TODO
+    auto visitRet = std::any_cast<VisitorParserReturn>(visit(ctx->primaryExpr()));
+    if (ctx->Dot()) {
+      // TODO
+    } else if (ctx->index()) {
+      // TODO
+    } else if (ctx->slice_()) {
+      return parseSlice_(ctx->slice_(), visitRet);
+    } else if (ctx->typeAssertion()) {
+      // TODO
+    } else if (ctx->arguments()) {
+      // TODO
+    }
   }
   return VisitorParserReturn();
 }
@@ -1026,11 +1205,15 @@ std::any AutoTen2MlirVisitor::visitBasicLit(AutoTenV1Parser::BasicLitContext* ct
     std::string integerStr = ctx->IntegerLiteral()->getText();
     long long num = std::stoll(integerStr);
 
-    auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
-    auto attri = mlir::aten::IntAttr::get(intType, num);
+    if (Ps.IsExpressionLiteralGenMlirValue()) {
+      auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
+      auto attri = mlir::aten::IntAttr::get(intType, num);
 
-    mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(location, intType, attri);
-    return VisitorParserReturn(value);
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(location, intType, attri);
+      return VisitorParserReturn(value);
+    } else {
+      return VisitorParserReturn(num);
+    }
   }
   if (ctx->StringLiteral()) {
     // TODO
@@ -1060,9 +1243,21 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
     exit(-1);
   }
 
+  // a[i, j]. The i and j should be load.
   if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())
           == utils::VarSymbolKind::kNormal
-      && !Ps.IsInAssignStmt()) {
+      && Ps.IsInSliceStmt()) {
+    mlir::Value value = m_OpBuilder.create<mlir::aten::LoadOp>(location, _value.value());
+    return VisitorParserReturn(value);
+  }
+
+  // memref should keep as ptr
+  // func foo(a int32). a should keep as value, not ptr;
+  if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())
+          == utils::VarSymbolKind::kNormal
+      && !Ps.IsInAssignStmt()
+      && !(_value->getType().isa<mlir::MemRefType>()
+           || _value->getType().isa<mlir::UnrankedMemRefType>())) {
     mlir::Value value = m_OpBuilder.create<mlir::aten::LoadOp>(location, _value.value());
     return VisitorParserReturn(value);
   }

@@ -36,6 +36,7 @@ enum class _ParserSateEnum : int32_t {
   kSwitch = 4,    // has block
   kAssignStmt = 5,
   kFor = 6,
+  kSlice = 7,
 };
 
 class ParserState {
@@ -87,6 +88,15 @@ class ParserState {
   }
   inline bool IsForHadTerminated() { return m_ForHasTerminatedByBreak.top(); }
 
+  inline void SetExpressionLiteralGenMlirValue(bool v) { m_ExpressionLiteralGenMlirValue = v; }
+  inline bool IsExpressionLiteralGenMlirValue() { return m_ExpressionLiteralGenMlirValue; }
+
+  inline void SetCurSliceIndex(llvm::SmallVector<mlir::Value, 4> v) { m_CurrentSliceIndex = v; }
+  inline llvm::SmallVector<mlir::Value, 4>& GetCurSliceIndex() { return m_CurrentSliceIndex; }
+
+  inline void PushSliceStmt() { m_StateStack.push(_ParserSateEnum::kSlice); }
+  inline bool IsInSliceStmt() { return m_StateStack.top() == _ParserSateEnum::kSlice; }
+
   inline void Pop() {
     auto top = m_StateStack.top();
     switch (top) {
@@ -131,6 +141,12 @@ class ParserState {
 
   // 4. For State
   std::stack<bool> m_ForHasTerminatedByBreak;
+
+  // 5. For Literal Expression. Generate mlir::Value or not.
+  bool m_ExpressionLiteralGenMlirValue = true;
+
+  // 6. Remeber current slice.
+  llvm::SmallVector<mlir::Value, 4> m_CurrentSliceIndex;
 
   // stack record
   std::stack<_ParserSateEnum> m_StateStack;

@@ -39,6 +39,8 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+class VisitorParserReturn;
+
 class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
  public:
   AutoTen2MlirVisitor(const std::string& fileName, mlir::MLIRContext& context)
@@ -69,6 +71,14 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   inline mlir::Location loc(int line, int row) {
     return mlir::FileLineColLoc::get(m_OpBuilder.getStringAttr(m_FileName), line, row);
   }
+
+  // Utilities functions
+  llvm::SmallVector<mlir::Value, 4> castAtenArithToMlirArith(
+      llvm::SmallVector<mlir::Value, 4>& valueArry);
+
+  VisitorParserReturn parseSlice_(AutoTenV1Parser::Slice_Context* ctx, VisitorParserReturn& value);
+
+  inline llvm::SmallVector<mlir::Value, 2> autoTypeCastSolver(mlir::Value& v1, mlir::Value& v2);
 
   //===----------------------------------------------------------------------===//
   // Override visitor functions in the AutoTenV1ParserVisitor
@@ -119,6 +129,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitForStmt(AutoTenV1Parser::ForStmtContext* ctx) override;
 
   std::any visitShortVarDecl(AutoTenV1Parser::ShortVarDeclContext* ctx) override;
+
+  std::any visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext* ctx) override;
 
   //===----------------------------------------------------------------------===//
   // Process types and atrributes
@@ -462,10 +474,17 @@ class VisitorParserReturn;
 enum class VisitorParserReturnType {
   kMlirValue,
   kMlirType,
+
   kStringLiteral,
   kIntLiteral, /*all int literal will return as int64*/
   kFloatLiteral,
   kBooleanLiteral,
+
+  kStringLiteralWMlirValue,
+  kIntLiteralWMlirValue, /*all int literal will return as int64*/
+  kFloatLiteralWMlirValue,
+  kBooleanLiteralWMlirValue,
+
   kAtenTypeDeclare,
   kAttribute,
   kParametersAndReturn, /*for function decl and function call*/
@@ -509,12 +528,16 @@ class VisitorParserReturn {
   VisitorParserReturn() : type(VisitorParserReturnType::kNone){};
   VisitorParserReturn(const std::string& str)
       : value(str), type(VisitorParserReturnType::kStringLiteral) {}
+  VisitorParserReturn(int64_t value) : value(value), type(VisitorParserReturnType::kIntLiteral) {}
+  VisitorParserReturn(mlir::Value value, const std::string& str)
+      : value(value), strLiteral(str), type(VisitorParserReturnType::kStringLiteralWMlirValue) {}
   VisitorParserReturn(mlir::Value& value)
       : value(value), type(VisitorParserReturnType::kMlirValue) {}
   VisitorParserReturn(mlir::Type& value) : value(value), type(VisitorParserReturnType::kMlirType) {}
   VisitorParserReturn(VisitorParserAtenTypeDecl value)
       : value(value), type(VisitorParserReturnType::kAtenTypeDeclare) {}
-  VisitorParserReturn(int64_t value) : value(value), type(VisitorParserReturnType::kIntLiteral) {}
+  VisitorParserReturn(mlir::Value mlirValue, int64_t value)
+      : value(mlirValue), intLiteral(value), type(VisitorParserReturnType::kIntLiteralWMlirValue) {}
   VisitorParserReturn(mlir::Attribute& attr)
       : value(attr), type(VisitorParserReturnType::kAttribute) {}
   VisitorParserReturn(FuncParameterAndReturn& attr)
@@ -533,6 +556,9 @@ class VisitorParserReturn {
 
  private:
   std::any value;
+  std::string strLiteral;
+  int64_t intLiteral;
+  double floatLiteral;
   VisitorParserReturnType type;
 };
 

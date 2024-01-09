@@ -254,7 +254,7 @@ simpleStmt:
 
 expressionStmt: expression;
 
-incDecStmt: expression (PlusPlus | PlusPlus);
+incDecStmt: expression (PlusPlus | MinusMinus);
 
 assignment: expressionList assign_op expressionList;
 

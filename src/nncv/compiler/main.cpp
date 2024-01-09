@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
     if (ShowMlir.getValue()) { MlirModule->dump(); }
   }
 
-  if (SetLowerTarget.empty()) { return -1; }
+  if (SetLowerTarget.empty()) { return 0; }
 
   mlir::PassManager pm(MlirModule.get()->getName());
 

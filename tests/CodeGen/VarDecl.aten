@@ -1,9 +1,18 @@
 @package = "main";
 
-var decl_int32 int32;
-var decl_float32 float32;
-var decl_bool bool;
-var decl_array []int32;
-var decl_char char;
-var decl_string [32]char;
-var decl_tensor tensor<192, 192, 3, 32, float32>;
+func declInt32() -> int32 {
+    var a int32;
+    a = 0;
+    return a;
+};
+
+
+func declFloat32() -> float32 {
+    var b float32;
+    return b;
+};
+
+func declTensor() -> Tensor<128, 128, float32> {
+    var res Tensor<128, 128, float32>;
+    return res;
+};

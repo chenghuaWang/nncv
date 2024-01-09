@@ -1,0 +1,11 @@
+@package = "main";
+
+func add(a Tensor<128, 128, float32>, b Tensor<128, 128, float32>) -> Tensor<128, 128, float32> {
+    var c Tensor<128, 128, float32>;
+    for (i := 0; i < 128; i = i + 1) {
+        for(j := 0; j < 128; j = j + 1) {
+            c[i, j] = a[i, j] + b[i, j];
+        };
+    };
+    return c;
+};
