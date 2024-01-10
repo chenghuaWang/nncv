@@ -35,9 +35,8 @@ func testIfWBreak(a int32, b int32) -> int32 {
     var c int32;
     if (a < b) {
         c = a + b;
-        break;
         var d int32;
         d = c + b;
-    }
+    };
     return c;
-}
+};
