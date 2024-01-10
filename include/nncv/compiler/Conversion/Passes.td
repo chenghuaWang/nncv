@@ -16,12 +16,11 @@ def ConvertAtenToArith : Pass<"convert-aten-to-arith"> {
 
         **Note:** The struct cast and array cast can only use `aten.castptr` method.
     }];
-    let constructor = "mlir::createConvertAtenToArithPass()";
+    let constructor = "mlir::nncv::createConvertAtenToArithPass()";
     let dependentDialects = [
         "arith::ArithDialect",
         "aten::AtenDialect",
     ];
-    // TODO options may needed.
 }
 
 #endif //! ATEN_CONVERSION_PASSES

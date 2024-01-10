@@ -228,6 +228,7 @@ if(nncv_build_model_compiler)
 
     include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/nncv/compiler/Dialects/)
     include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/nncv/compiler/Pipeline/)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/nncv/compiler/)
 
     add_subdirectory(${PROJECT_SOURCE_DIR}/src/nncv/compiler)
     add_subdirectory(${PROJECT_SOURCE_DIR}/include/nncv/compiler)
