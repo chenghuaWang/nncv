@@ -1,4 +1,5 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
+#include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
 
 #include <fstream>
 
@@ -28,10 +29,20 @@ void FrontendPipeline::run() {
       frontend::AutoTen2MlirVisitor visitor(m_CurrentFilePath, m_Context);
       visitor.visit(tree);
       m_Module = visitor.getModule();
+
       if (mlir::verify(m_Module->getOperation()).failed()) {
         printf("[ Erro ] MLIR Self verify failed\n");
         exit(-1);
       }
+
+      // Aten-lang High level optimization
+      mlir::PassManager pm(m_Module.get()->getName());
+      mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] When doing aten-lang high level optimization\n");
+        exit(-1);
+      }
+
       m_Module->dump();
     }
     ino.close();

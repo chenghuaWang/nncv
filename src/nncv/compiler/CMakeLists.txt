@@ -130,6 +130,7 @@ set(LinkedLibs
     MLIRAtenLang
     # Pass
     NncvFrontendPasses
+    AtenLangTransformsPasses
 )
 
 if (nncv_compiler_use_antlr)

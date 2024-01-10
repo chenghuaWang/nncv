@@ -62,7 +62,11 @@ class ParserState {
   inline void PushFuncStmt(mlir::aten::FuncOp* op) {
     m_StateStack.push(_ParserSateEnum::kFunction);
     m_FuncOp = op;
+    m_FuncHasReturned = false;
   }
+
+  inline void SetFuncHasReturned() { m_FuncHasReturned = true; }
+  inline bool IsFuncHasReturned() { return m_FuncHasReturned; }
 
   inline void PushIfStmt() {
     m_StateStack.push(_ParserSateEnum::kIf);
@@ -109,6 +113,7 @@ class ParserState {
       }
       case _ParserSateEnum::kFunction: {
         m_FuncOp = nullptr;
+        m_FuncHasReturned = false;
         break;
       }
       case _ParserSateEnum::kIf: {
@@ -138,6 +143,7 @@ class ParserState {
 
   // 2. function state
   mlir::aten::FuncOp* m_FuncOp;
+  bool m_FuncHasReturned = false;
 
   // 3. If State
   std::stack<bool> m_IfHasTerminatedByBreak;

@@ -3,8 +3,26 @@
 func testFor() -> bool {
     var a int32;
     var b int32;
-    for (i := 0; i < 32; i = i + 1) {
+    for (i := 0; i < 32; i++) {
         a = a + 1;
     };
     return a < b;
+};
+
+func testWhile() {
+    i := 16;
+    while(i > 0) {
+        i = i - 2;
+    };
+};
+
+func testLoopWithEmpty() {
+    for(i := 0; i < 100; i++){
+        k := 0;
+    };
+
+    i := 10;
+    while(i > 0) {
+        k := 0;
+    };
 };

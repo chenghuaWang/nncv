@@ -278,6 +278,9 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     visit(ctx->block());
     // ----------- Block visit Done ------
 
+    // check if this function is returned or need return void type.
+    if (!Ps.IsFuncHasReturned()) { m_OpBuilder.create<mlir::aten::ReturnOp>(location); }
+
     // Pop the symbol table belong to this function
     m_curSymbolTable->deleteVarSymbolTableOnTop();
 
@@ -386,7 +389,9 @@ std::any AutoTen2MlirVisitor::visitReturnStmt(AutoTenV1Parser::ReturnStmtContext
   auto value =
       std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
 
-  auto op = m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+  m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+
+  Ps.SetFuncHasReturned();
 
   return VisitorParserReturn();
 }
@@ -453,6 +458,42 @@ std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext
     m_OpBuilder.create<mlir::aten::StoreOp>(location, result, valuePtr);
 
   }  // TODO else if(ctx->MinusMinus) {}
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
+// whileStmt: While LeftParen (expression) RightParen block;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitWhileStmt(AutoTenV1Parser::WhileStmtContext* ctx) {
+  visit(ctx->While());
+  visit(ctx->LeftParen());
+
+  int __line = ctx->While()->getSymbol()->getLine();
+  int __row = ctx->While()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __row);
+
+  // For and While are all loops. They can share same parser state.
+  Ps.PushForStmt();
+  // build while loop
+  m_OpBuilder.create<mlir::aten::LoopOp>(
+      location, mlir::aten::LoopOpPredict::For, /*cond Body*/
+      [&](mlir::OpBuilder& builder, mlir::Location loc) {
+        visit(ctx->expression());
+        builder.create<mlir::aten::YieldOp>(loc);
+      },
+      /*Main Body*/
+      [&](mlir::OpBuilder& builder, mlir::Location loc) {
+        m_curSymbolTable->createVarSymbolTableOnTop();
+        visit(ctx->block());
+        m_curSymbolTable->deleteVarSymbolTableOnTop();
+        if (!Ps.IsForHadTerminated()) { builder.create<mlir::aten::YieldOp>(loc); }
+      },
+      /*Step Body*/
+      [&](mlir::OpBuilder& builder, mlir::Location loc) {
+        // do nothing.
+        builder.create<mlir::aten::YieldOp>(loc);
+      });
+  Ps.Pop();
   return VisitorParserReturn();
 }
 
