@@ -1,5 +1,5 @@
-#ifndef NNCV_C_CONVERSION_ATEN_TO_ARITH_
-#define NNCV_C_CONVERSION_ATEN_TO_ARITH_
+#ifndef NNCV_C_CONVERSION_ATEN_TO_MLIR_
+#define NNCV_C_CONVERSION_ATEN_TO_MLIR_
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
@@ -13,4 +13,4 @@ std::unique_ptr<mlir::Pass> createConvertAtenToArithPass();
 }
 }  // namespace mlir
 
-#endif  //! NNCV_C_CONVERSION_ATEN_TO_ARITH_
+#endif  //! NNCV_C_CONVERSION_ATEN_TO_MLIR_

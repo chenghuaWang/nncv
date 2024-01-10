@@ -1,4 +1,4 @@
-#include "nncv/compiler/Conversion/AtenToArith/AtenToArith.h"
+#include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 
 namespace mlir::nncv {
 #define GEN_PASS_DEF_CONVERTAFFINETOSTANDARD

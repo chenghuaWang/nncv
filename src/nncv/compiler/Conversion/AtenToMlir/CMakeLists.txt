@@ -1,8 +1,8 @@
 add_mlir_conversion_library(AtenToArithConversion
-    AtenToArith.cpp
+    AtenToMlir.cpp
 
     ADDITIONAL_HEADER_DIRS
-    ${PROJECT_SOURCE_DIR}/include/compiler/Conversion/AtenToArith
+    ${PROJECT_SOURCE_DIR}/include/compiler/Conversion/AtenToMlir
 
     DEPENDS
     NncvConversionPassIncGen

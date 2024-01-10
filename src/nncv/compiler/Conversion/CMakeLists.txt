@@ -1,1 +1,1 @@
-add_subdirectory(AtenToArith)
+add_subdirectory(AtenToMlir)
