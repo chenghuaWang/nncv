@@ -1,0 +1,13 @@
+@package = "main";
+
+func _lib_nncv_do_something(Tensor<1, 1, float32>);
+
+func add(a int32, b int32) -> int32 {
+    return a + b;
+};
+
+func main() {
+    res := add(8, 8);
+    var t Tensor<1, 1, float32>;
+    _lib_nncv_do_something(t);
+};

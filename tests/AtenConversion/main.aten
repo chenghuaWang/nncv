@@ -1,0 +1,6 @@
+@package = "main";
+
+func main() -> int32 {
+    a := 32;
+    return a;
+};

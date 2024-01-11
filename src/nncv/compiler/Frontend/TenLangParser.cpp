@@ -96,6 +96,43 @@ VisitorParserReturn AutoTen2MlirVisitor::parseSlice_(AutoTenV1Parser::Slice_Cont
   return VisitorParserReturn();
 }
 
+//===----------------------------------------------------------------------===//
+// arguments:
+// 	LeftParen (
+// 		(expressionList | nonNamedType (Comma expressionList)?) Ellipsis? Comma?
+// 	)? RightParen;
+//
+// This stmt for function call.
+//===----------------------------------------------------------------------===//
+VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::ArgumentsContext* ctx,
+                                                       VisitorParserReturn& value) {
+  int __line = ctx->LeftParen()->getSymbol()->getLine();
+  int __col = ctx->LeftParen()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __col);
+
+  auto funcName = value.getValue<std::string>();
+
+  // auto funcSymbol = m_curSymbolTable->getFuncSymbol(funcName);
+  // using mlir own lookup table instead.
+  auto funcOp = mlir::cast<mlir::aten::FuncOp>(*m_TheModule.lookupSymbol(funcName));
+
+  llvm::SmallVector<mlir::Value, 4> args;
+  for (const auto item : ctx->expressionList()->expression()) {
+    auto ret = std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>();
+    args.emplace_back(ret);
+  }
+
+  auto op = m_OpBuilder.create<mlir::aten::CallOp>(location, funcOp, args);
+
+  // get return result and return.
+  if (op.getNumResults()) {
+    mlir::Value result = op->getResult(0);
+    return VisitorParserReturn(result);
+  } else {
+    return VisitorParserReturn();
+  }
+}
+
 // auto cast v1 type and v2 type to the same type.
 // !!! mlir::Index should be casted manully, not in this function !!!
 inline llvm::SmallVector<mlir::Value, 2> AutoTen2MlirVisitor::autoTypeCastSolver(mlir::Value& v1,
@@ -243,15 +280,18 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
     m_OpBuilder.setInsertionPointToEnd(m_TheModule.getBody());
 
     // TODO WAIT: Support Package and Function rename
-    // Register function symbol to Global Symbol Table
-    utils::AtenFunctionSymbolPayload __payload;
-    __payload.funcScope = utils::AtenFunctionType::kGeneral;
-    __payload.funcType = funcTy;
-    m_curSymbolTable->registerFuncSymbol(funcName, __payload);
 
     // Generate a fucntion operator
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
     op.setExtraAttrsAttr(extraEx);
+
+    // Register function symbol to Global Symbol Table
+    utils::AtenFunctionSymbolPayload __payload;
+    __payload.funcScope = utils::AtenFunctionType::kGeneral;
+    __payload.funcType = funcTy;
+    __payload.funcOp = op;
+    m_curSymbolTable->registerFuncSymbol(funcName, __payload);
+
     if (isPublic) {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
     } else {
@@ -293,6 +333,13 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
 
     // TODO WAIT: Support Package and Function rename
     auto op = m_OpBuilder.create<mlir::aten::FuncOp>(location, funcName, funcTy, _attrs, _ub);
+
+    // Register function symbol to Global Symbol Table
+    utils::AtenFunctionSymbolPayload __payload;
+    __payload.funcScope = utils::AtenFunctionType::kGeneral;
+    __payload.funcType = funcTy;
+    __payload.funcOp = op;
+    m_curSymbolTable->registerFuncSymbol(funcName, __payload);
 
     // important!!!
     op.setExtraAttrsAttr(extraEx);
@@ -434,25 +481,20 @@ std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext
     int __col = ctx->PlusPlus()->getSymbol()->getCharPositionInLine();
 
     mlir::Location location = loc(__line, __col);
-    mlir::Value one;
+    mlir::Value result;
 
     if (value.getType().isa<mlir::aten::IntType>()) {
-      auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
-      auto attri = mlir::aten::IntAttr::get(intType, 1);
-      one = m_OpBuilder.create<mlir::aten::ConstantOp>(location, intType, attri);
+      result = m_OpBuilder.create<mlir::aten::UnaryOp>(
+          location,
+          mlir::aten::UnaryOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::UnaryOpPredicate::Inc),
+          value);
     } else if (value.getType().isa<mlir::FloatType>()) {
       // TODO
     } else {
       // FIXME throw error.
       return VisitorParserReturn();
     }
-
-    // create add operation in aten dialect.
-    mlir::Value result = m_OpBuilder.create<mlir::aten::BinOp>(
-        location,
-        mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
-                                            mlir::aten::BinOpPredicate::Add),
-        value, one);
 
     // store to value;
     m_OpBuilder.create<mlir::aten::StoreOp>(location, result, valuePtr);
@@ -1198,7 +1240,7 @@ std::any AutoTen2MlirVisitor::visitPrimaryExpr(AutoTenV1Parser::PrimaryExprConte
     } else if (ctx->typeAssertion()) {
       // TODO
     } else if (ctx->arguments()) {
-      // TODO
+      return parseArgument(ctx->arguments(), visitRet);
     }
   }
   return VisitorParserReturn();
@@ -1287,10 +1329,7 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
   mlir::Location location = loc(__line, __row);
 
   auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
-  if (!_value.has_value()) {
-    printf("[ Erro ] Identifier Symbol (%s) can not fond.\n", ctx->Identifier()->getText().c_str());
-    exit(-1);
-  }
+  if (!_value.has_value()) { return VisitorParserReturn(ctx->Identifier()->getText()); }
 
   // i++, return pointer of i
   if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())

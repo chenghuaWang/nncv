@@ -78,6 +78,9 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   VisitorParserReturn parseSlice_(AutoTenV1Parser::Slice_Context* ctx, VisitorParserReturn& value);
 
+  VisitorParserReturn parseArgument(AutoTenV1Parser::ArgumentsContext* ctx,
+                                    VisitorParserReturn& value);
+
   inline llvm::SmallVector<mlir::Value, 2> autoTypeCastSolver(mlir::Value& v1, mlir::Value& v2);
 
   //===----------------------------------------------------------------------===//

@@ -53,6 +53,8 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
+#include "nncv/compiler/Conversion/Passes.h"
+
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
@@ -125,6 +127,7 @@ int main(int argc, char* argv[]) {
     if (ShowMlir.getValue()) { MlirModule->dump(); }
   }
 
+  // Start to lower all
   if (SetLowerTarget.empty()) { return 0; }
 
   mlir::PassManager pm(MlirModule.get()->getName());

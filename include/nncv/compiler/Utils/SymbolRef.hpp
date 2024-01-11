@@ -14,6 +14,8 @@
 #ifndef NNCV_COMPILER_UTILS_SYMBOL_REF_HPP
 #define NNCV_COMPILER_UTILS_SYMBOL_REF_HPP
 
+#include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
+
 #if defined(_WIN32) && _MSC_VER > 1000
 #pragma once
 #elif defined(_unix_)
@@ -80,6 +82,9 @@ struct AtenFunctionSymbolPayload {
   mlir::aten::FuncType funcType;
 
   AtenFunctionType funcScope;  ///< this function is belong to impl type or in general place.
+  // op
+  mlir::aten::FuncOp funcOp;
+
   // visibility
   bool isPublic;
 };
