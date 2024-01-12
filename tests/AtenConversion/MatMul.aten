@@ -1,0 +1,12 @@
+@package = "main";
+
+func matMul(lhs Tensor<128, 128, float32>, rhs Tensor<128, 128, float32>, dst Tensor<128, 128, float32>) {
+    for (i := 0; i < 128; i++) {
+        for (j := 0; j < 128; j++) {
+            for (k := 0; k < 128; k++) {
+                dst[i, j] = dst[i, j] + lhs[i, k] * rhs[k, j];
+            };
+        };
+    };
+    return;
+};

@@ -463,13 +463,9 @@ class AtenYieldOpLowering : public OpConversionPattern<aten::YieldOp> {
   using OpConversionPattern<aten::YieldOp>::OpConversionPattern;
   LogicalResult matchAndRewrite(aten::YieldOp op, OpAdaptor adaptor,
                                 mlir::ConversionPatternRewriter& rewriter) const override {
-    auto* parentOp = op->getParentOp();
-    return llvm::TypeSwitch<mlir::Operation*, mlir::LogicalResult>(parentOp)
-        .Case<mlir::scf::IfOp>([&](auto) {
-          rewriter.replaceOpWithNewOp<mlir::scf::YieldOp>(op, adaptor.getOperands());
-          return mlir::success();
-        })
-        .Default([](auto) { return mlir::failure(); });
+    // scf will generate scf.yield when building. Just erase aten::YieldOp is OK.
+    rewriter.eraseOp(op);
+    return mlir::success();
   }
 };
 
@@ -513,16 +509,20 @@ class AtenIfOpLowering : public OpConversionPattern<aten::IfOp> {
     auto ifOp =
         rewriter.create<mlir::scf::IfOp>(op->getLoc(), newCond, elseRegionPtr ? true : false);
     auto* ifOpThenBlock = &ifOp.getThenRegion().front();
-    rewriter.inlineBlockBefore(&thenRegionPtr->front(), ifOpThenBlock, ifOpThenBlock->end());
+    rewriter.inlineBlockBefore(&thenRegionPtr->front(), ifOpThenBlock, ifOpThenBlock->begin());
     if (elseRegionPtr) {
       auto* ifOpElseBlock = &ifOp.getElseRegion().front();
-      rewriter.inlineBlockBefore(&elseRegionPtr->front(), ifOpElseBlock, ifOpElseBlock->end());
+      rewriter.inlineBlockBefore(&elseRegionPtr->front(), ifOpElseBlock, ifOpElseBlock->begin());
     }
     rewriter.replaceOp(op, ifOp);
 
     return mlir::success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// Convert aten.for to affine.for
+//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Aten to mlir

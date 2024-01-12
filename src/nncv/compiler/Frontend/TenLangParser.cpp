@@ -433,10 +433,14 @@ std::any AutoTen2MlirVisitor::visitReturnStmt(AutoTenV1Parser::ReturnStmtContext
   mlir::Location location = loc(__line, __row);
   visit(ctx->Return());
 
-  auto value =
-      std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
+  if (ctx->expressionList()) {
+    auto value =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
 
-  m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+    m_OpBuilder.create<mlir::aten::ReturnOp>(location, value);
+  } else {
+    m_OpBuilder.create<mlir::aten::ReturnOp>(location);
+  }
 
   Ps.SetFuncHasReturned();
 
@@ -518,7 +522,7 @@ std::any AutoTen2MlirVisitor::visitWhileStmt(AutoTenV1Parser::WhileStmtContext* 
   Ps.PushForStmt();
   // build while loop
   m_OpBuilder.create<mlir::aten::LoopOp>(
-      location, mlir::aten::LoopOpPredict::For, /*cond Body*/
+      location, mlir::aten::LoopOpPredict::While, /*cond Body*/
       [&](mlir::OpBuilder& builder, mlir::Location loc) {
         visit(ctx->expression());
         builder.create<mlir::aten::YieldOp>(loc);
