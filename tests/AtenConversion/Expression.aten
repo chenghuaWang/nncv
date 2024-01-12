@@ -1,0 +1,41 @@
+@package = "main";
+
+func addI(a int32, b int32) -> int32 {
+    return a + b;
+};
+
+func minusI(a int32, b int32) -> int32 {
+    return a - b;
+};
+
+func divI(a int32, b int32) -> int32 {
+    return a / b;
+};
+
+func mulI(a int32, b int32) -> int32 {
+    return a * b;
+};
+
+func addF(a float32, b float32) -> float32 {
+    return a + b;
+};
+
+func minusF(a float32, b float32) -> float32 {
+    return a - b;
+};
+
+func divF(a float32, b float32) -> float32 {
+    return a / b;
+};
+
+func mulF(a float32, b float32) -> float32 {
+    return a * b;
+};
+
+func cmpL(lhs int32, rhs int32) -> bool {
+    return lhs < rhs;
+};
+
+func cmpG(lhs int32, rhs int32) -> bool {
+    return lhs > rhs;
+};

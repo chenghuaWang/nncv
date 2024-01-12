@@ -1,0 +1,11 @@
+@package = "main";
+
+func testIf(a int32, b int32) -> int32 {
+    var result int32;
+    if (a < b) {
+        result = a + b;
+    } else {
+        result = a - b;
+    };
+    return result;
+};

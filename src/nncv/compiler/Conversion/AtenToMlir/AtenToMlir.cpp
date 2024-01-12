@@ -3,6 +3,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 // All dialect
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -204,23 +205,324 @@ class AtenFuncOpLowering : public OpConversionPattern<aten::FuncOp> {
 
 //===----------------------------------------------------------------------===//
 // Convert aten.bin to arith.xxx
-// TODO
 //===----------------------------------------------------------------------===//
+class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
+ public:
+  using OpConversionPattern<aten::BinOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::BinOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    mlir::Type newType = getTypeConverter()->convertType(op.getType());
+
+    switch (op.getPredicate()) {
+      case mlir::aten::BinOpPredicate::Mul: {
+        if (newType.isa<mlir::IntegerType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::MulIOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        } else if (newType.isa<mlir::FloatType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::MulFOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        }
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Div: {
+        if (newType.isa<mlir::IntegerType>()) {
+          if (newType.isSignlessInteger()) {
+            rewriter.replaceOpWithNewOp<mlir::arith::DivUIOp>(op, newType, adaptor.getLhs(),
+                                                              adaptor.getRhs());
+          }
+        } else if (newType.isa<mlir::FloatType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::DivFOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        }
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Mod: {
+        if (newType.isa<mlir::IntegerType>()) {
+          if (newType.isSignlessInteger()) {
+            rewriter.replaceOpWithNewOp<mlir::arith::RemUIOp>(op, newType, adaptor.getLhs(),
+                                                              adaptor.getRhs());
+          }
+        } else if (newType.isa<mlir::FloatType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::RemFOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        }
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Add: {
+        if (newType.isa<mlir::IntegerType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::AddIOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        } else {
+          rewriter.replaceOpWithNewOp<mlir::arith::AddFOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        }
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Sub: {
+        if (newType.isa<mlir::IntegerType>()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::SubIOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        } else {
+          rewriter.replaceOpWithNewOp<mlir::arith::SubFOp>(op, newType, adaptor.getLhs(),
+                                                           adaptor.getRhs());
+        }
+        break;
+      }
+      case mlir::aten::BinOpPredicate::And: {
+        rewriter.replaceOpWithNewOp<mlir::arith::AndIOp>(op, newType, adaptor.getLhs(),
+                                                         adaptor.getRhs());
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Xor: {
+        rewriter.replaceOpWithNewOp<mlir::arith::XOrIOp>(op, newType, adaptor.getLhs(),
+                                                         adaptor.getRhs());
+        break;
+      }
+      case mlir::aten::BinOpPredicate::Or: {
+        rewriter.replaceOpWithNewOp<mlir::arith::OrIOp>(op, newType, adaptor.getLhs(),
+                                                        adaptor.getRhs());
+        break;
+      }
+      case mlir::aten::BinOpPredicate::LogicAnd: {
+        // TODO
+        break;
+      }
+      case mlir::aten::BinOpPredicate::LogicOr: {
+        // TODO
+        break;
+      }
+    }
+
+    return mlir::success();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Convert aten.unary to arith.xxx
-// TODO
 //===----------------------------------------------------------------------===//
+class AtenUnaryOpLowering : public OpConversionPattern<aten::UnaryOp> {
+ public:
+  using OpConversionPattern<aten::UnaryOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::UnaryOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    auto oldInput = adaptor.getInput();
+    auto oldType = getTypeConverter()->convertType(op.getType());
+
+    switch (op.getPredicate()) {
+      case mlir::aten::UnaryOpPredicate::Inc: {
+        auto _1 = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), oldType,
+                                                           mlir::IntegerAttr::get(oldType, 1));
+        rewriter.replaceOpWithNewOp<mlir::arith::AddIOp>(op, oldType, oldInput, _1);
+        break;
+      }
+      case mlir::aten::UnaryOpPredicate::Dec: {
+        auto _1 = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), oldType,
+                                                           mlir::IntegerAttr::get(oldType, 1));
+        rewriter.replaceOpWithNewOp<mlir::arith::SubIOp>(op, oldType, oldInput, _1);
+        break;
+      }
+      case mlir::aten::UnaryOpPredicate::Plus: {
+        rewriter.replaceOp(op, op.getInput());
+        break;
+      }
+      case mlir::aten::UnaryOpPredicate::Minus: {
+        auto _0 = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), oldType,
+                                                           mlir::IntegerAttr::get(oldType, 0));
+        rewriter.replaceOpWithNewOp<mlir::arith::SubIOp>(op, oldType, _0, oldInput);
+        break;
+      }
+      case mlir::aten::UnaryOpPredicate::Not: {
+        auto _minusOne = rewriter.create<mlir::arith::ConstantOp>(
+            op.getLoc(), oldType, mlir::IntegerAttr::get(oldType, -1));
+        rewriter.replaceOpWithNewOp<mlir::arith::XOrIOp>(op, oldType, _minusOne, oldInput);
+        break;
+      }
+    }
+
+    return mlir::success();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Convert aten.cmp to arith.xxx
-// TODO
 //===----------------------------------------------------------------------===//
+class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
+ public:
+  using OpConversionPattern<aten::CmpOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::CmpOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    auto oldType = adaptor.getLhs().getType();
+    auto integerType = mlir::IntegerType::get(getContext(), 1, mlir::IntegerType::Signless);
+
+    mlir::Value newResult;
+    switch (op.getPredicate()) {
+      case mlir::aten::CmpOpPredicate::lt: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ult),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::ULT),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+      case mlir::aten::CmpOpPredicate::le: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ule),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::ULE),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+      case mlir::aten::CmpOpPredicate::gt: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ugt),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UGT),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+      case mlir::aten::CmpOpPredicate::ge: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::uge),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UGE),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+      case mlir::aten::CmpOpPredicate::eq: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::eq),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UEQ),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+      case mlir::aten::CmpOpPredicate::ne: {
+        if (oldType.isa<mlir::IntegerType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ne),
+              adaptor.getLhs(), adaptor.getRhs());
+        } else if (oldType.isa<mlir::FloatType>()) {
+          newResult = rewriter.create<mlir::arith::CmpFOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UNE),
+              adaptor.getLhs(), adaptor.getRhs(),
+              mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        }
+        break;
+      }
+    }
+
+    auto mlirResultTy = getTypeConverter()->convertType(op.getType());
+    rewriter.replaceOpWithNewOp<mlir::arith::ExtUIOp>(op, mlirResultTy, newResult);
+
+    return mlir::success();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Convert aten.yield to arith.xxx
-// TODO
 //===----------------------------------------------------------------------===//
+class AtenYieldOpLowering : public OpConversionPattern<aten::YieldOp> {
+ public:
+  using OpConversionPattern<aten::YieldOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::YieldOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    auto* parentOp = op->getParentOp();
+    return llvm::TypeSwitch<mlir::Operation*, mlir::LogicalResult>(parentOp)
+        .Case<mlir::scf::IfOp>([&](auto) {
+          rewriter.replaceOpWithNewOp<mlir::scf::YieldOp>(op, adaptor.getOperands());
+          return mlir::success();
+        })
+        .Default([](auto) { return mlir::failure(); });
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Convert aten.if to scf.if
+//===----------------------------------------------------------------------===//
+class AtenIfOpLowering : public OpConversionPattern<aten::IfOp> {
+ public:
+  using OpConversionPattern<aten::IfOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::IfOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    // check if this value is not 1-bit sign
+    auto cond = adaptor.getCondition();
+    auto condType = cond.getType();
+    auto newCond = cond;
+    auto integerType = mlir::IntegerType::get(getContext(), 1, mlir::IntegerType::Signless);
+
+    if (condType.isa<mlir::IntegerType>()) {
+      auto cmpValue = rewriter.create<mlir::arith::ConstantOp>(
+          op.getLoc(), rewriter.getIntegerAttr(condType, 0));
+      newCond = rewriter.create<mlir::arith::CmpIOp>(
+          op.getLoc(), integerType,
+          mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ugt), cond,
+          cmpValue);
+    } else if (condType.isa<mlir::FloatType>()) {
+      auto cmpValue = rewriter.create<mlir::arith::ConstantOp>(
+          op.getLoc(), rewriter.getFloatAttr(condType, 0.0));
+      newCond = rewriter.create<mlir::arith::CmpFOp>(
+          op.getLoc(), integerType,
+          mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UGT), cond,
+          cmpValue,
+          mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+    }
+
+    // get all regions from old op
+    auto thenRegionPtr = &adaptor.getThenRegion();
+    mlir::Region* elseRegionPtr = nullptr;
+    if (!adaptor.getElseRegion().empty()) { elseRegionPtr = &adaptor.getElseRegion(); }
+
+    // build new scf op
+    auto ifOp =
+        rewriter.create<mlir::scf::IfOp>(op->getLoc(), newCond, elseRegionPtr ? true : false);
+    auto* ifOpThenBlock = &ifOp.getThenRegion().front();
+    rewriter.inlineBlockBefore(&thenRegionPtr->front(), ifOpThenBlock, ifOpThenBlock->end());
+    if (elseRegionPtr) {
+      auto* ifOpElseBlock = &ifOp.getElseRegion().front();
+      rewriter.inlineBlockBefore(&elseRegionPtr->front(), ifOpElseBlock, ifOpElseBlock->end());
+    }
+    rewriter.replaceOp(op, ifOp);
+
+    return mlir::success();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Aten to mlir
@@ -228,6 +530,12 @@ class AtenFuncOpLowering : public OpConversionPattern<aten::FuncOp> {
 namespace {
 class ConvertAtenToMlir : public impl::ConvertAtenToMlirBase<ConvertAtenToMlir> {
  public:
+  void getDependentDialects(mlir::DialectRegistry& registry) const override {
+    registry.insert<mlir::BuiltinDialect, mlir::func::FuncDialect, mlir::affine::AffineDialect,
+                    mlir::memref::MemRefDialect, mlir::arith::ArithDialect,
+                    mlir::cf::ControlFlowDialect, mlir::scf::SCFDialect>();
+  }
+
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
     ConversionTarget target(getContext());
@@ -241,25 +549,31 @@ class ConvertAtenToMlir : public impl::ConvertAtenToMlirBase<ConvertAtenToMlir> 
     target.addLegalDialect<mlir::arith::ArithDialect, mlir::affine::AffineDialect,
                            mlir::scf::SCFDialect, mlir::memref::MemRefDialect,
                            mlir::cf::ControlFlowDialect, mlir::func::FuncDialect>();
+    target.addLegalOp<mlir::ModuleOp>();
 
     // prepare all patterns.
     populateAtenToMlirConversionPatterns(&patterns, converter);
 
     // do conversion and return if failured.
-    if (failed(applyPartialConversion(getOperation(), target, std::move(patterns))))
+    if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
       signalPassFailure();
+    }
   }
 };
 }  // namespace
 
 void populateAtenToMlirConversionPatterns(mlir::RewritePatternSet* patterns,
                                           mlir::TypeConverter& converter) {
-  patterns->add<AtenConstOpLowering>(patterns->getContext());
+  patterns->add<AtenReturnOpLowering>(patterns->getContext());
+
+  patterns->add<AtenCmpOpLowering, AtenCallOpLowering, AtenUnaryOpLowering, AtenBinOpLowering,
+                AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering, AtenAllocaOpLowering,
+                AtenFuncOpLowering, AtenIfOpLowering, AtenYieldOpLowering>(converter,
+                                                                           patterns->getContext());
 }
 
 std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass() {
   return std::make_unique<ConvertAtenToMlir>();
 }
-
 }  // namespace nncv
 }  // namespace mlir

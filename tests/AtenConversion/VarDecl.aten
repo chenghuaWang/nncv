@@ -1,0 +1,21 @@
+@package = "main";
+
+func declTensor() -> Tensor<8, 8, 8, float32> {
+    var tensorValue Tensor<8, 8, 8, float32>;
+    return tensorValue;
+};
+
+func declInt() -> int32 {
+    var integerValue int32;
+    return integerValue;
+};
+
+func declFloat() -> float32 {
+    var floatValue float32;
+    return floatValue;
+};
+
+func declBool() -> bool {
+    var boolValue bool;
+    return boolValue;
+};
