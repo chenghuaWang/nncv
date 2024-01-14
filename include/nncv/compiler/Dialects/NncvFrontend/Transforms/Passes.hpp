@@ -17,6 +17,8 @@ std::unique_ptr<mlir::Pass> createConvertConv2DToImg2ColPass();
 
 std::unique_ptr<mlir::Pass> createPadLinalgOpsToIntegerMultiplePass();
 
+std::unique_ptr<mlir::Pass> createInterchangeGenericOpsPass();
+
 void createNncvFrontendToNormalPipeline(OpPassManager& pm);
 
 #define GEN_PASS_REGISTRATION

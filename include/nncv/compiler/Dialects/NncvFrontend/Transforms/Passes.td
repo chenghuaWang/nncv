@@ -44,11 +44,34 @@ def ConvertConv2DToImg2Col : Pass<"nncv-frontend-convert-conv2d-to-img2col", "">
 // Padding Linalg Ops to pad-size=4(default)
 //===----------------------------------------------------------------------===//
 def PadLinalgOps :
-    Pass<"iree-preprocessing-pad-linalg-ops", ""> {
+    Pass<"nncv-frontend-pad-linalg-ops", ""> {
   let summary = "Pad linalg ops to the next integer multiple of paddingSize.";
   let constructor = "mlir::nncv::createPadLinalgOpsToIntegerMultiplePass()";
   let options = [
     Option<"paddingSize", "pad-size", "int", /*default=*/"4", "Specify the padding size">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// Interchange linalg.generic Ops
+//===----------------------------------------------------------------------===//
+def InterchangeGenericOps : Pass<"nncv-frontend-interchange-generic-ops", ""> {
+  let summary = "Interchange generic op loops to have all the reduction loops to be inner loops.";
+  let constructor = "mlir::nncv::createInterchangeGenericOpsPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// fusion tensors Ops: element wise most
+//===----------------------------------------------------------------------===//
+def FusionTensorOps :
+    InterfacePass<"nncv-aten-fusion-tensor-ops", "mlir::FunctionOpInterface"> {
+  let summary = "Fuse operations on tensors";
+  let constructor = "mlir::nncv::createFusionOfTensorOpsPass()";
+  let options = [
+    Option<"fuseMultiUse", "fuse-multi-use", "bool",
+           /*default=*/"false", "Fuse ops with multiuse">,
+    Option<"multiUseFusionIteration", "multi-use-fusion-iteration", "unsigned",
+           /*default=*/"2", "Number of iterations to fuse multiuse ops">
   ];
 }
 
