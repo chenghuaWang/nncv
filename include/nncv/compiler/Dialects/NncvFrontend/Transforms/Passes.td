@@ -43,8 +43,7 @@ def ConvertConv2DToImg2Col : Pass<"nncv-frontend-convert-conv2d-to-img2col", "">
 //===----------------------------------------------------------------------===//
 // Padding Linalg Ops to pad-size=4(default)
 //===----------------------------------------------------------------------===//
-def PadLinalgOps :
-    Pass<"nncv-frontend-pad-linalg-ops", ""> {
+def PadLinalgOps : Pass<"nncv-frontend-pad-linalg-ops", ""> {
   let summary = "Pad linalg ops to the next integer multiple of paddingSize.";
   let constructor = "mlir::nncv::createPadLinalgOpsToIntegerMultiplePass()";
   let options = [
@@ -63,16 +62,32 @@ def InterchangeGenericOps : Pass<"nncv-frontend-interchange-generic-ops", ""> {
 //===----------------------------------------------------------------------===//
 // fusion tensors Ops: element wise most
 //===----------------------------------------------------------------------===//
-def FusionTensorOps :
-    InterfacePass<"nncv-aten-fusion-tensor-ops", "mlir::FunctionOpInterface"> {
+def FusionTensorOps : InterfacePass<"nncv-frontend-fusion-tensor-ops", "mlir::FunctionOpInterface"> {
   let summary = "Fuse operations on tensors";
-  let constructor = "mlir::nncv::createFusionOfTensorOpsPass()";
+  let constructor = "mlir::nncv::createFusionTensorOpsPass()";
   let options = [
     Option<"fuseMultiUse", "fuse-multi-use", "bool",
            /*default=*/"false", "Fuse ops with multiuse">,
     Option<"multiUseFusionIteration", "multi-use-fusion-iteration", "unsigned",
            /*default=*/"2", "Number of iterations to fuse multiuse ops">
   ];
+}
+
+//===----------------------------------------------------------------------===//
+// detach elements from named ops
+//===----------------------------------------------------------------------===//
+def DetachElementwiseFromNamedOps : Pass<"nncv-frontend-detach-elementwise-from-named-ops", ""> {
+  let summary = "Detaches elementwise ops from named Linalg ops";
+  let constructor = "mlir::nncv::createDetachElementwiseFromNamedOpsPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// interchange transpose ops to make memory read continously.
+//===----------------------------------------------------------------------===//
+def InterchangeTransposeGenericOps :
+    Pass<"nncv-frontend-interchange-transpose-generic-ops", ""> {
+  let summary = "Interchange transpose generic op loops to make the input indeximg map indentity.";
+  let constructor = "mlir::nncv::createInterchangeTransposeGenericOpsPass()";
 }
 
 #endif // NNCV_NNCV_FRONTEND_PASSES

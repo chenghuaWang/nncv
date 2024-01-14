@@ -6,6 +6,9 @@ add_mlir_library(NncvFrontendPasses
     Conv2dToImgToCol.cpp
     PadLinalgOpsToIntMultiple.cpp
     InterchangeGenericOps.cpp
+    FusionTensorOps.cpp
+    DetachEleNamedLinalg.cpp
+    InterchangeTransGenOps.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SRC_DIR}/include/nncv/compiler/Dialects/NncvFrontend/Transforms

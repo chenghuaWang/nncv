@@ -11,6 +11,7 @@
  *
  */
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -49,6 +50,13 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MLProgram/IR/MLProgram.h"
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
@@ -70,7 +78,9 @@ llvm::cl::opt<std::string> SetLowerTarget("target", llvm::cl::desc("<to target>"
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context.loadDialect<mlir::arith::ArithDialect, mlir::memref::MemRefDialect,
                       mlir::func::FuncDialect, mlir::bufferization::BufferizationDialect,
-                      mlir::linalg::LinalgDialect, mlir::ml_program::MLProgramDialect>();
+                      mlir::linalg::LinalgDialect, mlir::ml_program::MLProgramDialect,
+                      mlir::cf::ControlFlowDialect, mlir::affine::AffineDialect,
+                      mlir::scf::SCFDialect, mlir::tensor::TensorDialect>();
   mlir::registerLLVMDialectTranslation(context);
 }
 
@@ -124,7 +134,6 @@ int main(int argc, char* argv[]) {
     SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
     mlir::ParserConfig config(&MlirContext);
     MlirModule = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
-    if (ShowMlir.getValue()) { MlirModule->dump(); }
   }
 
   // Start to lower all
@@ -151,5 +160,5 @@ int main(int argc, char* argv[]) {
   if (mlir::failed(pm.run(*MlirModule))) { return -1; }
 
   // for debug purpose
-  MlirModule->dump();
+  if (ShowMlir.getValue()) { MlirModule->dump(); }
 }

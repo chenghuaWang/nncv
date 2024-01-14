@@ -124,6 +124,14 @@ set(LinkedLibs
     MLIRSideEffectInterfaces
     MLIRTargetLLVMIRExport
     MLIRTransforms
+    MLIRLinalgDialect
+    MLIRLinalgTransforms
+    MLIRLinalgUtils
+    MLIRMathDialect
+    MLIRMemRefTransforms
+    MLIRPDLDialect
+    MLIRPDLInterpDialect
+    MLIRControlFlowDialect
 
     # NNCV Libs
     # dialect itself

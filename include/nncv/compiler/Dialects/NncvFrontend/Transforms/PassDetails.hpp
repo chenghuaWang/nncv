@@ -4,6 +4,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 
 namespace mlir {
 namespace nncv {
