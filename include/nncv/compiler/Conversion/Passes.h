@@ -1,6 +1,9 @@
 #ifndef NNCV_ATEN_CONVERSION_PASSES_H
 #define NNCV_ATEN_CONVERSION_PASSES_H
 
+#include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
+#include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingCB.hpp"
+#include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 
 namespace mlir {

@@ -139,6 +139,9 @@ set(LinkedLibs
     # Pass
     NncvFrontendPasses
     AtenLangTransformsPasses
+    # convert pass
+    ConvOptimizeConversion
+    AtenToArithConversion
 )
 
 if (nncv_compiler_use_antlr)

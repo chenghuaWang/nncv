@@ -1,1 +1,2 @@
 add_subdirectory(AtenToMlir)
+add_subdirectory(ConvOptimize)
