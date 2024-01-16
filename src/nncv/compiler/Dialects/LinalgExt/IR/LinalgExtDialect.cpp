@@ -18,7 +18,7 @@ using namespace mlir::nncv::linalg_ext;
 #define GET_ATTRDEF_CLASSES
 #include "LinalgExt/IR/LinalgExtAttrs.cpp.inc"  // IWYU pragma: keep
 
-struct IREELinalgExtInlinerInterface : public DialectInlinerInterface {
+struct NNCVLinalgExtInlinerInterface : public DialectInlinerInterface {
   using DialectInlinerInterface::DialectInlinerInterface;
 
   bool isLegalToInline(Operation* call, Operation* callable, bool wouldBeCloned) const final {
@@ -36,7 +36,7 @@ struct IREELinalgExtInlinerInterface : public DialectInlinerInterface {
 };
 
 void NNCVLinalgExtDialect::initialize() {
-  addInterfaces<IREELinalgExtInlinerInterface>();
+  addInterfaces<NNCVLinalgExtInlinerInterface>();
   addAttributes<
 #define GET_ATTRDEF_LIST
 #include "LinalgExt/IR/LinalgExtAttrs.cpp.inc"
