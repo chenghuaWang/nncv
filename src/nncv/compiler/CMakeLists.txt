@@ -136,6 +136,7 @@ set(LinkedLibs
     # NNCV Libs
     # dialect itself
     MLIRAtenLang
+    NNCVLinalgExtDialect
     # Pass
     NncvFrontendPasses
     AtenLangTransformsPasses

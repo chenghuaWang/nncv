@@ -26,7 +26,7 @@ def ConvertOptimizedConv2dToAffine : Pass<"convert-optimized-conv2d-to-affine", 
     let description = [{
         using some strategy to determine which algorithms to use.
         The algorithms include:
-        - winograd
+        - winograd(Only works on 3x3 kernel)
         - CB
         - direct
         - img2col(default=false, and only in NncvFrontend transforms; It only has transforms on linalg, not affine)

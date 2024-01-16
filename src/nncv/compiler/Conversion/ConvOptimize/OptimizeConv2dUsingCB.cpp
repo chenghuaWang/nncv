@@ -1,4 +1,5 @@
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingCB.hpp"
+#include "nncv/compiler/Utils/PlatformCtx.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -227,6 +228,19 @@ void _populateCBTilingPatternWoChannel(Operation* op, llvm::ArrayRef<int64_t> ti
 class CBForConv2DWoChannelPattern : public OpConversionPattern<linalg::Conv2DOp> {
  public:
   using OpConversionPattern<linalg::Conv2DOp>::OpConversionPattern;
+
+  CBForConv2DWoChannelPattern(TypeConverter& typeConverter, MLIRContext* context, int64_t stride)
+      : OpConversionPattern(typeConverter, context) {
+    m_Stride = stride;
+  }
+
+  CBForConv2DWoChannelPattern(TypeConverter& typeConverter, MLIRContext* context, int64_t stride,
+                              ArrayRef<int64_t> tile)
+      : OpConversionPattern(typeConverter, context) {
+    m_Stride = stride;
+    m_TileSizes = tile;
+  }
+
   LogicalResult matchAndRewrite(linalg::Conv2DOp op, OpAdaptor adaptor,
                                 mlir::ConversionPatternRewriter& rewriter) const override {
     if (m_TileSizes.empty()) {
@@ -238,7 +252,7 @@ class CBForConv2DWoChannelPattern : public OpConversionPattern<linalg::Conv2DOp>
   }
 
  private:
-  int64_t m_Stride;
+  int64_t m_Stride = 8;
   ArrayRef<int64_t> m_TileSizes;
 };
 
@@ -263,7 +277,8 @@ class OptimizeConv2dUsingCBPass
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(context);
-    patterns.add<CBForConv2DWoChannelPattern>(context);
+    patterns.add<CBForConv2DWoChannelPattern>(
+        context, ::nncv::compiler::utils::PlatformCtx::getInstance().CB_SplitSize);
 
     ConversionTarget target(*context);
     target.addLegalDialect<arith::ArithDialect, affine::AffineDialect, scf::SCFDialect,

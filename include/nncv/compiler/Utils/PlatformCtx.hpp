@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2023
  *
  */
+#pragma once
 #include <string>
 #include <cpuinfo/include/cpuinfo.h>
 
@@ -22,18 +23,51 @@ namespace utils {
 
 // now support X86 and NVIDIA, general-linux, with only single CPU/GPU
 struct PlatformCtx {
+  /// Basic CPU Info
   std::string CpuName;
   size_t CpuL1CacheSize;
   size_t CpuL2CacheSize;
   size_t CpuL3CacheSize;
+
+  /// Basic GPU Info
   std::string GpuName;
   size_t GpuTotalMemory;
   size_t GpuTotalConstMem;
   size_t GpuSharedMemPerBlock;
-  // TODOMaximum size of each dimension of a block
+
+  /// x86 CPU Based Vector Instruction. 2D Vector is not support yet.
+#if NNCV_HAVE_SSE == 1
+  size_t CpuHasSSE = 1;
+#else
+  size_t CpuHasSSE = 0;
+#endif  //! NNCV_HAVE_SSE == 1
+#if NNCV_HAVE_AVX2 == 1
+  size_t CpuHasAVX2 = 1;
+#else
+  size_t CpuHasAVX2 = 0;
+#endif  //! NNCV_HAVE_AVX2 == 1
+
+  /// tileSize, SplitingSize, and so on.
+  size_t* CB_TileSize = nullptr;
+  size_t CB_SplitSize;
+
+  inline void init() {
+    if (CpuHasAVX2) CB_SplitSize = 8;  // 256bit / 32bit
+    if (!CpuHasAVX2 && CpuHasSSE) CB_SplitSize = 4;
+  }
+
+  PlatformCtx() = default;
+  ~PlatformCtx() {}
+  PlatformCtx(const PlatformCtx&) = delete;
+  PlatformCtx& operator=(const PlatformCtx&) = delete;
+
+  static PlatformCtx& getInstance() {
+    static PlatformCtx instance;
+    return instance;
+  }
 };
 
-inline static PlatformCtx PlatformCtxInit() {
+inline static void PlatformCtxInit() {
   printf("[ INFO ] Detecting Platform.\n");
   cpuinfo_initialize();
 
@@ -64,7 +98,6 @@ inline static PlatformCtx PlatformCtxInit() {
          (float)ctx.GpuTotalConstMem / (float)(1 << 10));
 #endif
   printf("[ INFO ] Done.\n");
-  return ctx;
 }
 
 }  // namespace utils

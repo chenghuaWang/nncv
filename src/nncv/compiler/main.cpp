@@ -59,11 +59,9 @@
 
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Pipeline/Frontend.hpp"
-#include "nncv/compiler/Utils/PlatformCtx.hpp"
-
 #include "nncv/compiler/Conversion/Passes.h"
-
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+#include "nncv/compiler/Utils/PlatformCtx.hpp"
 
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                                          llvm::cl::Optional);
@@ -96,7 +94,8 @@ int main(int argc, char* argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   // detecting platform
-  nncv::compiler::utils::PlatformCtx pctx = nncv::compiler::utils::PlatformCtxInit();
+  nncv::compiler::utils::PlatformCtxInit();
+  nncv::compiler::utils::PlatformCtx::getInstance().init();
   if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
 
   // init dialect

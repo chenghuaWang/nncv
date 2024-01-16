@@ -2,3 +2,4 @@
 add_subdirectory(AutoTen)
 add_subdirectory(NncvGraph)
 add_subdirectory(NncvFrontend)
+add_subdirectory(LinalgExt)
