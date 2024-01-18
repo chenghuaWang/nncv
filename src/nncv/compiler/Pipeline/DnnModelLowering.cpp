@@ -27,6 +27,8 @@
 #include "mlir/Conversion/NVVMToLLVM/NVVMToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 
+// FIXME
+#include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
 
 namespace nncv {
@@ -94,6 +96,11 @@ void DnnModelLowering::registerAllPass() {
   }
   if (m_GenHostWParallel) {
     mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
+
+    // using winograd
+    // FIXME
+    m_PM->addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
+
     return;
   }
 }

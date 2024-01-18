@@ -257,9 +257,76 @@ class CBForConv2DWoChannelPattern : public OpConversionPattern<linalg::Conv2DOp>
 };
 
 //===----------------------------------------------------------------------===//
-// Convolution optimization with Channel:
+// Convolution optimization NchwFchw:
 // TODO
 //===----------------------------------------------------------------------===//
+
+void _populateCBSplitingPattern_NchwFchw(Operation* op, int64_t stride,
+                                         ConversionPatternRewriter& rewriter) {
+  // some mlie based infomation
+  auto mlirLoc = op->getLoc();
+  auto mlirCtx = op->getContext();
+
+  auto ConvOp = mlir::cast<linalg::Conv2DNhwcHwcfOp>(*op);
+
+  // get the input and attribute of conv2d nchw fchw
+  Value input = ConvOp->getOperand(0);
+  Value kernel = ConvOp->getOperand(1);
+  Value output = ConvOp->getOperand(2);
+  auto kernel_stride = ConvOp.getStrides();
+  auto kernel_dilation = ConvOp.getDilations();
+
+  // check if N = c = 1 and F = c = 1
+  auto inputType = input.getType().cast<mlir::RankedTensorType>();
+  auto kernelType = kernel.getType().cast<mlir::RankedTensorType>();
+  auto outputType = output.getType().cast<mlir::RankedTensorType>();
+  auto kernel_F = kernelType.getDimSize(0);
+  auto kernel_C = kernelType.getDimSize(1);
+  auto input_N = inputType.getDimSize(0);
+  auto input_C = inputType.getDimSize(1);
+  if (kernel_F == 1 && kernel_C == 1 && input_N == 1 && input_C == 1) {
+    // TODO
+  }
+
+  return;
+}
+
+void _populateCBTilingPattern_NchwFchw(Operation* op, llvm::ArrayRef<int64_t> tileSizes,
+                                       ConversionPatternRewriter& rewriter) {
+  // TODO
+  return;
+}
+
+class CBForConv2D_NchwFchw_Pattern : public OpConversionPattern<linalg::Conv2DNchwFchwOp> {
+ public:
+  using OpConversionPattern<linalg::Conv2DNchwFchwOp>::OpConversionPattern;
+
+  CBForConv2D_NchwFchw_Pattern(TypeConverter& typeConverter, MLIRContext* context, int64_t stride)
+      : OpConversionPattern(typeConverter, context) {
+    m_Stride = stride;
+  }
+
+  CBForConv2D_NchwFchw_Pattern(TypeConverter& typeConverter, MLIRContext* context, int64_t stride,
+                               ArrayRef<int64_t> tile)
+      : OpConversionPattern(typeConverter, context) {
+    m_Stride = stride;
+    m_TileSizes = tile;
+  }
+
+  LogicalResult matchAndRewrite(linalg::Conv2DNchwFchwOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    if (m_TileSizes.empty()) {
+      _populateCBSplitingPattern_NchwFchw(op, m_Stride, rewriter);
+    } else {
+      _populateCBTilingPattern_NchwFchw(op, m_TileSizes, rewriter);
+    }
+    return success();
+  }
+
+ private:
+  int64_t m_Stride = 8;
+  llvm::ArrayRef<int64_t> m_TileSizes;
+};
 
 //===----------------------------------------------------------------------===//
 // Convolution optimization Pass

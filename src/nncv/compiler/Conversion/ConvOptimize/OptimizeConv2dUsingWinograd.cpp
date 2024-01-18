@@ -284,7 +284,7 @@ class ConvertConvToWinograd final : public OpRewritePattern<ConvOp> {
 };
 
 class OptimizeConv2dUsingWinogradPass
-    : impl::OptimizeConv2dUsingWinogradBase<OptimizeConv2dUsingWinogradPass> {
+    : public impl::OptimizeConv2dUsingWinogradBase<OptimizeConv2dUsingWinogradPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<linalg::LinalgDialect, LINALGEXT::NNCVLinalgExtDialect>();
   }
@@ -304,5 +304,7 @@ class OptimizeConv2dUsingWinogradPass
 
 }  // namespace
 
-std::unique_ptr<mlir::Pass> createOptimizeConv2dUsingWinogradPass();
+std::unique_ptr<mlir::Pass> createOptimizeConv2dUsingWinogradPass() {
+  return std::make_unique<OptimizeConv2dUsingWinogradPass>();
+}
 }  // namespace mlir::nncv

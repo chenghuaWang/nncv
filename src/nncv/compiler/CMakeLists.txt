@@ -140,6 +140,7 @@ set(LinkedLibs
     # Pass
     NncvFrontendPasses
     AtenLangTransformsPasses
+    NNCVLinalgExtPasses
     # convert pass
     ConvOptimizeConversion
     AtenToArithConversion
