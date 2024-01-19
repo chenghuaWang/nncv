@@ -9,7 +9,7 @@ include "mlir/IR/OpBase.td"
 def NncvGraph_Dialect : Dialect {
     let name = "nncvgraph";
     let summary = "nncv graph level optimization dialect";
-    let cppNamespace = "::mlir::nncv";
+    let cppNamespace = "::mlir::nncv::graph";
 
     let description = [{
         NNCV Graph is a high-level representation of a deepl learning model.
@@ -45,6 +45,10 @@ def NncvGraph_Dialect : Dialect {
                             ::mlir::DialectAsmPrinter &os) const override;
     }];
 }
+
+def NncvGraph_Dim : TypeAlias<Index>;
+def NncvGraph_ShapeDynamicDims : Variadic<NncvGraph_Dim>;
+def NncvGraph_Tensor : TypeAlias<AnyRankedTensor>;
 
 
 #endif //! NNCV_GRAPH_IR_DIALECT_TD
