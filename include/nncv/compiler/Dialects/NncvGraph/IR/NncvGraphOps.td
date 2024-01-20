@@ -38,8 +38,21 @@ def NncvGraph_WorkOp : NncvGraph_PureOp<"work" , [
     }];
 }
 
-def NncvGraph_WorkGroup : NncvGraph_Op<"work_group"> {
+def NncvGraph_WorkGroupOp : NncvGraph_Op<"work_group", [
+    NncvGraph_ShapeAwareOpInterface,
+    IsolatedFromAbove,
+]> {
+    let summary = [{A work group with multiple works}];
+    let description = [{
+        A group of works that can be execute in one time.
+    }];
 
+    let results = (outs Variadic<AnyType>:$result);
+    let regions = (region AnyRegion:$body);
+
+    let hasCanonicalizer = 1;
+    let hasCustomAssemblyFormat = 1;
+    let hasVerifier = 1;
 }
 
 #endif //! NNCV_NNCV_GRAPH_OPS_TD

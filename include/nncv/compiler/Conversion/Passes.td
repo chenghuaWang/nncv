@@ -68,4 +68,55 @@ def OptimizeConv2dUsingWinograd : Pass <"optimize-conv2d-winograd", "ModuleOp"> 
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// MatMul optimization
+//===----------------------------------------------------------------------===//
+def MatMulOptimization_Default : Pass<"optimize-matmul-default-method", "ModuleOp"> {
+    let summary = "optimizing all mat mul operation using vectorization.(default)";
+    let constructor = "mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+def MatMulOptimization_Vec : Pass<"optimize-matmul-vec-method", "ModuleOp"> {
+    let summary = "optimizing all mat mul operation using vectorization.(specific)";
+    let constructor = "mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+def MatMulOptimization_ParallelVec : Pass<"optimize-matmul-parallel-vec-method", "ModuleOp"> {
+    let summary = "optimizing all mat mul operation using parallel vectorization.";
+    let constructor = "mlir::nncv::matmul_optimize::createMatMulOptimizationParallelVecPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+def MatMulOptimization_ForBatch : Pass<"optimize-batch-matmul-vec-method", "ModuleOp"> {
+    let summary = "optimizing all Batch mat mul operation using vectorization.";
+    let constructor = "mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES

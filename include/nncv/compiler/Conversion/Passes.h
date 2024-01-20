@@ -4,6 +4,12 @@
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingCB.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
+
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
+
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 
 namespace mlir {

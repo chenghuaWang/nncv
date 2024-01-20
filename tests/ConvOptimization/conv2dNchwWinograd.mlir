@@ -7,5 +7,4 @@ func.func @conv_16433136(%arg0: tensor<1x16x16x4xf32>, %arg2: tensor<1x14x14x16x
     outs(%arg2: tensor<1x14x14x16xf32>) -> tensor<1x14x14x16xf32>
   return %0 : tensor<1x14x14x16xf32>
 }
-
 }

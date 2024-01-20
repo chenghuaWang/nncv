@@ -51,9 +51,19 @@ struct PlatformCtx {
   size_t* CB_TileSize = nullptr;
   size_t CB_SplitSize;
 
+  /// Mat Mul on CPU
+  int64_t MatMul_VecSize;
+  int64_t MatMul_Kernel_M = 4;
+  int64_t MatMul_Kernel_N = 2;
+
   inline void init() {
+    //< conv optimize
     if (CpuHasAVX2) CB_SplitSize = 8;  // 256bit / 32bit
     if (!CpuHasAVX2 && CpuHasSSE) CB_SplitSize = 4;
+
+    //< mat mul optimization
+    if (CpuHasAVX2) MatMul_VecSize = 8;  // 256bit / 32bit
+    if (!CpuHasAVX2 && CpuHasSSE) MatMul_VecSize = 4;
   }
 
   PlatformCtx() = default;
