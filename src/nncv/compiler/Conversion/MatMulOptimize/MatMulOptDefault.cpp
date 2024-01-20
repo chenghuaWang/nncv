@@ -69,7 +69,7 @@ class MatMulOptimizePattern : public ConversionPattern {
     const AffineExpr d1 = rewriter.getAffineDimExpr(1);
 
     const AffineMap mapBroadcast = AffineMap::get(2, 0, rewriter.getAffineConstantExpr(0));
-    const VectorType vectorType = VectorType::get(16, lhsShapeType.getElementType());
+    const VectorType vectorType = VectorType::get(m_VecSize, lhsShapeType.getElementType());
 
     // Configs
     int64_t kNLen = m_VecSize * m_KernelN;
@@ -108,10 +108,10 @@ class MatMulOptimizePattern : public ConversionPattern {
                   MemRefType resTy =
                       MemRefType::get(lhsShapeType.getShape(), lhsShapeType.getElementType(),
                                       AffineMap::get(2, 2, d0 * s1 + s0 + d1));
-                  auto __lhs_ptr = builder.create<memref::SubViewOp>(
+                  auto _lhs_ptr = builder.create<memref::SubViewOp>(
                       loc, resTy, lhs, SmallVector<OpFoldResult>{fixedIV, c0},
                       SmallVector<OpFoldResult>{c1, K}, SmallVector<OpFoldResult>{c1, c1});
-                  lhs_ptrs.push_back(__lhs_ptr);
+                  lhs_ptrs.push_back(_lhs_ptr);
                 }
 
                 for (int i = 0; i < m_KernelM; ++i) {
@@ -166,7 +166,7 @@ class MatMulOptimizePattern : public ConversionPattern {
 
                       for (int i = 0; i < m_KernelM; ++i) {
                         for (int j = 0; j < m_KernelN; ++j) {
-                          rhsS[i * m_KernelN + j] = builder.create<vector::FMAOp>(
+                          dstS[i * m_KernelN + j] = builder.create<vector::FMAOp>(
                               loc, vectorType, lhsS[i], rhsS[j], dstS[i * m_KernelN + j]);
                         }
                       }
@@ -176,7 +176,7 @@ class MatMulOptimizePattern : public ConversionPattern {
                           Value fixedIV = builder.create<affine::AffineApplyOp>(
                               loc, AffineMap::get(1, 0, d0 + j * m_VecSize), affine_index_J);
                           builder.create<vector::TransferWriteOp>(
-                              loc, rhsS[i * m_KernelN + j], dst_ptrs[i], ValueRange{c0, fixedIV});
+                              loc, dstS[i * m_KernelN + j], dst_ptrs[i], ValueRange{c0, fixedIV});
                         }
                       }
                     });
