@@ -12,6 +12,7 @@
  */
 
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -74,11 +75,11 @@ llvm::cl::opt<std::string> SetLowerTarget("target", llvm::cl::desc("<to target>"
                                           llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
-  context.loadDialect<mlir::arith::ArithDialect, mlir::memref::MemRefDialect,
-                      mlir::func::FuncDialect, mlir::bufferization::BufferizationDialect,
-                      mlir::linalg::LinalgDialect, mlir::ml_program::MLProgramDialect,
-                      mlir::cf::ControlFlowDialect, mlir::affine::AffineDialect,
-                      mlir::scf::SCFDialect, mlir::tensor::TensorDialect>();
+  context.loadDialect<
+      mlir::arith::ArithDialect, mlir::memref::MemRefDialect, mlir::func::FuncDialect,
+      mlir::bufferization::BufferizationDialect, mlir::linalg::LinalgDialect,
+      mlir::ml_program::MLProgramDialect, mlir::cf::ControlFlowDialect, mlir::affine::AffineDialect,
+      mlir::scf::SCFDialect, mlir::tensor::TensorDialect, mlir::vector::VectorDialect>();
   mlir::registerLLVMDialectTranslation(context);
 }
 

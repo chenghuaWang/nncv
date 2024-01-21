@@ -54,7 +54,7 @@ struct PlatformCtx {
   /// Mat Mul on CPU
   int64_t MatMul_VecSize;
   int64_t MatMul_Kernel_M = 4;
-  int64_t MatMul_Kernel_N = 2;
+  int64_t MatMul_Kernel_N = 4;
 
   inline void init() {
     //< conv optimize

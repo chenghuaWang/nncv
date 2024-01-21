@@ -5,12 +5,15 @@
 //
 // Date: Jan 20, 2024
 
-transform.sequence failures(propagate) {
-^bb0(%arg0: !transform.any_op,
-     %arg1: !transform.op<"linalg.matmul">,
-     %arg2: !transform.op<"linalg.elemwise_binary">):
-  // The actual tiling transformation takes tile sizes as attributes.
-  %loop, %tiled = transform.structured.tile_using_forall %arg1 tile_sizes [4, 32]
-    : (!transform.op<"linalg.matmul">) -> (!transform.any_op, !transform.any_op)
-  transform.yield
+module attributes { transform.with_named_sequence } {
+    transform.named_sequence @__transform_main(%arg1: !transform.any_op {transform.readonly}, %arg2: !transform.any_op {transform.readonly}) {
+        // match op 1: linalg.matmul
+        %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+        // match op 2: linalg.elemwise_binary
+        %1 = transform.structured.match ops{["linalg.elemwise_binary"]} in %arg2 : (!transform.any_op) -> !transform.any_op
+        
+        // then
+        
+        transform.yield
+    }
 }

@@ -1,3 +1,13 @@
+/**
+ * @file [[dropped but maintin]]MatMulOptDefault.cpp
+ * @author Buddy-Compiler Group
+ * @brief The code providede by buddy is buggy. Not used in NNCV, but as a reference.
+ * @version 0.1
+ * @date 2024-01-21
+ *
+ * @copyright Copyright (c) 2024
+ *
+ */
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"

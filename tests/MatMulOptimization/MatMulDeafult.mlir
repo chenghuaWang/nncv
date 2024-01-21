@@ -3,6 +3,6 @@ module {
         linalg.matmul 
                 ins(%lhs, %rhs : memref<720x720xf32>, memref<720x720xf32>) 
                 outs(%dst : memref<720x720xf32>)
-        func.return
+        return
     }
 }

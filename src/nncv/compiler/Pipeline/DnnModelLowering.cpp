@@ -29,6 +29,7 @@
 // FIXME
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
@@ -99,9 +100,6 @@ void DnnModelLowering::registerAllPass() {
   if (m_GenHostWParallel) {
     mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
 
-    // TODO
-    // the sequence of a pm is not in order?
-
     // using winograd
     // FIXME
     m_PM->addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
@@ -109,8 +107,7 @@ void DnnModelLowering::registerAllPass() {
     // Tiling anf Decompose on winograd should followed by a cse.
     m_PM->addNestedPass<mlir::func::FuncOp>(
         mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-
-    m_PM->addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
+    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 
     return;
   }
