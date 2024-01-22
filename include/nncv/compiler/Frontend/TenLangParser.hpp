@@ -131,6 +131,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   std::any visitForStmt(AutoTenV1Parser::ForStmtContext* ctx) override;
 
+  std::any visitPforStmt(AutoTenV1Parser::PforStmtContext* ctx) override;
+
   std::any visitShortVarDecl(AutoTenV1Parser::ShortVarDeclContext* ctx) override;
 
   std::any visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext* ctx) override;

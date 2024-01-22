@@ -1,5 +1,5 @@
 
-// Generated from ../AutoTenV1Parser.g4 by ANTLR 4.13.0
+// Generated from ./AutoTenV1Parser.g4 by ANTLR 4.13.0
 
 #pragma once
 
@@ -338,6 +338,14 @@ public:
   }
 
   virtual std::any visitForStmt(AutoTenV1Parser::ForStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitPforStmt(AutoTenV1Parser::PforStmtContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitPforClause(AutoTenV1Parser::PforClauseContext *ctx) override {
     return visitChildren(ctx);
   }
 

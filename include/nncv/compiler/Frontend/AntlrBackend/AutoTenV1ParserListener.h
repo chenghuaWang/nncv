@@ -1,5 +1,5 @@
 
-// Generated from ../AutoTenV1Parser.g4 by ANTLR 4.13.0
+// Generated from ./AutoTenV1Parser.g4 by ANTLR 4.13.0
 
 #pragma once
 
@@ -258,6 +258,12 @@ public:
 
   virtual void enterForStmt(AutoTenV1Parser::ForStmtContext *ctx) = 0;
   virtual void exitForStmt(AutoTenV1Parser::ForStmtContext *ctx) = 0;
+
+  virtual void enterPforStmt(AutoTenV1Parser::PforStmtContext *ctx) = 0;
+  virtual void exitPforStmt(AutoTenV1Parser::PforStmtContext *ctx) = 0;
+
+  virtual void enterPforClause(AutoTenV1Parser::PforClauseContext *ctx) = 0;
+  virtual void exitPforClause(AutoTenV1Parser::PforClauseContext *ctx) = 0;
 
   virtual void enterForClause(AutoTenV1Parser::ForClauseContext *ctx) = 0;
   virtual void exitForClause(AutoTenV1Parser::ForClauseContext *ctx) = 0;

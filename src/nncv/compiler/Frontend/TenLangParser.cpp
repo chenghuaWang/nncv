@@ -1,3 +1,4 @@
+#include "nncv/compiler/Utils/SymbolRef.hpp"
 #ifdef NNCV_ENABLE_ANTLR
 
 #include "llvm/ADT/SmallVector.h"
@@ -388,6 +389,7 @@ std::any AutoTen2MlirVisitor::visitBlock(AutoTenV1Parser::BlockContext* ctx) {
 //	| ifStmt
 //	| switchStmt
 //	| forStmt
+//  | pforStmt
 //	| whileStmt
 //	| doWhileStmt;
 //
@@ -416,6 +418,8 @@ std::any AutoTen2MlirVisitor::visitStatement(AutoTenV1Parser::StatementContext* 
     visit(ctx->switchStmt());
   else if (ctx->forStmt())
     visit(ctx->forStmt());
+  else if (ctx->pforStmt())
+    visit(ctx->pforStmt());
   else if (ctx->whileStmt())
     visit(ctx->whileStmt());
   else if (ctx->doWhileStmt())
@@ -727,6 +731,66 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
 }
 
 //===----------------------------------------------------------------------===//
+// pforStmt:
+//    Pfor LeftParen (expression? | pforClause) RightParen block;
+//
+// forClause:
+//    shortVarDecl eos operand eos operand;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitPforStmt(AutoTenV1Parser::PforStmtContext* ctx) {
+  visit(ctx->Pfor());
+
+  int __line = ctx->Pfor()->getSymbol()->getLine();
+  int __row = ctx->Pfor()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __row);
+
+  if (ctx->expression()) {
+    // TODO
+  } else if (ctx->pforClause()) {
+    // init cond + cond + main body + step SHARED Same SymbolTable.
+    m_curSymbolTable->createVarSymbolTableOnTop();
+
+    // get aten's lower, upper, step value
+    Ps.PushPforClause();
+    auto _ptr_lowerBoundValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->pforClause()->shortVarDecl()))
+            .getValue<mlir::Value>();
+    auto lowerValue = Ps.GetIntLiteral();
+    visit(ctx->pforClause()->operand()[0]);
+    auto upperValue = Ps.GetIntLiteral();
+    visit(ctx->pforClause()->operand()[1]);
+    auto stepValue = Ps.GetIntLiteral();
+    Ps.Pop();
+
+    Ps.PushParallelForStmt();
+    // build affine parallel for loop
+    m_OpBuilder.create<mlir::affine::AffineForOp>(
+        location, /*lower*/ lowerValue,
+        /*upper*/ upperValue,
+        /*step*/ stepValue, /*iter args*/ std::nullopt,
+        /*body builder*/
+        [&](mlir::OpBuilder& opb, mlir::Location location, mlir::Value value,
+            mlir::ValueRange valueRange) {
+          // update the symbol of lowerbound to value
+          auto strSymbol = m_curSymbolTable->getVarValueName(_ptr_lowerBoundValue);
+          m_curSymbolTable->updateSymbolKind(strSymbol.value(), utils::VarSymbolKind::kPfor);
+          m_curSymbolTable->updateVarSymbol(strSymbol.value(), value);
+          visit(ctx->block());
+          if (!Ps.IsParallelForHadTerminated()) {
+            // build affine yield
+            m_OpBuilder.create<mlir::affine::AffineYieldOp>(location);
+          }
+        });
+
+    // delete Var symbol table.
+    m_curSymbolTable->deleteVarSymbolTableOnTop();
+  }
+  Ps.Pop();
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // shortVarDecl: identifierList DeclareAssign expressionList;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitShortVarDecl(AutoTenV1Parser::ShortVarDeclContext* ctx) {
@@ -756,9 +820,11 @@ std::any AutoTen2MlirVisitor::visitShortVarDecl(AutoTenV1Parser::ShortVarDeclCon
       /*alloca type*/ value.getType(), /*name*/ valueName,
       /*alignment is 4B*/ m_OpBuilder.getI64IntegerAttr(alignement));
 
-  m_OpBuilder.create<mlir::aten::StoreOp>(location, value, ptrValue);
-
   m_curSymbolTable->registerVarSymbol(valueName, ptrValue, utils::VarSymbolKind::kNormal);
+
+  if (Ps.IsInPforClause()) { return VisitorParserReturn(ptrValue); }
+
+  m_OpBuilder.create<mlir::aten::StoreOp>(location, value, ptrValue);
   return VisitorParserReturn();
 }
 
@@ -1300,6 +1366,8 @@ std::any AutoTen2MlirVisitor::visitBasicLit(AutoTenV1Parser::BasicLitContext* ct
     std::string integerStr = ctx->IntegerLiteral()->getText();
     long long num = std::stoll(integerStr);
 
+    Ps.SetIntLiteral(num);
+
     if (Ps.IsExpressionLiteralGenMlirValue()) {
       auto intType = mlir::aten::IntType::get(m_OpBuilder.getContext(), 32, true);
       auto attri = mlir::aten::IntAttr::get(intType, num);
@@ -1334,6 +1402,11 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
 
   auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
   if (!_value.has_value()) { return VisitorParserReturn(ctx->Identifier()->getText()); }
+
+  if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())
+      == utils::VarSymbolKind::kPfor) {
+    return VisitorParserReturn(_value.value());
+  }
 
   // i++, return pointer of i
   if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())

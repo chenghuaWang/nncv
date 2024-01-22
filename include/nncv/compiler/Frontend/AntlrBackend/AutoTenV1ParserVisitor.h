@@ -1,5 +1,5 @@
 
-// Generated from ../AutoTenV1Parser.g4 by ANTLR 4.13.0
+// Generated from ./AutoTenV1Parser.g4 by ANTLR 4.13.0
 
 #pragma once
 
@@ -181,6 +181,10 @@ public:
     virtual std::any visitTypeList(AutoTenV1Parser::TypeListContext *context) = 0;
 
     virtual std::any visitForStmt(AutoTenV1Parser::ForStmtContext *context) = 0;
+
+    virtual std::any visitPforStmt(AutoTenV1Parser::PforStmtContext *context) = 0;
+
+    virtual std::any visitPforClause(AutoTenV1Parser::PforClauseContext *context) = 0;
 
     virtual std::any visitForClause(AutoTenV1Parser::ForClauseContext *context) = 0;
 

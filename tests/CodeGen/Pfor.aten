@@ -1,0 +1,19 @@
+@package = "main";
+
+func matmul(lhs Tensor<512, 512, float32>, rhs Tensor<512, 512, float32>, dst Tensor<512, 512, float32>) {
+    pfor(i := 0; 512; 1) {
+        pfor (j := 0; 512; 1) {
+            pfor (k := 0; 512; 1) {
+                dst[i, j] = dst[i, j] +  lhs[i, k] * rhs[k, j];
+            };
+        };
+    };
+};
+
+func main() -> void {
+    var lhs Tensor<512, 512, float32>;
+    var rhs Tensor<512, 512, float32>;
+    var dst Tensor<512, 512, float32>;
+
+    matmul(lhs, rhs, dst);
+};

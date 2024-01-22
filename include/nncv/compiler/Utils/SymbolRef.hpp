@@ -151,6 +151,7 @@ enum class VarSymbolKind {
   kNone = 0,
   kNormal = 1,
   kFuncArgument = 2,
+  kPfor = 3,
 };
 
 class AtenSymbolTableG {
@@ -207,7 +208,7 @@ class AtenSymbolTableG {
     }
   }
 
-  [[deprecated]] std::optional<std::string> getVarValueName(mlir::Value value) {
+  std::optional<std::string> getVarValueName(mlir::Value value) {
     for (auto item : varSymbolTable) {
       if (item.second == value) return item.first;
     }
@@ -224,7 +225,12 @@ class AtenSymbolTableG {
     }
   }
 
-  [[deprecated]] void updateVatSymbol(const std::string& varName, mlir::Value value) {
+  void updateSymbolKind(const std::string& str, VarSymbolKind vsk) {
+    auto item = varSymbolTable_Kind.find(str);
+    item->second = vsk;
+  }
+
+  void updateVatSymbol(const std::string& varName, mlir::Value value) {
     varSymbolTable[varName] = value;
   }
 
@@ -296,11 +302,13 @@ class AtenSymbolRef {
   bool registerStructSymbol(const std::string& structName, AtenStructSymbolPayload& payload);
 
   std::optional<mlir::Value> getVarValueSymbol(const std::string& varName);
-  [[deprecated]] std::optional<std::string> getVarValueName(mlir::Value value);
+  std::optional<std::string> getVarValueName(mlir::Value value);
   VarSymbolKind getVarValueSymbolKind(const std::string& varName);
   [[deprecated]] bool isInTheTopSymbolTable(std::string& vn);
-  [[deprecated]] bool updateVarSymbol(const std::string& varName, mlir::Value value);
+  bool updateVarSymbol(const std::string& varName, mlir::Value value);
   bool registerVarSymbol(const std::string& varName, mlir::Value value, VarSymbolKind kind);
+
+  void updateSymbolKind(const std::string& str, VarSymbolKind vsk);
 
   void createVarSymbolTableOnTop();
   void deleteVarSymbolTableOnTop();

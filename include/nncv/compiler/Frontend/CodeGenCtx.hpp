@@ -38,6 +38,8 @@ enum class _ParserSateEnum : int32_t {
   kFor = 6,
   kSlice = 7,
   kIncDec = 8,
+  kPfor = 9,         // parallel for
+  kPforClause = 10,  // parallel for clause
 };
 
 class ParserState {
@@ -51,6 +53,7 @@ class ParserState {
   inline bool IsInIfScope() { return m_StateStack.top() == _ParserSateEnum::kIf; }
   inline bool IsInAssignStmt() { return m_StateStack.top() == _ParserSateEnum::kAssignStmt; }
   inline bool IsInForScope() { return m_StateStack.top() == _ParserSateEnum::kFor; }
+  inline bool IsInPforClause() { return m_StateStack.top() == _ParserSateEnum::kPforClause; }
 
   inline mlir::aten::FuncOp* GetFuncOp() {
     if (m_FuncOp != nullptr)
@@ -93,6 +96,17 @@ class ParserState {
   }
   inline bool IsForHadTerminated() { return m_ForHasTerminatedByBreak.top(); }
 
+  inline void PushParallelForStmt() {
+    m_StateStack.push(_ParserSateEnum::kPfor);
+    m_ParallelForHasTerminatedByBreak.push(false);
+  }
+  inline void SetParallelForHasTerminatedByBreak() {
+    m_ParallelForHasTerminatedByBreak.pop();
+    m_ParallelForHasTerminatedByBreak.push(true);
+  }
+  inline bool IsParallelForHadTerminated() { return m_ParallelForHasTerminatedByBreak.top(); }
+  inline void PushPforClause() { m_StateStack.push(_ParserSateEnum::kPforClause); }
+
   inline void SetExpressionLiteralGenMlirValue(bool v) { m_ExpressionLiteralGenMlirValue = v; }
   inline bool IsExpressionLiteralGenMlirValue() { return m_ExpressionLiteralGenMlirValue; }
 
@@ -104,6 +118,9 @@ class ParserState {
 
   inline void PushIncDecStmt() { m_StateStack.push(_ParserSateEnum::kIncDec); }
   inline bool IsInIncDecStmt() { return m_StateStack.top() == _ParserSateEnum::kIncDec; }
+
+  inline void SetIntLiteral(int64_t v) { m_IntLiteral = v; }
+  inline int64_t GetIntLiteral() { return m_IntLiteral; }
 
   inline void Pop() {
     auto top = m_StateStack.top();
@@ -129,6 +146,10 @@ class ParserState {
       }
       case _ParserSateEnum::kFor: {
         m_ForHasTerminatedByBreak.pop();
+        break;
+      }
+      case _ParserSateEnum::kPfor: {
+        m_ParallelForHasTerminatedByBreak.pop();
         break;
       }
       default: break;
@@ -157,6 +178,12 @@ class ParserState {
 
   // 6. Remeber current slice.
   llvm::SmallVector<mlir::Value, 4> m_CurrentSliceIndex;
+
+  // 7. PFor State
+  std::stack<bool> m_ParallelForHasTerminatedByBreak;
+
+  // always record.
+  int64_t m_IntLiteral;
 
   // stack record
   std::stack<_ParserSateEnum> m_StateStack;

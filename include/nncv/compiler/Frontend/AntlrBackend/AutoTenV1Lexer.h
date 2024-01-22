@@ -1,5 +1,5 @@
 
-// Generated from ../AutoTenV1Lexer.g4 by ANTLR 4.13.0
+// Generated from ./AutoTenV1Lexer.g4 by ANTLR 4.13.0
 
 #pragma once
 
@@ -18,20 +18,20 @@ public:
     Int16 = 9, Int32 = 10, Int64 = 11, Float32 = 12, Float64 = 13, Char = 14, 
     Bool = 15, String = 16, Tensor = 17, Var = 18, False_ = 19, True_ = 20, 
     Void = 21, Nilptr = 22, Break = 23, Continue = 24, Goto = 25, Fallthrough = 26, 
-    If = 27, While = 28, For = 29, Else = 30, Do = 31, Switch = 32, Case = 33, 
-    Default = 34, Function = 35, Return = 36, Struct = 37, Type = 38, Package = 39, 
-    Impl = 40, Public = 41, Sizeof = 42, LeftParen = 43, RightParen = 44, 
-    LeftBracket = 45, RightBracket = 46, LeftBrace = 47, RightBrace = 48, 
-    Plus = 49, Minus = 50, Star = 51, Div = 52, Mod = 53, Caret = 54, And = 55, 
-    Or = 56, Tilde = 57, Not = 58, Assign = 59, DeclareAssign = 60, Less = 61, 
-    Greater = 62, LeftShift = 63, RightShift = 64, NotEqual = 65, Equal = 66, 
-    LessEqual = 67, GreaterEqual = 68, AndAnd = 69, OrOr = 70, PlusPlus = 71, 
-    MinusMinus = 72, Comma = 73, ArrowReturnType = 74, Colon = 75, Dot = 76, 
-    DotStar = 77, ArrowStar = 78, At = 79, Semi = 80, Map = 81, Ellipsis = 82, 
-    Identifier = 83, DecimalLiteral = 84, OctalLiteral = 85, HexadecimalLiteral = 86, 
-    BinaryLiteral = 87, Integersuffix = 88, UserDefinedIntegerLiteral = 89, 
-    UserDefinedFloatingLiteral = 90, UserDefinedStringLiteral = 91, UserDefinedCharacterLiteral = 92, 
-    Whitespace = 93, Newline = 94, BlockComment = 95, LineComment = 96
+    If = 27, While = 28, For = 29, Pfor = 30, Else = 31, Do = 32, Switch = 33, 
+    Case = 34, Default = 35, Function = 36, Return = 37, Struct = 38, Type = 39, 
+    Package = 40, Impl = 41, Public = 42, Sizeof = 43, LeftParen = 44, RightParen = 45, 
+    LeftBracket = 46, RightBracket = 47, LeftBrace = 48, RightBrace = 49, 
+    Plus = 50, Minus = 51, Star = 52, Div = 53, Mod = 54, Caret = 55, And = 56, 
+    Or = 57, Tilde = 58, Not = 59, Assign = 60, DeclareAssign = 61, Less = 62, 
+    Greater = 63, LeftShift = 64, RightShift = 65, NotEqual = 66, Equal = 67, 
+    LessEqual = 68, GreaterEqual = 69, AndAnd = 70, OrOr = 71, PlusPlus = 72, 
+    MinusMinus = 73, Comma = 74, ArrowReturnType = 75, Colon = 76, Dot = 77, 
+    DotStar = 78, ArrowStar = 79, At = 80, Semi = 81, Map = 82, Ellipsis = 83, 
+    Identifier = 84, DecimalLiteral = 85, OctalLiteral = 86, HexadecimalLiteral = 87, 
+    BinaryLiteral = 88, Integersuffix = 89, UserDefinedIntegerLiteral = 90, 
+    UserDefinedFloatingLiteral = 91, UserDefinedStringLiteral = 92, UserDefinedCharacterLiteral = 93, 
+    Whitespace = 94, Newline = 95, BlockComment = 96, LineComment = 97
   };
 
   explicit AutoTenV1Lexer(antlr4::CharStream *input);

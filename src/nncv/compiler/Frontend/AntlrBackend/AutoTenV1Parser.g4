@@ -324,7 +324,10 @@ forStmt:
 	For LeftParen (expression? | forClause) RightParen block;
 
 pforStmt:
-	Pfor LeftParen (expression? | forClause) RightParen block;
+	Pfor LeftParen (expression? | pforClause) RightParen block;
+
+pforClause:
+	shortVarDecl eos operand eos operand;
 
 forClause:
 	initStmt = simpleStmt? eos expression? eos postStmt = simpleStmt?;
