@@ -243,6 +243,7 @@ statement:
 	| ifStmt
 	| switchStmt
 	| forStmt
+	| pforStmt
 	| whileStmt
 	| doWhileStmt;
 
@@ -321,6 +322,9 @@ typeList: (type_ | Nilptr) (Comma (type_ | Nilptr))*;
 
 forStmt:
 	For LeftParen (expression? | forClause) RightParen block;
+
+pforStmt:
+	Pfor LeftParen (expression? | forClause) RightParen block;
 
 forClause:
 	initStmt = simpleStmt? eos expression? eos postStmt = simpleStmt?;

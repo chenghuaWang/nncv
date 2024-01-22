@@ -76,6 +76,8 @@ While: 'while';
 
 For: 'for';
 
+Pfor: 'pfor';
+
 Else: 'else';
 
 Do: 'do';
