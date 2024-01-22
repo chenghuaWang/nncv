@@ -323,6 +323,6 @@ Whitespace: [ \t]+ -> skip;
 
 Newline: ('\r' '\n'? | '\n') -> skip;
 
-BlockComment: '#!' .? '!#' -> skip;
+BlockComment: '/*' .*? '*/' -> skip;
 
-LineComment: '#' ~ [\r\n] -> skip;
+LineComment: '//' ~ [\r\n]* -> skip;
