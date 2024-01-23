@@ -756,21 +756,21 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
                   .getValue<mlir::Value>();
 
           // FIXME: for now, I suppose conditional expression will return bool type.
-          auto boolValue = builder.create<mlir::aten::CastOp>(
-              loc, builder.getI1Type(),
-              mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
-                                                 mlir::aten::CastPredicate::bool_to_mlir_i1),
-              atenBoolValue);
+          // auto boolValue = builder.create<mlir::aten::CastOp>(
+          //     loc, builder.getI1Type(),
+          //     mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+          //                                        mlir::aten::CastPredicate::bool_to_mlir_i1),
+          //     atenBoolValue);
 
           // store condition
           mlir::Value ptrValue = builder.create<mlir::aten::AllocaOp>(
               location,
               /*address type*/
-              mlir::aten::PointerType::get(builder.getContext(), builder.getI1Type()),
-              /*alloca type*/ builder.getI1Type(),
+              mlir::aten::PointerType::get(builder.getContext(), atenBoolValue.getType()),
+              /*alloca type*/ atenBoolValue.getType(),
               /*name*/ "__tmp_condition@" + std::to_string(Ps.GetForConditionTmpCnt()),
               /*alignment is 4B*/ builder.getI64IntegerAttr(1));
-          builder.create<mlir::aten::StoreOp>(location, boolValue, ptrValue);
+          builder.create<mlir::aten::StoreOp>(location, atenBoolValue, ptrValue);
 
           // for loop yield
           builder.create<mlir::aten::YieldOp>(loc);

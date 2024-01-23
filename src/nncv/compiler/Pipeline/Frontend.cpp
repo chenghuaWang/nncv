@@ -36,18 +36,34 @@ void FrontendPipeline::run() {
         exit(-1);
       }
 
-      // Aten-lang High level optimization
+      // Two stage Lowering
       mlir::PassManager pm(m_Module.get()->getName());
-      mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
+      // stage 1
+      {
+        // Aten-lang High level optimization
 
-      // TODO tests
-      pm.addPass(mlir::nncv::createConvertAtenToMlirPass());
-      pm.run(*m_Module);
-      // if (mlir::failed(pm.run(*m_Module))) {
-      //   printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir
-      //   lowering]\n"); exit(-1);
-      // }
+        mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
 
+        pm.addPass(mlir::nncv::createConvertAtenToMlirPass());
+        if (mlir::failed(pm.run(*m_Module))) {
+          printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering] "
+                 "at stage 2\n");
+          exit(-1);
+        }
+      }
+      // stage 2
+      {
+        // Closure
+        pm.clear();
+        pm.addPass(mlir::nncv::createConvertAtenToMlirPass(true));
+        pm.run(*m_Module);
+        // if (mlir::failed()) {
+        //   printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]
+        //   "
+        //          "at stage 2\n");
+        //   exit(-1);
+        // }
+      }
       m_Module->dump();
     }
     ino.close();

@@ -10,10 +10,13 @@
 
 namespace mlir {
 namespace nncv {
-std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass();
+std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass(bool isClosure = false);
 
 void populateAtenToMlirConversionPatterns(mlir::RewritePatternSet* patterns,
                                           mlir::TypeConverter& converter);
+
+void populateAtenToMlirConversionPatterns_Closure(mlir::RewritePatternSet* patterns,
+                                                  mlir::TypeConverter& converter);
 }  // namespace nncv
 }  // namespace mlir
 

@@ -557,7 +557,7 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
             auto _backOp = &condRegion->front().back();
             auto _frontOp = &condRegion->front().front();
             while (_backOp != _frontOp) {
-              if (mlir::isa<mlir::aten::StoreOp>(_backOp)) {
+              if (mlir::isa<mlir::memref::StoreOp>(_backOp)) {
                 storeOp = _backOp;
                 break;
               } else {
@@ -566,10 +566,24 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
             }
             mlir::Value oldCondValue;
             if (storeOp) {
-              oldCondValue = storeOp->getOperand(0);
+              auto allocaOp = storeOp->getPrevNode();
+              auto extuiOp = allocaOp->getPrevNode();
+              auto cmpiOp = extuiOp->getPrevNode();
+              if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
+                  || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
+                oldCondValue = cmpiOp->getResults()[0];
+              } else {
+                printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                       "arith.cmp op\n");
+                exit(-1);
+              }
+
             } else {
-              return;
+              printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                     "memref.store op\n");
+              exit(-1);
             }
+
             builder.create<mlir::scf::ConditionOp>(location, oldCondValue, oldCondValue);
           },
           /*after*/
@@ -666,23 +680,47 @@ class ConvertAtenToMlir : public impl::ConvertAtenToMlirBase<ConvertAtenToMlir> 
 
     auto converter = prepareTypeConverter();
 
-    // set aten-lang as illegal
-    // target.addIllegalDialect<mlir::aten::AtenDialect>();
+    if (m_isClosure) {
+      // set aten-lang as illegal
+      target.addIllegalDialect<mlir::aten::AtenDialect>();
 
-    // set those dialects as llegal
-    target.addLegalDialect<mlir::arith::ArithDialect, mlir::affine::AffineDialect,
-                           mlir::scf::SCFDialect, mlir::memref::MemRefDialect,
-                           mlir::cf::ControlFlowDialect, mlir::func::FuncDialect>();
-    target.addLegalOp<mlir::ModuleOp>();
+      // set those dialects as llegal
+      target.addLegalDialect<mlir::arith::ArithDialect, mlir::affine::AffineDialect,
+                             mlir::scf::SCFDialect, mlir::memref::MemRefDialect,
+                             mlir::cf::ControlFlowDialect, mlir::func::FuncDialect>();
+      target.addLegalOp<mlir::ModuleOp>();
 
-    // prepare all patterns.
-    populateAtenToMlirConversionPatterns(&patterns, converter);
+      // prepare all patterns.
+      populateAtenToMlirConversionPatterns_Closure(&patterns, converter);
 
-    // do conversion and return if failured.
-    if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
-      signalPassFailure();
+      // do conversion and return if failured.
+      if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
+        signalPassFailure();
+      }
+    } else {
+      // set aten-lang as illegal
+      // target.addIllegalDialect<mlir::aten::AtenDialect>();
+
+      // set those dialects as llegal
+      target.addLegalDialect<mlir::arith::ArithDialect, mlir::affine::AffineDialect,
+                             mlir::scf::SCFDialect, mlir::memref::MemRefDialect,
+                             mlir::cf::ControlFlowDialect, mlir::func::FuncDialect>();
+      target.addLegalOp<mlir::ModuleOp>();
+
+      // prepare all patterns.
+      populateAtenToMlirConversionPatterns(&patterns, converter);
+
+      // do conversion and return if failured.
+      if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))) {
+        signalPassFailure();
+      }
     }
   }
+
+  void setClosure(bool isClosure) { m_isClosure = isClosure; }
+
+ private:
+  bool m_isClosure = false;
 };
 }  // namespace
 
@@ -692,12 +730,24 @@ void populateAtenToMlirConversionPatterns(mlir::RewritePatternSet* patterns,
 
   patterns->add<AtenCmpOpLowering, AtenFuncOpLowering, AtenCallOpLowering, AtenUnaryOpLowering,
                 AtenBinOpLowering, AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering,
-                AtenAllocaOpLowering, AtenIfOpLowering, AtenYieldOpLowering, AtenLoopOpLowering,
-                AtenCastOpLowering>(converter, patterns->getContext());
+                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering>(converter,
+                                                                            patterns->getContext());
 }
 
-std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass() {
-  return std::make_unique<ConvertAtenToMlir>();
+void populateAtenToMlirConversionPatterns_Closure(mlir::RewritePatternSet* patterns,
+                                                  mlir::TypeConverter& converter) {
+  patterns->add<AtenReturnOpLowering>(patterns->getContext());
+
+  patterns->add<AtenCmpOpLowering, AtenFuncOpLowering, AtenCallOpLowering, AtenUnaryOpLowering,
+                AtenBinOpLowering, AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering,
+                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering, AtenYieldOpLowering,
+                AtenLoopOpLowering>(converter, patterns->getContext());
+}
+
+std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass(bool isClosure) {
+  auto res = std::make_unique<ConvertAtenToMlir>();
+  res->setClosure(isClosure);
+  return res;
 }
 }  // namespace nncv
 }  // namespace mlir
