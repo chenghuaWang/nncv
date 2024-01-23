@@ -1,4 +1,5 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
+#include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 #include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
 
@@ -56,6 +57,8 @@ void FrontendPipeline::run() {
         // Closure
         pm.clear();
         pm.addPass(mlir::nncv::createConvertAtenToMlirPass(true));
+        pm.addPass(mlir::createCSEPass());
+        // TODO Pass optimize generated code.
 
         if (mlir::failed(pm.run(*m_Module))) {
           printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
