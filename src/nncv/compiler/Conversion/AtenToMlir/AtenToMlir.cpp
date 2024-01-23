@@ -583,8 +583,8 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
                      "memref.store op\n");
               exit(-1);
             }
-
-            builder.create<mlir::scf::ConditionOp>(location, oldCondValue, oldCondValue);
+            mlir::ValueRange emptyVr;
+            builder.create<mlir::scf::ConditionOp>(location, oldCondValue, emptyVr);
           },
           /*after*/
           [&](OpBuilder& builder, Location location, ValueRange vr) {
