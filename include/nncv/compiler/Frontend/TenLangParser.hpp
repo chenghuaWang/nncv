@@ -78,6 +78,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
 
   VisitorParserReturn parseSlice_(AutoTenV1Parser::Slice_Context* ctx, VisitorParserReturn& value);
 
+  VisitorParserReturn parseIndex_(AutoTenV1Parser::IndexContext* ctx, VisitorParserReturn& value);
+
   VisitorParserReturn parseArgument(AutoTenV1Parser::ArgumentsContext* ctx,
                                     VisitorParserReturn& value);
 

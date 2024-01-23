@@ -1,3 +1,5 @@
+#include <string>
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "nncv/compiler/Utils/SymbolRef.hpp"
 #ifdef NNCV_ENABLE_ANTLR
 
@@ -74,6 +76,43 @@ VisitorParserReturn AutoTen2MlirVisitor::parseSlice_(AutoTenV1Parser::Slice_Cont
     indexArray.emplace_back(
         std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>());
   }
+  Ps.Pop();
+
+  auto castedIdnexArray = castAtenArithToMlirArith(indexArray);
+
+  if (Ps.IsInAssignStmt()
+      && (_value.getType().isa<mlir::MemRefType>()
+          || _value.getType().isa<mlir::UnrankedMemRefType>())) {
+    Ps.SetCurSliceIndex(castedIdnexArray);
+    return value;
+  }
+
+  if (_value.getType().isa<mlir::MemRefType>()
+      || _value.getType().isa<mlir::UnrankedMemRefType>()) {
+    // 1. cast all aten's type to mlir's builtin index type. (castAtenArithToMlirArith).
+    // 2. create memref load op. Will return arith value.
+    mlir::Value retValue =
+        m_OpBuilder.create<mlir::memref::LoadOp>(location, _value, castedIdnexArray);
+    return VisitorParserReturn(retValue);
+  }
+
+  return VisitorParserReturn();
+}
+
+VisitorParserReturn AutoTen2MlirVisitor::parseIndex_(AutoTenV1Parser::IndexContext* ctx,
+                                                     VisitorParserReturn& value) {
+  auto _value = value.getValue<mlir::Value>();
+
+  int __line = ctx->LeftBracket()->getSymbol()->getLine();
+  int __col = ctx->LeftBracket()->getSymbol()->getCharPositionInLine();
+
+  mlir::Location location = loc(__line, __col);
+
+  llvm::SmallVector<mlir::Value, 4> indexArray;
+
+  Ps.PushSliceStmt();
+  indexArray.emplace_back(
+      std::any_cast<VisitorParserReturn>(visit(ctx->expression())).getValue<mlir::Value>());
   Ps.Pop();
 
   auto castedIdnexArray = castAtenArithToMlirArith(indexArray);
@@ -295,8 +334,10 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
 
     if (isPublic) {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Public);
+      op.setPublic();
     } else {
       mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+      op.setPrivate();
     }
     mlir::Block* entryBlock = op.addEntryBlock();
     m_OpBuilder.setInsertionPointToStart(entryBlock);
@@ -710,7 +751,28 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
     m_OpBuilder.create<mlir::aten::LoopOp>(
         location, mlir::aten::LoopOpPredict::For, /*cond Body*/
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
-          visit(ctx->forClause()->expression());
+          auto atenBoolValue =
+              std::any_cast<VisitorParserReturn>(visit(ctx->forClause()->expression()))
+                  .getValue<mlir::Value>();
+
+          // FIXME: for now, I suppose conditional expression will return bool type.
+          auto boolValue = builder.create<mlir::aten::CastOp>(
+              loc, builder.getI1Type(),
+              mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                                 mlir::aten::CastPredicate::bool_to_mlir_i1),
+              atenBoolValue);
+
+          // store condition
+          mlir::Value ptrValue = builder.create<mlir::aten::AllocaOp>(
+              location,
+              /*address type*/
+              mlir::aten::PointerType::get(builder.getContext(), builder.getI1Type()),
+              /*alloca type*/ builder.getI1Type(),
+              /*name*/ "__tmp_condition@" + std::to_string(Ps.GetForConditionTmpCnt()),
+              /*alignment is 4B*/ builder.getI64IntegerAttr(1));
+          builder.create<mlir::aten::StoreOp>(location, boolValue, ptrValue);
+
+          // for loop yield
           builder.create<mlir::aten::YieldOp>(loc);
         },
         /*Main Body*/
@@ -811,7 +873,7 @@ std::any AutoTen2MlirVisitor::visitShortVarDecl(AutoTenV1Parser::ShortVarDeclCon
   } else if (value.getType().isa<mlir::FloatType>()) {
     alignement = value.getType().dyn_cast<mlir::FloatType>().getWidth() / 8;
   } else if (value.getType().isa<mlir::aten::BoolType>()) {
-    alignement = 4;
+    alignement = 1;
   }  // TODO
 
   mlir::Value ptrValue = m_OpBuilder.create<mlir::aten::AllocaOp>(
@@ -1304,7 +1366,7 @@ std::any AutoTen2MlirVisitor::visitPrimaryExpr(AutoTenV1Parser::PrimaryExprConte
     if (ctx->Dot()) {
       // TODO
     } else if (ctx->index()) {
-      // TODO
+      return parseIndex_(ctx->index(), visitRet);
     } else if (ctx->slice_()) {
       return parseSlice_(ctx->slice_(), visitRet);
     } else if (ctx->typeAssertion()) {

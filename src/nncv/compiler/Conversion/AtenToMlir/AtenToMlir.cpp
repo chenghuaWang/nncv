@@ -1,4 +1,6 @@
 // mlir build tools
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -60,6 +62,9 @@ static mlir::TypeConverter prepareTypeConverter() {
 
   // ignore mlir int type
   converter.addConversion([&](mlir::IntegerType type) -> mlir::Type { return type; });
+
+  // ignore index type
+  converter.addConversion([&](mlir::IndexType type) -> mlir::Type { return type; });
 
   return converter;
 }
@@ -161,7 +166,7 @@ class AtenCallOpLowering : public OpConversionPattern<aten::CallOp> {
     if (mlir::failed(getTypeConverter()->convertTypes(op.getResultTypes(), types))) {
       return mlir::failure();
     }
-    rewriter.replaceOpWithNewOp<mlir::func::CallOp>(op, mlir::SymbolRefAttr::get(op), types,
+    rewriter.replaceOpWithNewOp<mlir::func::CallOp>(op, op.getCalleeAttr(), types,
                                                     adaptor.getOperands());
     return mlir::success();
   }
@@ -197,6 +202,9 @@ class AtenFuncOpLowering : public OpConversionPattern<aten::FuncOp> {
             rewriter.convertRegionTypes(&funcOp.getBody(), *typeConverter, &signatureConversion))) {
       return mlir::failure();
     }
+
+    // if is declaration only.
+    if (op.isPrivate()) { funcOp.setPrivate(); }
 
     rewriter.eraseOp(op);
     return mlir::success();
@@ -447,7 +455,6 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
         break;
       }
     }
-
     auto mlirResultTy = getTypeConverter()->convertType(op.getType());
     rewriter.replaceOpWithNewOp<mlir::arith::ExtUIOp>(op, mlirResultTy, newResult);
 
@@ -456,7 +463,7 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// Convert aten.yield to arith.xxx
+// Convert aten.yield to scf.yield. (Just erease aten.yield Op)
 //===----------------------------------------------------------------------===//
 class AtenYieldOpLowering : public OpConversionPattern<aten::YieldOp> {
  public:
@@ -521,8 +528,125 @@ class AtenIfOpLowering : public OpConversionPattern<aten::IfOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// Convert aten.for to affine.for
+// Convert aten.loop to scf.while
 //===----------------------------------------------------------------------===//
+class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
+ public:
+  using OpConversionPattern<aten::LoopOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::LoopOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    // get mlir loacation
+    auto mlirLocation = op->getLoc();
+
+    // get all regions needed for create a scf.while
+    auto stepRegion = &op.getStep();
+    auto condRegion = &op.getCond();
+    auto bodyRegion = &op.getBody();
+
+    if (op.getKind() == mlir::aten::LoopOpPredict::For) {
+      llvm::SmallVector<mlir::Type> tr;
+      llvm::SmallVector<mlir::Value> vr;
+      auto scfOp = rewriter.create<mlir::scf::WhileOp>(
+          mlirLocation, /*type range*/ tr, /*value range*/ vr, /*before*/
+          [&](OpBuilder& builder, Location location, ValueRange vr) {
+            // insert condition at tail of before scope.
+
+            // FIXME: for now, I supposed that the last value of conRegion is used for comparation.
+            // the condition region only have one block. The back() means the last op in this block.
+            mlir::Operation* storeOp = nullptr;
+            auto _backOp = &condRegion->front().back();
+            auto _frontOp = &condRegion->front().front();
+            while (_backOp != _frontOp) {
+              if (mlir::isa<mlir::aten::StoreOp>(_backOp)) {
+                storeOp = _backOp;
+                break;
+              } else {
+                _backOp = _backOp->getPrevNode();
+              }
+            }
+            mlir::Value oldCondValue;
+            if (storeOp) {
+              oldCondValue = storeOp->getOperand(0);
+            } else {
+              return;
+            }
+            builder.create<mlir::scf::ConditionOp>(location, oldCondValue, oldCondValue);
+          },
+          /*after*/
+          [&](OpBuilder& builder, Location location, ValueRange vr) {
+            /*do something*/
+            builder.create<mlir::scf::YieldOp>(location);
+          });
+
+      // copy cond op to scfOpBeforeBlock
+      auto scfOpBeforeBlock = &scfOp.getBefore().front();
+      rewriter.inlineBlockBefore(&condRegion->front(), scfOpBeforeBlock, scfOpBeforeBlock->begin());
+
+      // copy step op to scfOpAfterBlock
+      auto scfOpAfterBlock = &scfOp.getAfter().front();
+      rewriter.inlineBlockBefore(&stepRegion->front(), scfOpAfterBlock, scfOpAfterBlock->begin());
+
+      // copy body op to scfOpAfterBlock
+      rewriter.inlineBlockBefore(&bodyRegion->front(), scfOpAfterBlock, scfOpAfterBlock->begin());
+
+      rewriter.replaceOp(op, scfOp);
+    }
+
+    return mlir::success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Convert aten.cast to arith.cast
+//===----------------------------------------------------------------------===//
+class AtenCastOpLowering : public OpConversionPattern<aten::CastOp> {
+ public:
+  using OpConversionPattern<aten::CastOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::CastOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    // get all info and types
+    auto castPredict = op.getPredicate();
+
+    switch (castPredict) {
+      case ::mlir::aten::CastPredicate::int_to_mlir_index: {
+        // create arith.index_cast
+        auto toNewType = getTypeConverter()->convertType(op.getType());
+        rewriter.replaceOpWithNewOp<arith::IndexCastOp>(op, toNewType, adaptor.getInput());
+        break;
+      }
+      case ::mlir::aten::CastPredicate::bool_to_int: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::float_to_bool: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::float_to_int: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::floating: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::int_to_bool: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::int_to_float: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::integral: {
+        break;
+      }
+      case ::mlir::aten::CastPredicate::bool_to_mlir_i1: {
+        getTypeConverter()->convertType(adaptor.getInput().getType());
+        rewriter.replaceOpWithNewOp<mlir::UnrealizedConversionCastOp>(
+            op, /*resultT*/ rewriter.getI1Type(), adaptor.getInput());
+        break;
+      }
+      default: break;
+    }
+
+    return mlir::LogicalResult::success();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Aten to mlir
@@ -543,7 +667,7 @@ class ConvertAtenToMlir : public impl::ConvertAtenToMlirBase<ConvertAtenToMlir> 
     auto converter = prepareTypeConverter();
 
     // set aten-lang as illegal
-    target.addIllegalDialect<mlir::aten::AtenDialect>();
+    // target.addIllegalDialect<mlir::aten::AtenDialect>();
 
     // set those dialects as llegal
     target.addLegalDialect<mlir::arith::ArithDialect, mlir::affine::AffineDialect,
@@ -566,10 +690,10 @@ void populateAtenToMlirConversionPatterns(mlir::RewritePatternSet* patterns,
                                           mlir::TypeConverter& converter) {
   patterns->add<AtenReturnOpLowering>(patterns->getContext());
 
-  patterns->add<AtenCmpOpLowering, AtenCallOpLowering, AtenUnaryOpLowering, AtenBinOpLowering,
-                AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering, AtenAllocaOpLowering,
-                AtenFuncOpLowering, AtenIfOpLowering, AtenYieldOpLowering>(converter,
-                                                                           patterns->getContext());
+  patterns->add<AtenCmpOpLowering, AtenFuncOpLowering, AtenCallOpLowering, AtenUnaryOpLowering,
+                AtenBinOpLowering, AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering,
+                AtenAllocaOpLowering, AtenIfOpLowering, AtenYieldOpLowering, AtenLoopOpLowering,
+                AtenCastOpLowering>(converter, patterns->getContext());
 }
 
 std::unique_ptr<mlir::Pass> createConvertAtenToMlirPass() {

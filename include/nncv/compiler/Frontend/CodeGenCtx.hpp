@@ -95,6 +95,7 @@ class ParserState {
     m_ForHasTerminatedByBreak.push(true);
   }
   inline bool IsForHadTerminated() { return m_ForHasTerminatedByBreak.top(); }
+  inline int64_t GetForConditionTmpCnt() { return m_ForConditionTempCnt++; }
 
   inline void PushParallelForStmt() {
     m_StateStack.push(_ParserSateEnum::kPfor);
@@ -175,6 +176,7 @@ class ParserState {
 
   // 5. For Literal Expression. Generate mlir::Value or not.
   bool m_ExpressionLiteralGenMlirValue = true;
+  int64_t m_ForConditionTempCnt = 0;
 
   // 6. Remeber current slice.
   llvm::SmallVector<mlir::Value, 4> m_CurrentSliceIndex;

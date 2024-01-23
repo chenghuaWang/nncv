@@ -9,9 +9,5 @@ func withoutRetValue(w int32, h int32, c int32, b int32);
 func withRetValue(w int32, h int32, c int32, b int32) -> int32;
 
 func mulTensor(lhs Tensor<64, 64, float32>, rhs Tensor<64, 64, float32>, dst Tensor<64, 64, float32>) {
-    for (i := 0; i < 64; i++) {
-        for (j := 0; j < 64; j++){
-            dst[i, j] = lhs[i, j] + rhs[i, j];
-        };
-    };
+    res := 42;
 };

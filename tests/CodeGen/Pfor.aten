@@ -8,7 +8,7 @@ func matmul(lhs Tensor<512, 512, float32>, rhs Tensor<512, 512, float32>, dst Te
     pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/512; /*step*/ 1) {
         pfor (j := 0; 512; 1) {
             pfor (k := 0; 512; 1) {
-                dst[i, j] = dst[i, j] +  lhs[i, k] * rhs[k, j]; // do 
+                dst[i, j] = dst[i, j] + lhs[i, k] * rhs[k, j]; // do 
             };
         };
     };

@@ -1,12 +1,9 @@
 @package = "main";
 
 func testLoopWithEmpty() {
-    var lhs Tensor<128, 128, float32>;
-    var rhs Tensor<128, 128, float32>;
-    var dst Tensor<128, 128, float32>;
+    var dst Tensor<128, float32>;
     for (i := 0; i < 128; i++) {
-        for (j := 0; j < 128; j++) {
-            dst[i, j] = lhs[i, j] + rhs[i, j];
-        };
+        var c float32;
+        c = dst[i];
     };
 };
