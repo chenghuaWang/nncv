@@ -6,4 +6,5 @@ func testLoopWithEmpty() {
         var c float32;
         c = dst[i];
     };
+    testLoopWithEmpty();
 };

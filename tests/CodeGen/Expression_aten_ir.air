@@ -1,35 +1,22 @@
 module @__main {
   Aten.func public @testLongArithExpr(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
-    %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["c"] {alignment = 4 : i64}
-    %1 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
-    %2 = Aten.binop(div, %1, %arg0) : !Aten.int<s, 32>
-    %3 = Aten.binop(mul, %2, %arg1) : !Aten.int<s, 32>
-    %4 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
-    %5 = Aten.binop(add, %3, %4) : !Aten.int<s, 32>
-    Aten.store %5, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
-    %6 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
-    Aten.return %6 : !Aten.int<s, 32>
+    %0 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
+    %1 = Aten.binop(div, %0, %arg0) : !Aten.int<s, 32>
+    %2 = Aten.binop(mul, %1, %arg1) : !Aten.int<s, 32>
+    %3 = Aten.binop(add, %2, %0) : !Aten.int<s, 32>
+    Aten.return %3 : !Aten.int<s, 32>
   }
   Aten.func public @testArithInt64Expr(%arg0: !Aten.int<s, 64>, %arg1: !Aten.int<s, 64>) -> !Aten.int<s, 64> {
-    %0 = Aten.alloca !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>, ["c"] {alignment = 8 : i64}
-    %1 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 64>
-    Aten.store %1, %0 : !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>
-    %2 = Aten.load %0 : aten.ptr <!Aten.int<s, 64>>, !Aten.int<s, 64>
-    Aten.return %2 : !Aten.int<s, 64>
+    %0 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 64>
+    Aten.return %0 : !Aten.int<s, 64>
   }
   Aten.func public @testArithFloat32Expr(%arg0: f32, %arg1: f32) -> f32 {
-    %0 = Aten.alloca f32, aten.ptr <f32>, ["c"] {alignment = 4 : i64}
-    %1 = Aten.binop(add, %arg0, %arg1) : f32
-    Aten.store %1, %0 : f32, aten.ptr <f32>
-    %2 = Aten.load %0 : aten.ptr <f32>, f32
-    Aten.return %2 : f32
+    %0 = Aten.binop(add, %arg0, %arg1) : f32
+    Aten.return %0 : f32
   }
   Aten.func public @testArithFloat64Expr(%arg0: f64, %arg1: f64) -> f64 {
-    %0 = Aten.alloca f64, aten.ptr <f64>, ["c"] {alignment = 8 : i64}
-    %1 = Aten.binop(add, %arg0, %arg1) : f64
-    Aten.store %1, %0 : f64, aten.ptr <f64>
-    %2 = Aten.load %0 : aten.ptr <f64>, f64
-    Aten.return %2 : f64
+    %0 = Aten.binop(add, %arg0, %arg1) : f64
+    Aten.return %0 : f64
   }
   Aten.func public @testBoolExpr(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.bool {
     %0 = Aten.cmp(lt, %arg0, %arg1) : !Aten.int<s, 32>, !Aten.bool

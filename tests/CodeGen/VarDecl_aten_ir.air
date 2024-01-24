@@ -1,9 +1,9 @@
 module @__main {
   Aten.func private @declInt32() -> !Aten.int<s, 32> {
-    %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["a"] {alignment = 4 : i64}
-    %1 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
-    Aten.store %1, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
-    %2 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %0 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["a"] {alignment = 4 : i64}
+    Aten.store %0, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %2 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
     Aten.return %2 : !Aten.int<s, 32>
   }
   Aten.func private @declFloat32() -> f32 {

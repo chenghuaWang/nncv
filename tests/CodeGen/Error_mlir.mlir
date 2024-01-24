@@ -24,6 +24,7 @@ module @__main {
       memref.store %4, %alloca[] : memref<i32>
       scf.yield
     }
+    call @testLoopWithEmpty() : () -> ()
     return
   }
 }

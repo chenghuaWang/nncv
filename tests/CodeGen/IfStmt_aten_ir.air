@@ -33,9 +33,7 @@ module @__main {
       %9 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
       %10 = Aten.cmp(lt, %8, %9) : !Aten.int<s, 32>, !Aten.bool
       Aten.if %10 then{
-        %11 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["c"] {alignment = 4 : i64}
       } else {
-        %11 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["c"] {alignment = 4 : i64}
       }
     }
     %5 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
@@ -58,17 +56,17 @@ module @__main {
     Aten.return %2 : !Aten.int<s, 32>
   }
   Aten.func private @testIntInIfCondition(%arg0: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
-    %0 = Aten.const(#Aten.int<42> : !Aten.int<s, 32>) : !Aten.int<s, 32>
-    %1 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["b"] {alignment = 4 : i64}
-    Aten.store %0, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
-    %2 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
-    %3 = Aten.cmp(ne, %arg0, %2) : !Aten.int<s, 32>, !Aten.bool
+    %0 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<42> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["b"] {alignment = 4 : i64}
+    Aten.store %1, %2 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %3 = Aten.cmp(ne, %arg0, %0) : !Aten.int<s, 32>, !Aten.bool
     Aten.if %3 then{
-      %5 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %5 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
       %6 = Aten.unary(inc, %5) : !Aten.int<s, 32>, !Aten.int<s, 32>
-      Aten.store %6, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      Aten.store %6, %2 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
     }
-    %4 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %4 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
     Aten.return %4 : !Aten.int<s, 32>
   }
 }

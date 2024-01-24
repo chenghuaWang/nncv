@@ -158,9 +158,11 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
   auto funcOp = mlir::cast<mlir::aten::FuncOp>(*m_TheModule.lookupSymbol(funcName));
 
   llvm::SmallVector<mlir::Value, 4> args;
-  for (const auto item : ctx->expressionList()->expression()) {
-    auto ret = std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>();
-    args.emplace_back(ret);
+  if (ctx->expressionList()) {
+    for (const auto item : ctx->expressionList()->expression()) {
+      auto ret = std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>();
+      args.emplace_back(ret);
+    }
   }
 
   auto op = m_OpBuilder.create<mlir::aten::CallOp>(location, funcOp, args);
