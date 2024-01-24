@@ -18,6 +18,9 @@ class AtenBackendLoweringPipeline {
 
   inline void setOutputFilePath(const std::string& _CurPath) { m_OutputFilePath = _CurPath; }
 
+  inline void setGenNVPTX(bool flag) { m_isNVPTX = flag; }
+  inline void setGenNative(bool flag) { m_isNative = flag; }
+
   void run();
 
  private:
@@ -26,6 +29,9 @@ class AtenBackendLoweringPipeline {
 
   bool m_ShowLlvmIR = false;
   std::string m_OutputFilePath;
+
+  bool m_isNative = true;
+  bool m_isNVPTX = false;
 };
 
 }  // namespace pipeline

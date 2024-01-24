@@ -1,0 +1,21 @@
+module @__main {
+  Aten.func private @declTensor() -> memref<8x8x8xf32> {
+    %alloc = memref.alloc() : memref<8x8x8xf32>
+    Aten.return %alloc : memref<8x8x8xf32>
+  }
+  Aten.func private @declInt() -> !Aten.int<s, 32> {
+    %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["integerValue"] {alignment = 4 : i64}
+    %1 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    Aten.return %1 : !Aten.int<s, 32>
+  }
+  Aten.func private @declFloat() -> f32 {
+    %0 = Aten.alloca f32, aten.ptr <f32>, ["floatValue"] {alignment = 4 : i64}
+    %1 = Aten.load %0 : aten.ptr <f32>, f32
+    Aten.return %1 : f32
+  }
+  Aten.func private @declBool() -> !Aten.bool {
+    %0 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["boolValue"] {alignment = 4 : i64}
+    %1 = Aten.load %0 : aten.ptr <!Aten.bool>, !Aten.bool
+    Aten.return %1 : !Aten.bool
+  }
+}

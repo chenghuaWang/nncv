@@ -65,6 +65,8 @@
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
+#include "nncv/compiler/Runner/InitJit.hpp"
+
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                                          llvm::cl::Optional);
 llvm::cl::opt<bool> ShowCst("show-cst", llvm::cl::desc("<show CST>"), llvm::cl::Optional);
@@ -83,6 +85,8 @@ llvm::cl::opt<std::string> OutputFilename("o", llvm::cl::desc("<output file>"), 
 llvm::cl::opt<bool> VmMode("vm", llvm::cl::desc("<set nncv-c as vm>"), llvm::cl::Optional);
 llvm::cl::opt<bool> RunDirectly("run", llvm::cl::desc("<run a .aten file directly>"),
                                 llvm::cl::Optional);
+llvm::cl::opt<bool> WarpC("warp-c-interface", llvm::cl::desc("<warp c interface>"),
+                          llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -139,6 +143,13 @@ int main(int argc, char* argv[]) {
     nncv::compiler::pipeline::AtenBackendLoweringPipeline ablp(MlirContext, MlirModule);
     if (!OutputFilename.getValue().empty()) { ablp.setOutputFilePath(OutputFilename.getValue()); }
     ablp.setShowLlvmIR(OnlyShowLlvmIR.getValue());
+    if (SetLowerTarget.getValue() == "NVPTX") {
+      ablp.setGenNative(false);
+      ablp.setGenNVPTX(true);
+    } else {
+      ablp.setGenNative(true);
+      ablp.setGenNVPTX(false);
+    }
     ablp.run();
 
   } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
@@ -153,6 +164,20 @@ int main(int argc, char* argv[]) {
     SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
     mlir::ParserConfig config(&MlirContext);
     MlirModule = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
+  } else if (SuffixStr == "nvm") {
+    if (!VmMode.getValue()) {
+      printf("[ Erro ] The input is .nvm file, but -vm flag for nncv-c is not set\n");
+      exit(-1);
+    }
+    // the code follow is for run aten's llvm ir in jit
+    nncv::runner::NncvJit Jit;
+    Jit.setFilePath(InputFilename.getValue());
+    // Run jit
+    if (Jit.run()) {
+      exit(0);
+    } else {
+      exit(-1);
+    }
   }
 
   // Start to lower all

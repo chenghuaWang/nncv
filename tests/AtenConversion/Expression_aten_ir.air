@@ -1,0 +1,42 @@
+module @__main {
+  Aten.func private @addI(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
+    Aten.return %0 : !Aten.int<s, 32>
+  }
+  Aten.func private @minusI(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.binop(sub, %arg0, %arg1) : !Aten.int<s, 32>
+    Aten.return %0 : !Aten.int<s, 32>
+  }
+  Aten.func private @divI(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.binop(div, %arg0, %arg1) : !Aten.int<s, 32>
+    Aten.return %0 : !Aten.int<s, 32>
+  }
+  Aten.func private @mulI(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.binop(mul, %arg0, %arg1) : !Aten.int<s, 32>
+    Aten.return %0 : !Aten.int<s, 32>
+  }
+  Aten.func private @addF(%arg0: f32, %arg1: f32) -> f32 {
+    %0 = Aten.binop(add, %arg0, %arg1) : f32
+    Aten.return %0 : f32
+  }
+  Aten.func private @minusF(%arg0: f32, %arg1: f32) -> f32 {
+    %0 = Aten.binop(sub, %arg0, %arg1) : f32
+    Aten.return %0 : f32
+  }
+  Aten.func private @divF(%arg0: f32, %arg1: f32) -> f32 {
+    %0 = Aten.binop(div, %arg0, %arg1) : f32
+    Aten.return %0 : f32
+  }
+  Aten.func private @mulF(%arg0: f32, %arg1: f32) -> f32 {
+    %0 = Aten.binop(mul, %arg0, %arg1) : f32
+    Aten.return %0 : f32
+  }
+  Aten.func private @cmpL(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.bool {
+    %0 = Aten.cmp(lt, %arg0, %arg1) : !Aten.int<s, 32>, !Aten.bool
+    Aten.return %0 : !Aten.bool
+  }
+  Aten.func private @cmpG(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.bool {
+    %0 = Aten.cmp(gt, %arg0, %arg1) : !Aten.int<s, 32>, !Aten.bool
+    Aten.return %0 : !Aten.bool
+  }
+}

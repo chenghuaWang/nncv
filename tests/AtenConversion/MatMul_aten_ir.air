@@ -1,0 +1,67 @@
+module @__main {
+  Aten.func private @matMul(%arg0: memref<128x128xf32>, %arg1: memref<128x128xf32>, %arg2: memref<128x128xf32>) {
+    %0 = Aten.const(#Aten.int<128> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["i"] {alignment = 4 : i64}
+    Aten.store %1, %2 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    Aten.loop for(cond : {
+      %3 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %4 = Aten.cmp(lt, %3, %0) : !Aten.int<s, 32>, !Aten.bool
+      %5 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@0"] {alignment = 1 : i64}
+      Aten.store %4, %5 : !Aten.bool, aten.ptr <!Aten.bool>
+      Aten.yield
+    }, step : {
+      %3 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %4 = Aten.unary(inc, %3) : !Aten.int<s, 32>, !Aten.int<s, 32>
+      Aten.store %4, %2 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      Aten.yield
+    }) {
+      %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["j"] {alignment = 4 : i64}
+      Aten.store %1, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      Aten.loop for(cond : {
+        %4 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %5 = Aten.cmp(lt, %4, %0) : !Aten.int<s, 32>, !Aten.bool
+        %6 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@1"] {alignment = 1 : i64}
+        Aten.store %5, %6 : !Aten.bool, aten.ptr <!Aten.bool>
+        Aten.yield
+      }, step : {
+        %4 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %5 = Aten.unary(inc, %4) : !Aten.int<s, 32>, !Aten.int<s, 32>
+        Aten.store %5, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+        Aten.yield
+      }) {
+        %4 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["k"] {alignment = 4 : i64}
+        Aten.store %1, %4 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+        Aten.loop for(cond : {
+          %5 = Aten.load %4 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+          %6 = Aten.cmp(lt, %5, %0) : !Aten.int<s, 32>, !Aten.bool
+          %7 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@2"] {alignment = 1 : i64}
+          Aten.store %6, %7 : !Aten.bool, aten.ptr <!Aten.bool>
+          Aten.yield
+        }, step : {
+          %5 = Aten.load %4 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+          %6 = Aten.unary(inc, %5) : !Aten.int<s, 32>, !Aten.int<s, 32>
+          Aten.store %6, %4 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+          Aten.yield
+        }) {
+          %5 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+          %6 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+          %7 = Aten.cast(int_to_mlir_index, %5 : !Aten.int<s, 32>), index
+          %8 = Aten.cast(int_to_mlir_index, %6 : !Aten.int<s, 32>), index
+          %9 = memref.load %arg2[%7, %8] : memref<128x128xf32>
+          %10 = Aten.load %4 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+          %11 = Aten.cast(int_to_mlir_index, %10 : !Aten.int<s, 32>), index
+          %12 = memref.load %arg0[%7, %11] : memref<128x128xf32>
+          %13 = memref.load %arg1[%11, %8] : memref<128x128xf32>
+          %14 = Aten.binop(mul, %12, %13) : f32
+          %15 = Aten.binop(add, %9, %14) : f32
+          memref.store %15, %arg2[%7, %8] : memref<128x128xf32>
+          Aten.yield
+        }
+        Aten.yield
+      }
+      Aten.yield
+    }
+    Aten.return
+  }
+}

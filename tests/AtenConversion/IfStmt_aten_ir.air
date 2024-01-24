@@ -1,0 +1,15 @@
+module @__main {
+  Aten.func private @testIf(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["result"] {alignment = 4 : i64}
+    %1 = Aten.cmp(lt, %arg0, %arg1) : !Aten.int<s, 32>, !Aten.bool
+    Aten.if %1 then{
+      %3 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
+      Aten.store %3, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    } else {
+      %3 = Aten.binop(sub, %arg0, %arg1) : !Aten.int<s, 32>
+      Aten.store %3, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    }
+    %2 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    Aten.return %2 : !Aten.int<s, 32>
+  }
+}

@@ -1,0 +1,18 @@
+module @__main {
+  Aten.func public @ReLU(%arg0: memref<192x192xf32>, %arg1: memref<192x192xf32>) {
+    %0 = Aten.const(0.000000e+00 : f32) : f32
+    affine.for %arg2 = 0 to 192 {
+      affine.for %arg3 = 0 to 192 {
+        %1 = memref.load %arg0[%arg2, %arg3] : memref<192x192xf32>
+        %2 = Aten.cmp(gt, %1, %0) : f32, !Aten.bool
+        Aten.if %2 then{
+          %3 = memref.load %arg0[%arg2, %arg3] : memref<192x192xf32>
+          memref.store %3, %arg1[%arg2, %arg3] : memref<192x192xf32>
+        } else {
+          memref.store %0, %arg1[%arg2, %arg3] : memref<192x192xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+}

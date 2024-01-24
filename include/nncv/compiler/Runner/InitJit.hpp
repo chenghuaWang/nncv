@@ -17,11 +17,20 @@ namespace nncv {
 namespace runner {
 
 class NncvJit {
+ public:
+  NncvJit(){};
+
+  inline void setFilePath(const std::string& file_path) { m_FilePath = file_path; }
+
+  bool run(const std::string& entry_point = "main");
+
  private:
   bool init();
 
  private:
-  mlir::ModuleOp m_TheModule;
+  std::string m_FilePath;
+  mlir::OwningOpRef<mlir::ModuleOp> m_Module;
+  std::vector<std::string> m_Libs;
 };
 
 }  // namespace runner

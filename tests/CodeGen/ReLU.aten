@@ -1,0 +1,13 @@
+@package = "main";
+
+pub func ReLU(input Tensor<192, 192, float32>, output Tensor<192, 192, float32>) {
+    pfor(i := 0; 192; 1) {
+        pfor(j := 0; 192; 1) {
+            if (input[i, j] > 0.0){
+                output[i, j] = input[i, j];
+            } else {
+                output[i, j] = 0.0;
+            };
+        };
+    };
+};
