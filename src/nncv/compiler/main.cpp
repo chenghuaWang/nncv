@@ -11,8 +11,6 @@
  *
  */
 
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -30,6 +28,8 @@
 #define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
 #endif
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
@@ -62,6 +62,7 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 #include "nncv/compiler/Conversion/Passes.h"
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+#include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
@@ -71,6 +72,8 @@ llvm::cl::opt<bool> OnlyShowAtenIR("aten-ir", llvm::cl::desc("<generate Aten IR>
                                    llvm::cl::Optional);
 llvm::cl::opt<bool> OnlyShowBuiltInMlir("built-in-mlir", llvm::cl::desc("<generate Builtin MLIR>"),
                                         llvm::cl::Optional);
+llvm::cl::opt<bool> OnlyShowLlvmIR("llvm-ir", llvm::cl::desc("<generate llvm ir>"),
+                                   llvm::cl::Optional);
 llvm::cl::opt<bool> GetPlatformInfoOnly("get-platform-info-only",
                                         llvm::cl::desc("<get platform infomation only>"),
                                         llvm::cl::Optional);
@@ -78,13 +81,16 @@ llvm::cl::opt<std::string> SetLowerTarget("target", llvm::cl::desc("<to target>"
                                           llvm::cl::Optional);
 llvm::cl::opt<std::string> OutputFilename("o", llvm::cl::desc("<output file>"), llvm::cl::Optional);
 llvm::cl::opt<bool> VmMode("vm", llvm::cl::desc("<set nncv-c as vm>"), llvm::cl::Optional);
+llvm::cl::opt<bool> RunDirectly("run", llvm::cl::desc("<run a .aten file directly>"),
+                                llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
-  context.loadDialect<
-      mlir::arith::ArithDialect, mlir::memref::MemRefDialect, mlir::func::FuncDialect,
-      mlir::bufferization::BufferizationDialect, mlir::linalg::LinalgDialect,
-      mlir::ml_program::MLProgramDialect, mlir::cf::ControlFlowDialect, mlir::affine::AffineDialect,
-      mlir::scf::SCFDialect, mlir::tensor::TensorDialect, mlir::vector::VectorDialect>();
+  context
+      .loadDialect<mlir::arith::ArithDialect, mlir::memref::MemRefDialect, mlir::func::FuncDialect,
+                   mlir::bufferization::BufferizationDialect, mlir::linalg::LinalgDialect,
+                   mlir::ml_program::MLProgramDialect, mlir::cf::ControlFlowDialect,
+                   mlir::affine::AffineDialect, mlir::scf::SCFDialect, mlir::tensor::TensorDialect,
+                   mlir::vector::VectorDialect, mlir::LLVM::LLVMDialect>();
   mlir::registerLLVMDialectTranslation(context);
 }
 
@@ -94,7 +100,7 @@ int main(int argc, char* argv[]) {
   // ---------------------------------------------------------------------
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
-  // mlir::registerPassManagerCLOptions();
+  mlir::registerPassManagerCLOptions();
 
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
@@ -129,6 +135,12 @@ int main(int argc, char* argv[]) {
     fr.setGenAtenIR(OnlyShowAtenIR.getValue());
     if (!OutputFilename.getValue().empty()) { fr.setOutputFilePath(OutputFilename.getValue()); }
     fr.run();
+
+    nncv::compiler::pipeline::AtenBackendLoweringPipeline ablp(MlirContext, MlirModule);
+    if (!OutputFilename.getValue().empty()) { ablp.setOutputFilePath(OutputFilename.getValue()); }
+    ablp.setShowLlvmIR(OnlyShowLlvmIR.getValue());
+    ablp.run();
+
   } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
     std::string ErrorMessage;
     auto __file = mlir::openInputFile(CurFilePath, &ErrorMessage);

@@ -18,6 +18,14 @@ def ConvertAtenToMlir : Pass<"convert-aten-to-mlir"> {
     ];
 }
 
+def ConvertAtenMlirToLlvm : Pass<"convert-aten-mlir-to-llvm"> {
+    let summary = "Convert aten's mlir to llvm ir";
+    let description = [{
+        Convert all ops to llvm ir.
+    }];
+    let constructor = "mlir::nncv::createConvertAtenMlirToLlvmPass()";
+}
+
 //===----------------------------------------------------------------------===//
 // Convolution optimization
 //===----------------------------------------------------------------------===//

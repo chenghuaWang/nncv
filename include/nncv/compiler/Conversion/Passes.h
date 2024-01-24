@@ -11,6 +11,7 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
 
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
+#include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

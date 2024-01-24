@@ -55,8 +55,8 @@ void FrontendPipeline::run() {
 
     ///< Show Aten IR
     if (m_genAtenIR) {
-      if (!m_outputFilePath.empty()) {
-        compiler::utils::SaveMlirModuleToFile(m_Module, m_outputFilePath);
+      if (!m_OutputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
       } else {
         m_Module->dump();
       }
@@ -100,15 +100,13 @@ void FrontendPipeline::run() {
       }
     }
     if (m_genBuiltinMlir) {
-      if (!m_outputFilePath.empty()) {
-        compiler::utils::SaveMlirModuleToFile(m_Module, m_outputFilePath);
+      if (!m_OutputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
       } else {
         m_Module->dump();
       }
       exit(0);
     }
-    // lowering to llvm ir.
-    {}
     ino.close();
 #endif
   } else {

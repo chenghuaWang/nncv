@@ -31,7 +31,7 @@ class FrontendPipeline : public pipeline {
   inline bool ssBuiltinMlir(bool flag) const { return m_genBuiltinMlir; }
   inline void setInputFilePath(const std::string& _CurPath) { m_CurrentFilePath = _CurPath; }
   inline void setGenAtenIR(bool flag) { m_genAtenIR = flag; }
-  inline void setOutputFilePath(const std::string& _CurPath) { m_outputFilePath = _CurPath; }
+  inline void setOutputFilePath(const std::string& _CurPath) { m_OutputFilePath = _CurPath; }
 
  private:
   mlir::MLIRContext& m_Context;
@@ -40,7 +40,7 @@ class FrontendPipeline : public pipeline {
   bool m_genBuiltinMlir = false;
   bool m_genAtenIR = false;
   std::string m_CurrentFilePath;
-  std::string m_outputFilePath;
+  std::string m_OutputFilePath;
 };
 
 }  // namespace pipeline

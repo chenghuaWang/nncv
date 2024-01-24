@@ -83,6 +83,8 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/LinalgTensorLowering.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/DnnModelLowering.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/DnnModelLowering.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/AtenBackendLowering.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/AtenBackendLowering.hpp
 
     # CodeGen
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp
