@@ -1,5 +1,6 @@
 // mlir build tools
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassManager.h"
@@ -130,9 +131,11 @@ class AtenConstOpLowering : public OpConversionPattern<aten::ConstantOp> {
     if (mlir::isa<mlir::aten::BoolType>(op.getType())) {
       auto boolV = mlir::cast<mlir::aten::BoolAttr>(op.getValue());
       value = rewriter.getIntegerAttr(newType, boolV.getValue());
-    } else /*normal aten.int*/ {
+    } else if (mlir::isa<mlir::aten::IntType>(op.getType())) /*normal aten.int*/ {
       value = rewriter.getIntegerAttr(newType,
                                       mlir::cast<mlir::aten::IntAttr>(op.getValue()).getValue());
+    } else if (mlir::isa<mlir::FloatType>(op.getType())) {
+      value = rewriter.getFloatAttr(newType, mlir::cast<mlir::FloatAttr>(op.getValue()).getValue());
     }
     rewriter.replaceOpWithNewOp<mlir::arith::ConstantOp>(op, newType, value);
     return success();
@@ -465,13 +468,37 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
 //===----------------------------------------------------------------------===//
 // Convert aten.yield to scf.yield. (Just erease aten.yield Op)
 //===----------------------------------------------------------------------===//
-class AtenYieldOpLowering : public OpConversionPattern<aten::YieldOp> {
+class AtenYieldIfOpLowering : public OpConversionPattern<aten::YieldOp> {
  public:
   using OpConversionPattern<aten::YieldOp>::OpConversionPattern;
   LogicalResult matchAndRewrite(aten::YieldOp op, OpAdaptor adaptor,
                                 mlir::ConversionPatternRewriter& rewriter) const override {
     // scf will generate scf.yield when building. Just erase aten::YieldOp is OK.
-    rewriter.eraseOp(op);
+    if (mlir::isa<mlir::aten::IfOp>(op->getParentOp())
+        || mlir::isa<mlir::scf::IfOp>(op->getParentOp())) {
+      rewriter.eraseOp(op);
+    } else {
+      return mlir::LogicalResult::failure();
+    }
+    return mlir::success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Convert aten.yield to scf.yield. (Just erease aten.yield Op)
+//===----------------------------------------------------------------------===//
+class AtenYieldLoopOpLowering : public OpConversionPattern<aten::YieldOp> {
+ public:
+  using OpConversionPattern<aten::YieldOp>::OpConversionPattern;
+  LogicalResult matchAndRewrite(aten::YieldOp op, OpAdaptor adaptor,
+                                mlir::ConversionPatternRewriter& rewriter) const override {
+    // scf will generate scf.yield when building. Just erase aten::YieldOp is OK.
+    if (mlir::isa<mlir::aten::LoopOp>(op->getParentOp())
+        || mlir::isa<mlir::scf::WhileOp>(op->getParentOp())) {
+      rewriter.eraseOp(op);
+    } else {
+      return mlir::LogicalResult::failure();
+    }
     return mlir::success();
   }
 };
@@ -604,6 +631,64 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
       rewriter.inlineBlockBefore(&bodyRegion->front(), scfOpAfterBlock, scfOpAfterBlock->begin());
 
       rewriter.replaceOp(op, scfOp);
+    } else if (op.getKind() == mlir::aten::LoopOpPredict::While) /*normal while loop*/ {
+      llvm::SmallVector<mlir::Type> tr;
+      llvm::SmallVector<mlir::Value> vr;
+      auto scfOp = rewriter.create<mlir::scf::WhileOp>(
+          mlirLocation, /*type range*/ tr, /*value range*/ vr, /*before*/
+          [&](OpBuilder& builder, Location location, ValueRange vr) {
+            // insert condition at tail of before scope.
+
+            // FIXME: for now, I supposed that the last value of conRegion is used for comparation.
+            // the condition region only have one block. The back() means the last op in this block.
+            mlir::Operation* storeOp = nullptr;
+            auto _backOp = &condRegion->front().back();
+            auto _frontOp = &condRegion->front().front();
+            while (_backOp != _frontOp) {
+              if (mlir::isa<mlir::memref::StoreOp>(_backOp)) {
+                storeOp = _backOp;
+                break;
+              } else {
+                _backOp = _backOp->getPrevNode();
+              }
+            }
+            mlir::Value oldCondValue;
+            if (storeOp) {
+              auto allocaOp = storeOp->getPrevNode();
+              auto extuiOp = allocaOp->getPrevNode();
+              auto cmpiOp = extuiOp->getPrevNode();
+              if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
+                  || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
+                oldCondValue = cmpiOp->getResults()[0];
+              } else {
+                printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                       "arith.cmp op\n");
+                exit(-1);
+              }
+
+            } else {
+              printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                     "memref.store op\n");
+              exit(-1);
+            }
+            mlir::ValueRange emptyVr;
+            builder.create<mlir::scf::ConditionOp>(location, oldCondValue, emptyVr);
+          },
+          /*after*/
+          [&](OpBuilder& builder, Location location, ValueRange vr) {
+            /*do something*/
+            builder.create<mlir::scf::YieldOp>(location);
+          });
+
+      // copy cond op to scfOpBeforeBlock
+      auto scfOpBeforeBlock = &scfOp.getBefore().front();
+      rewriter.inlineBlockBefore(&condRegion->front(), scfOpBeforeBlock, scfOpBeforeBlock->begin());
+
+      // copy body op to scfOpAfterBlock
+      auto scfOpAfterBlock = &scfOp.getAfter().front();
+      rewriter.inlineBlockBefore(&bodyRegion->front(), scfOpAfterBlock, scfOpAfterBlock->begin());
+
+      rewriter.replaceOp(op, scfOp);
     }
 
     return mlir::success();
@@ -730,8 +815,8 @@ void populateAtenToMlirConversionPatterns(mlir::RewritePatternSet* patterns,
 
   patterns->add<AtenCmpOpLowering, AtenFuncOpLowering, AtenCallOpLowering, AtenUnaryOpLowering,
                 AtenBinOpLowering, AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering,
-                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering>(converter,
-                                                                            patterns->getContext());
+                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering, AtenYieldIfOpLowering>(
+      converter, patterns->getContext());
 }
 
 void populateAtenToMlirConversionPatterns_Closure(mlir::RewritePatternSet* patterns,
@@ -740,7 +825,7 @@ void populateAtenToMlirConversionPatterns_Closure(mlir::RewritePatternSet* patte
 
   patterns->add<AtenCmpOpLowering, AtenFuncOpLowering, AtenCallOpLowering, AtenUnaryOpLowering,
                 AtenBinOpLowering, AtenLoadOpLowering, AtenConstOpLowering, AtenStoreOpLowering,
-                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering, AtenYieldOpLowering,
+                AtenAllocaOpLowering, AtenIfOpLowering, AtenCastOpLowering, AtenYieldLoopOpLowering,
                 AtenLoopOpLowering>(converter, patterns->getContext());
 }
 

@@ -26,3 +26,11 @@ func testLoopWithEmpty() {
         k := 0;
     };
 };
+
+func testWhileUsingInt() {
+    i := 10;
+    while(i) {
+        c := 0;
+        i--;
+    };
+};

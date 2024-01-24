@@ -40,3 +40,11 @@ func testIfWBreak(a int32, b int32) -> int32 {
     };
     return c;
 };
+
+func testIntInIfCondition(a int32) -> int32 {
+    b := 42;
+    if (a) {
+        b++;
+    };
+    return b;
+};

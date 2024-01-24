@@ -16,3 +16,8 @@ func declTensor() -> Tensor<128, 128, float32> {
     var res Tensor<128, 128, float32>;
     return res;
 };
+
+func assignFloat32() -> float32 {
+    fl := 12.0;
+    return fl;
+};

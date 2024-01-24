@@ -40,6 +40,7 @@ enum class _ParserSateEnum : int32_t {
   kIncDec = 8,
   kPfor = 9,         // parallel for
   kPforClause = 10,  // parallel for clause
+  kVarDecl = 11
 };
 
 class ParserState {
@@ -54,6 +55,9 @@ class ParserState {
   inline bool IsInAssignStmt() { return m_StateStack.top() == _ParserSateEnum::kAssignStmt; }
   inline bool IsInForScope() { return m_StateStack.top() == _ParserSateEnum::kFor; }
   inline bool IsInPforClause() { return m_StateStack.top() == _ParserSateEnum::kPforClause; }
+  inline bool IsInVarDecl() { return m_StateStack.top() == _ParserSateEnum::kVarDecl; }
+
+  inline void PushVarDecl() { m_StateStack.push(_ParserSateEnum::kVarDecl); }
 
   inline mlir::aten::FuncOp* GetFuncOp() {
     if (m_FuncOp != nullptr)
@@ -123,6 +127,9 @@ class ParserState {
   inline void SetIntLiteral(int64_t v) { m_IntLiteral = v; }
   inline int64_t GetIntLiteral() { return m_IntLiteral; }
 
+  inline void SetFloatLiteral(double v) { m_FloatLiteral = v; }
+  inline double GetFloatLiteral() { return m_FloatLiteral; }
+
   inline void Pop() {
     auto top = m_StateStack.top();
     switch (top) {
@@ -186,6 +193,7 @@ class ParserState {
 
   // always record.
   int64_t m_IntLiteral;
+  double m_FloatLiteral;
 
   // stack record
   std::stack<_ParserSateEnum> m_StateStack;

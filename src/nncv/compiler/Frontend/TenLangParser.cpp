@@ -1,5 +1,6 @@
 #include <string>
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/SymbolTable.h"
 #include "nncv/compiler/Utils/SymbolRef.hpp"
 #ifdef NNCV_ENABLE_ANTLR
 
@@ -548,7 +549,29 @@ std::any AutoTen2MlirVisitor::visitIncDecStmt(AutoTenV1Parser::IncDecStmtContext
     // store to value;
     m_OpBuilder.create<mlir::aten::StoreOp>(location, result, valuePtr);
 
-  }  // TODO else if(ctx->MinusMinus) {}
+  } else if (ctx->MinusMinus()) {
+    int __line = ctx->MinusMinus()->getSymbol()->getLine();
+    int __col = ctx->MinusMinus()->getSymbol()->getCharPositionInLine();
+
+    mlir::Location location = loc(__line, __col);
+    mlir::Value result;
+
+    if (value.getType().isa<mlir::aten::IntType>()) {
+      result = m_OpBuilder.create<mlir::aten::UnaryOp>(
+          location,
+          mlir::aten::UnaryOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::UnaryOpPredicate::Dec),
+          value);
+    } else if (value.getType().isa<mlir::FloatType>()) {
+      // TODO
+    } else {
+      // FIXME throw error.
+      return VisitorParserReturn();
+    }
+
+    // store to value;
+    m_OpBuilder.create<mlir::aten::StoreOp>(location, result, valuePtr);
+  }
   return VisitorParserReturn();
 }
 
@@ -569,7 +592,51 @@ std::any AutoTen2MlirVisitor::visitWhileStmt(AutoTenV1Parser::WhileStmtContext* 
   m_OpBuilder.create<mlir::aten::LoopOp>(
       location, mlir::aten::LoopOpPredict::While, /*cond Body*/
       [&](mlir::OpBuilder& builder, mlir::Location loc) {
-        visit(ctx->expression());
+        auto atenMaybeBoolValue =
+            std::any_cast<VisitorParserReturn>(visit(ctx->expression())).getValue<mlir::Value>();
+
+        auto atenBoolValue = atenMaybeBoolValue;
+        if (!mlir::isa<mlir::aten::BoolType>(atenMaybeBoolValue.getType())) {
+          if (mlir::isa<mlir::aten::IntType>(atenMaybeBoolValue.getType())) {
+            // create compare between int 0 and value
+            auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+                location, atenMaybeBoolValue.getType(),
+                mlir::aten::IntAttr::get(atenMaybeBoolValue.getType(), 0));
+
+            // compare
+            atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+                location,
+                mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::CmpOpPredicate::ne),
+                atenMaybeBoolValue, cmpValue);
+          } else if (mlir::isa<mlir::FloatType>(atenMaybeBoolValue.getType())) {
+            // create compare between float 0 and value
+            auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+                location, atenMaybeBoolValue.getType(),
+                mlir::FloatAttr::get(atenMaybeBoolValue.getType(), 0.0));
+
+            // compare
+            atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+                location,
+                mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                    mlir::aten::CmpOpPredicate::ne),
+                atenMaybeBoolValue, cmpValue);
+          } else {
+            printf("[ Error ] While loop conditon scope get value type is not [bool/int/float]\n");
+            exit(-1);
+          }
+        }
+
+        // store condition
+        mlir::Value ptrValue = builder.create<mlir::aten::AllocaOp>(
+            location,
+            /*address type*/
+            mlir::aten::PointerType::get(builder.getContext(), atenBoolValue.getType()),
+            /*alloca type*/ atenBoolValue.getType(),
+            /*name*/ "__tmp_condition@" + std::to_string(Ps.GetForConditionTmpCnt()),
+            /*alignment is 4B*/ builder.getI64IntegerAttr(1));
+        builder.create<mlir::aten::StoreOp>(location, atenBoolValue, ptrValue);
+
         builder.create<mlir::aten::YieldOp>(loc);
       },
       /*Main Body*/
@@ -651,20 +718,52 @@ std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
   visit(ctx->If());
   visit(ctx->LeftParen());
 
-  mlir::Value ConditionValue;
+  mlir::Value atenMaybeBoolValue;
+  mlir::Value atenBoolValue = atenMaybeBoolValue;
 
   if (ctx->simpleStmt()) {
     // TODO
   } else if (ctx->eos()) {
     // TODO
   } else {
-    ConditionValue =
+    atenMaybeBoolValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression())).getValue<mlir::Value>();
+    atenBoolValue = atenMaybeBoolValue;
+    if (!mlir::isa<mlir::aten::BoolType>(atenMaybeBoolValue.getType())) {
+      if (mlir::isa<mlir::aten::IntType>(atenMaybeBoolValue.getType())) {
+        // create compare between int 0 and value
+        auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, atenMaybeBoolValue.getType(),
+            mlir::aten::IntAttr::get(atenMaybeBoolValue.getType(), 0));
+
+        // compare
+        atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::CmpOpPredicate::ne),
+            atenMaybeBoolValue, cmpValue);
+      } else if (mlir::isa<mlir::FloatType>(atenMaybeBoolValue.getType())) {
+        // create compare between float 0 and value
+        auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, atenMaybeBoolValue.getType(),
+            mlir::FloatAttr::get(atenMaybeBoolValue.getType(), 0.0));
+
+        // compare
+        atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+            location,
+            mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                mlir::aten::CmpOpPredicate::ne),
+            atenMaybeBoolValue, cmpValue);
+      } else {
+        printf("[ Error ] If loop conditon scope get value type is not [bool/int/float]\n");
+        exit(-1);
+      }
+    }
   }
 
   if (ctx->Else()) {
     m_OpBuilder.create<mlir::aten::IfOp>(
-        location, ConditionValue, /*has else scope*/ true,
+        location, atenBoolValue, /*has else scope*/ true,
         /*then scope*/
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
           Ps.PushIfStmt();
@@ -687,7 +786,7 @@ std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
         });
   } else {
     m_OpBuilder.create<mlir::aten::IfOp>(
-        location, ConditionValue, /*has else scope*/ false,
+        location, atenBoolValue, /*has else scope*/ false,
         /*then scope*/ [&](mlir::OpBuilder& builder, mlir::Location loc) {
           Ps.PushIfStmt();
           m_curSymbolTable->createVarSymbolTableOnTop();
@@ -751,16 +850,41 @@ std::any AutoTen2MlirVisitor::visitForStmt(AutoTenV1Parser::ForStmtContext* ctx)
     m_OpBuilder.create<mlir::aten::LoopOp>(
         location, mlir::aten::LoopOpPredict::For, /*cond Body*/
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
-          auto atenBoolValue =
+          auto atenMaybeBoolValue =
               std::any_cast<VisitorParserReturn>(visit(ctx->forClause()->expression()))
                   .getValue<mlir::Value>();
 
-          // FIXME: for now, I suppose conditional expression will return bool type.
-          // auto boolValue = builder.create<mlir::aten::CastOp>(
-          //     loc, builder.getI1Type(),
-          //     mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
-          //                                        mlir::aten::CastPredicate::bool_to_mlir_i1),
-          //     atenBoolValue);
+          auto atenBoolValue = atenMaybeBoolValue;
+          if (!mlir::isa<mlir::aten::BoolType>(atenMaybeBoolValue.getType())) {
+            if (mlir::isa<mlir::aten::IntType>(atenMaybeBoolValue.getType())) {
+              // create compare between int 0 and value
+              auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+                  location, atenMaybeBoolValue.getType(),
+                  mlir::aten::IntAttr::get(atenMaybeBoolValue.getType(), 0));
+
+              // compare
+              atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+                  location,
+                  mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                      mlir::aten::CmpOpPredicate::ne),
+                  atenMaybeBoolValue, cmpValue);
+            } else if (mlir::isa<mlir::FloatType>(atenMaybeBoolValue.getType())) {
+              // create compare between float 0 and value
+              auto cmpValue = m_OpBuilder.create<mlir::aten::ConstantOp>(
+                  location, atenMaybeBoolValue.getType(),
+                  mlir::FloatAttr::get(atenMaybeBoolValue.getType(), 0.0));
+
+              // compare
+              atenBoolValue = m_OpBuilder.create<mlir::aten::CmpOp>(
+                  location,
+                  mlir::aten::CmpOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                                      mlir::aten::CmpOpPredicate::ne),
+                  atenMaybeBoolValue, cmpValue);
+            } else {
+              printf("[ Error ] For loop conditon scope get value type is not [bool/int/float]\n");
+              exit(-1);
+            }
+          }
 
           // store condition
           mlir::Value ptrValue = builder.create<mlir::aten::AllocaOp>(
@@ -863,10 +987,17 @@ std::any AutoTen2MlirVisitor::visitShortVarDecl(AutoTenV1Parser::ShortVarDeclCon
 
   mlir::Value value =
       std::any_cast<VisitorParserReturn>(visit(ctx->expressionList())).getValue<mlir::Value>();
+  Ps.PushVarDecl();
   std::string valueName =
       std::any_cast<VisitorParserReturn>(visit(ctx->identifierList())).getValue<std::string>();
+  Ps.Pop();
 
-  int64_t alignement;
+  if (m_curSymbolTable->getVarValueSymbol(valueName).has_value()) {
+    printf("[ Erro ] re declaration of Symbol: %s\n", valueName.c_str());
+    exit(-1);
+  }
+
+  int64_t alignement = 4;
 
   if (value.getType().isa<mlir::aten::IntType>()) {
     alignement = value.getType().dyn_cast<mlir::aten::IntType>().getWidth() / 8;
@@ -1079,13 +1210,19 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   int __row = ctx->Var()->getSymbol()->getCharPositionInLine();
 
   // get the symbol name in identifier list.
-  auto symbolNameAny = std::any_cast<VisitorParserReturn>(
-      visit(theVarSpec->identifierList()));  // TODO identifier list on working
+  Ps.PushVarDecl();
+  auto symbolNameAny = std::any_cast<VisitorParserReturn>(visit(theVarSpec->identifierList()));
+  Ps.Pop();
   std::string symbolName;
   if (symbolNameAny.isa(VisitorParserReturnType::kStringLiteral)) {
     symbolName = symbolNameAny.getValue<std::string>();
   } else {
-    printf("[ error ] %d:%d symbol name can't cast to string literal\n", __line, __row);
+    printf("[ Erro ] %d:%d symbol name can't cast to string literal\n", __line, __row);
+    exit(-1);
+  }
+
+  if (m_curSymbolTable->getVarValueSymbol(symbolName).has_value()) {
+    printf("[ Erro ] re declaration of Symbol: %s\n", symbolName.c_str());
     exit(-1);
   }
 
@@ -1285,15 +1422,12 @@ std::any AutoTen2MlirVisitor::visitMapType(AutoTenV1Parser::MapTypeContext* ctx)
 // And tensor is the first class of aten-lang, you don't need to free the mem of tensor
 // yourself. The mem bufferization will do everything for you.
 //
-// FIXME: Actually Tensor(in this lang) will translate to memref in mlir
 //
 // return: VisitorParserReturn(mlir::Type);
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitTensorType(AutoTenV1Parser::TensorTypeContext* ctx) {
   // check if has shape, type
-  if (!ctx->Less()) {
-    // FIXME: throw error.
-  }
+  if (!ctx->Less()) { printf("[ Error ] You should at least figure out the type of tensor\n"); }
   // parse type
   mlir::Type type;
   if (ctx->Float32()) {
@@ -1444,7 +1578,25 @@ std::any AutoTen2MlirVisitor::visitBasicLit(AutoTenV1Parser::BasicLitContext* ct
     // TODO
   }
   if (ctx->FloatingLiteral()) {
-    // TODO
+    int __line = ctx->FloatingLiteral()->getSymbol()->getLine();
+    int __col = ctx->FloatingLiteral()->getSymbol()->getCharPositionInLine();
+
+    mlir::Location location = loc(__line, __col);
+
+    std::string integerStr = ctx->FloatingLiteral()->getText();
+    double num = std::stod(integerStr);
+
+    Ps.SetFloatLiteral(num);
+
+    if (Ps.IsExpressionLiteralGenMlirValue()) {
+      auto floatType = m_OpBuilder.getF32Type();
+      auto attri = m_OpBuilder.getF32FloatAttr(num);
+
+      mlir::Value value = m_OpBuilder.create<mlir::aten::ConstantOp>(location, floatType, attri);
+      return VisitorParserReturn(value);
+    } else {
+      return VisitorParserReturn(num);
+    }
   }
   if (ctx->CharacterLiteral()) {
     // TODO
@@ -1463,7 +1615,14 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
   mlir::Location location = loc(__line, __row);
 
   auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
-  if (!_value.has_value()) { return VisitorParserReturn(ctx->Identifier()->getText()); }
+  if (!_value.has_value()) {
+    if (Ps.IsInVarDecl() || m_TheModule.lookupSymbol(ctx->Identifier()->getText()))
+      return VisitorParserReturn(ctx->Identifier()->getText());
+    else {
+      printf("[ Erro ] Symbol [%s] is not defined!\n", ctx->Identifier()->getText().c_str());
+      exit(-1);
+    }
+  }
 
   if (m_curSymbolTable->getVarValueSymbolKind(ctx->Identifier()->getText())
       == utils::VarSymbolKind::kPfor) {
