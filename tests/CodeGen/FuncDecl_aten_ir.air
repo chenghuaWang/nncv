@@ -1,0 +1,12 @@
+module @__main {
+  Aten.func private @none()
+  Aten.func private @noneWithRet() -> !Aten.int<s, 32>
+  Aten.func private @withoutRetValue(!Aten.int<s, 32>, !Aten.int<s, 32>, !Aten.int<s, 32>, !Aten.int<s, 32>)
+  Aten.func private @withRetValue(!Aten.int<s, 32>, !Aten.int<s, 32>, !Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+  Aten.func private @mulTensor(%arg0: memref<64x64xf32>, %arg1: memref<64x64xf32>, %arg2: memref<64x64xf32>) {
+    %0 = Aten.const(#Aten.int<42> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["res"] {alignment = 4 : i64}
+    Aten.store %0, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    Aten.return
+  }
+}

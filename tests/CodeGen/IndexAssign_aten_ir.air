@@ -1,0 +1,13 @@
+module @__main {
+  Aten.func private @main() {
+    %0 = Aten.alloca f32, aten.ptr <f32>, ["c"] {alignment = 4 : i64}
+    %alloc = memref.alloc() : memref<42x42xf32>
+    %1 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %3 = Aten.cast(int_to_mlir_index, %1 : !Aten.int<s, 32>), index
+    %4 = Aten.cast(int_to_mlir_index, %2 : !Aten.int<s, 32>), index
+    %5 = memref.load %alloc[%3, %4] : memref<42x42xf32>
+    Aten.store %5, %0 : f32, aten.ptr <f32>
+    Aten.return
+  }
+}

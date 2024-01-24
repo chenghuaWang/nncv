@@ -2,6 +2,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 #include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
+#include "nncv/compiler/Utils/MlirIo.hpp"
 
 #include <fstream>
 
@@ -26,48 +27,78 @@ void FrontendPipeline::run() {
     antlr4::CommonTokenStream tokens(&lexer);
     AutoTenV1Parser parser(&tokens);
     antlrcpp::AutoTenV1Parser::SourceFileContext* tree = parser.sourceFile();
-    if (m_showCst) { std::cout << tree->toStringTree(true) << "\n"; }
-    if (m_dumpMlir) {
-      frontend::AutoTen2MlirVisitor visitor(m_CurrentFilePath, m_Context);
-      visitor.visit(tree);
-      m_Module = visitor.getModule();
+    ///< Show CST
+    if (m_showCst) {
+      std::cout << tree->toStringTree(true) << "\n";
+      exit(0);
+    }
 
-      if (mlir::verify(m_Module->getOperation()).failed()) {
-        printf("[ Erro ] MLIR Self verify failed\n");
+    frontend::AutoTen2MlirVisitor visitor(m_CurrentFilePath, m_Context);
+    visitor.visit(tree);
+    m_Module = visitor.getModule();
+
+    if (mlir::verify(m_Module->getOperation()).failed()) {
+      printf("[ Erro ] MLIR Self verify failed\n");
+      exit(-1);
+    }
+
+    ///< Show Aten IR
+    if (m_genAtenIR) {
+      if (!m_outputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_outputFilePath);
+      } else {
+        m_Module->dump();
+      }
+      exit(0);
+    }
+
+    // Two stage Lowering
+    mlir::PassManager pm(m_Module.get()->getName());
+    // stage 1
+    {
+      // Aten-lang High level optimization
+
+      mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
+
+      pm.addPass(mlir::nncv::createConvertAtenToMlirPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering] "
+               "at stage 1(partial to mlir pass)\n");
         exit(-1);
       }
-
-      // Two stage Lowering
-      mlir::PassManager pm(m_Module.get()->getName());
-      // stage 1
-      {
-        // Aten-lang High level optimization
-
-        mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
-
-        pm.addPass(mlir::nncv::createConvertAtenToMlirPass());
-        if (mlir::failed(pm.run(*m_Module))) {
-          printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering] "
-                 "at stage 1\n");
-          exit(-1);
-        }
-      }
-      // stage 2
-      {
-        // Closure
-        pm.clear();
-        pm.addPass(mlir::nncv::createConvertAtenToMlirPass(true));
-        pm.addPass(mlir::createCSEPass());
-        // TODO Pass optimize generated code.
-
-        if (mlir::failed(pm.run(*m_Module))) {
-          printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
-                 "at stage 2\n");
-          exit(-1);
-        }
-      }
-      m_Module->dump();
     }
+    // stage 2
+    {
+      // Closure
+      pm.clear();
+      pm.addPass(mlir::nncv::createConvertAtenToMlirPass(true));
+      pm.addPass(mlir::createCSEPass());
+
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
+               "at stage 2(all to mlir pass)\n");
+        exit(-1);
+      }
+    }
+    // final fine tunning pass
+    {
+      pm.clear();
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
+               "at stage 3(final fine tunning pass)\n");
+        exit(-1);
+      }
+    }
+    if (m_genBuiltinMlir) {
+      if (!m_outputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_outputFilePath);
+      } else {
+        m_Module->dump();
+      }
+      exit(0);
+    }
+    // lowering to llvm ir.
+    {}
     ino.close();
 #endif
   } else {

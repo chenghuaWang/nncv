@@ -67,12 +67,17 @@
 llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                                          llvm::cl::Optional);
 llvm::cl::opt<bool> ShowCst("show-cst", llvm::cl::desc("<show CST>"), llvm::cl::Optional);
-llvm::cl::opt<bool> ShowMlir("show-mlir", llvm::cl::desc("<show MLIR>"), llvm::cl::Optional);
+llvm::cl::opt<bool> OnlyShowAtenIR("aten-ir", llvm::cl::desc("<generate Aten IR>"),
+                                   llvm::cl::Optional);
+llvm::cl::opt<bool> OnlyShowBuiltInMlir("built-in-mlir", llvm::cl::desc("<generate Builtin MLIR>"),
+                                        llvm::cl::Optional);
 llvm::cl::opt<bool> GetPlatformInfoOnly("get-platform-info-only",
                                         llvm::cl::desc("<get platform infomation only>"),
                                         llvm::cl::Optional);
 llvm::cl::opt<std::string> SetLowerTarget("target", llvm::cl::desc("<to target>"),
                                           llvm::cl::Optional);
+llvm::cl::opt<std::string> OutputFilename("o", llvm::cl::desc("<output file>"), llvm::cl::Optional);
+llvm::cl::opt<bool> VmMode("vm", llvm::cl::desc("<set nncv-c as vm>"), llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context.loadDialect<
@@ -95,7 +100,7 @@ int main(int argc, char* argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   // detecting platform
-  nncv::compiler::utils::PlatformCtxInit();
+  nncv::compiler::utils::PlatformCtxInit(GetPlatformInfoOnly.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().init();
   if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
 
@@ -118,9 +123,11 @@ int main(int argc, char* argv[]) {
     // compile aten-lang
     nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
 
-    fr.setFilePath(InputFilename.getValue());
+    fr.setInputFilePath(InputFilename.getValue());
     fr.setShowCst(ShowCst.getValue());
-    fr.setDumpMlir(ShowMlir.getValue());
+    fr.setBuiltinMlir(OnlyShowBuiltInMlir.getValue());
+    fr.setGenAtenIR(OnlyShowAtenIR.getValue());
+    if (!OutputFilename.getValue().empty()) { fr.setOutputFilePath(OutputFilename.getValue()); }
     fr.run();
   } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
     std::string ErrorMessage;
@@ -160,5 +167,5 @@ int main(int argc, char* argv[]) {
   if (mlir::failed(pm.run(*MlirModule))) { return -1; }
 
   // for debug purpose
-  if (ShowMlir.getValue()) { MlirModule->dump(); }
+  if (OnlyShowBuiltInMlir.getValue()) { MlirModule->dump(); }
 }

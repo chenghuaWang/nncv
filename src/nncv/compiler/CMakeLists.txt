@@ -97,6 +97,8 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/SymbolRef.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/SymbolRef.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/PlatformCtx.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/MlirIo.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/MlirIo.hpp
 
     # Runner
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/InitJit.hpp

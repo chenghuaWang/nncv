@@ -27,16 +27,20 @@ class FrontendPipeline : public pipeline {
 
   inline void setShowCst(bool flag) { m_showCst = flag; }
   inline bool ssShowCst(bool flag) const { return m_showCst; }
-  inline void setDumpMlir(bool flag) { m_dumpMlir = flag; }
-  inline bool ssDumpMlir(bool flag) const { return m_dumpMlir; }
-  inline void setFilePath(const std::string& _CurPath) { m_CurrentFilePath = _CurPath; }
+  inline void setBuiltinMlir(bool flag) { m_genBuiltinMlir = flag; }
+  inline bool ssBuiltinMlir(bool flag) const { return m_genBuiltinMlir; }
+  inline void setInputFilePath(const std::string& _CurPath) { m_CurrentFilePath = _CurPath; }
+  inline void setGenAtenIR(bool flag) { m_genAtenIR = flag; }
+  inline void setOutputFilePath(const std::string& _CurPath) { m_outputFilePath = _CurPath; }
 
  private:
   mlir::MLIRContext& m_Context;
   mlir::OwningOpRef<mlir::ModuleOp>& m_Module;
   bool m_showCst = false;
-  bool m_dumpMlir = false;
+  bool m_genBuiltinMlir = false;
+  bool m_genAtenIR = false;
   std::string m_CurrentFilePath;
+  std::string m_outputFilePath;
 };
 
 }  // namespace pipeline

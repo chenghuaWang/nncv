@@ -1,0 +1,17 @@
+module @__main {
+  Aten.func private @_lib_nncv_do_something(memref<1x1xf32>)
+  Aten.func public @add(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.binop(add, %arg0, %arg1) : !Aten.int<s, 32>
+    Aten.return %0 : !Aten.int<s, 32>
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(#Aten.int<8> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<8> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.call @add(%0, %1) : (!Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+    %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["res"] {alignment = 4 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %alloc = memref.alloc() : memref<1x1xf32>
+    Aten.call @_lib_nncv_do_something(%alloc) : (memref<1x1xf32>) -> ()
+    Aten.return
+  }
+}

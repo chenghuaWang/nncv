@@ -77,8 +77,8 @@ struct PlatformCtx {
   }
 };
 
-inline static void PlatformCtxInit() {
-  printf("[ INFO ] Detecting Platform.\n");
+inline static void PlatformCtxInit(bool printed = false) {
+  if (printed) printf("[ INFO ] Detecting Platform.\n");
   cpuinfo_initialize();
 
   PlatformCtx ctx{};
@@ -86,9 +86,10 @@ inline static void PlatformCtxInit() {
   ctx.CpuL1CacheSize = cpuinfo_get_processor(0)->cache.l1d->size;
   ctx.CpuL2CacheSize = cpuinfo_get_processor(0)->cache.l2->size;
   ctx.CpuL3CacheSize = cpuinfo_get_processor(0)->cache.l3->size;
-
-  printf("[ INFO ] Running on %s CPU, L1: %zuKB, L2: %zuKB, L3: %zuMB\n", ctx.CpuName.c_str(),
-         ctx.CpuL1CacheSize >> 10, ctx.CpuL2CacheSize >> 10, ctx.CpuL3CacheSize >> 20);
+  if (printed) {
+    printf("[ INFO ] Running on %s CPU, L1: %zuKB, L2: %zuKB, L3: %zuMB\n", ctx.CpuName.c_str(),
+           ctx.CpuL1CacheSize >> 10, ctx.CpuL2CacheSize >> 10, ctx.CpuL3CacheSize >> 20);
+  }
 
 #ifdef NNCV_ENABLE_CUDA
   int GpuDeviceCount;
@@ -102,12 +103,15 @@ inline static void PlatformCtxInit() {
   ctx.GpuTotalMemory = DeviceProp.totalGlobalMem;
   ctx.GpuSharedMemPerBlock = DeviceProp.sharedMemPerBlock;
   ctx.GpuTotalConstMem = DeviceProp.totalConstMem;
-  printf("[ INFO ] Has GPU %s, TotalMem: %fGB, SharedMem(perBlock): %fKB, TotalConstMem: %fKB\n",
-         ctx.GpuName.c_str(), (float)ctx.GpuTotalMemory / (float)(1 << 30),
-         (float)ctx.GpuSharedMemPerBlock / (float)(1 << 10),
-         (float)ctx.GpuTotalConstMem / (float)(1 << 10));
+  if (printed) {
+    printf("[ INFO ] Has GPU %s, TotalMem: %fGB, SharedMem(perBlock): %fKB, TotalConstMem: %fKB\n",
+           ctx.GpuName.c_str(), (float)ctx.GpuTotalMemory / (float)(1 << 30),
+           (float)ctx.GpuSharedMemPerBlock / (float)(1 << 10),
+           (float)ctx.GpuTotalConstMem / (float)(1 << 10));
+  }
+
 #endif
-  printf("[ INFO ] Done.\n");
+  if (printed) { printf("[ INFO ] Done.\n"); }
 }
 
 }  // namespace utils
