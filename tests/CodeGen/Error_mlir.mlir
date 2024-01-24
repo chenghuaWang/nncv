@@ -1,5 +1,6 @@
 module @__main {
   func.func private @testLoopWithEmpty() {
+    %c1_i32 = arith.constant 1 : i32
     %c128_i32 = arith.constant 128 : i32
     %c0_i32 = arith.constant 0 : i32
     %alloc = memref.alloc() : memref<128xf32>
@@ -8,9 +9,6 @@ module @__main {
     scf.while : () -> () {
       %0 = memref.load %alloca[] : memref<i32>
       %1 = arith.cmpi ult, %0, %c128_i32 : i32
-      %2 = arith.extui %1 : i1 to i8
-      %alloca_0 = memref.alloca() {alignment = 1 : i64} : memref<i8>
-      memref.store %2, %alloca_0[] : memref<i8>
       scf.condition(%1)
     } do {
       %alloca_0 = memref.alloca() {alignment = 4 : i64} : memref<f32>
@@ -19,7 +17,6 @@ module @__main {
       %2 = memref.load %alloc[%1] : memref<128xf32>
       memref.store %2, %alloca_0[] : memref<f32>
       %3 = memref.load %alloca[] : memref<i32>
-      %c1_i32 = arith.constant 1 : i32
       %4 = arith.addi %3, %c1_i32 : i32
       memref.store %4, %alloca[] : memref<i32>
       scf.yield

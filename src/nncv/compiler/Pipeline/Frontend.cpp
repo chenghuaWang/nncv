@@ -91,6 +91,8 @@ void FrontendPipeline::run() {
     // final fine tunning pass
     {
       pm.clear();
+      pm.addPass(mlir::nncv::aten::createEliminateRedundantLoadStoreForScfConditionalPass());
+      pm.addPass(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
         printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
                "at stage 3(final fine tunning pass)\n");

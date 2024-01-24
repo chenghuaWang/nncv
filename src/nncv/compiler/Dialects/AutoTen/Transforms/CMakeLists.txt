@@ -2,6 +2,7 @@ add_mlir_library(AtenLangTransformsPasses
 # Source file.
     Passes.cpp
     EliminateRetLoad.cpp
+    EliminateRedundantStoreLoadForScf.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SRC_DIR}/include/nncv/compiler/Dialects/AutoTen/Transforms

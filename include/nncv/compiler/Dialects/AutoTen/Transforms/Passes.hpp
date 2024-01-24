@@ -11,6 +11,8 @@ class ModuleOp;
 namespace nncv::aten {
 std::unique_ptr<mlir::Pass> createEliminateTailReturnLoadPass();
 
+std::unique_ptr<mlir::Pass> createEliminateRedundantLoadStoreForScfConditionalPass();
+
 void createAtenLangHighLevelOptimizePipeline(OpPassManager& pm);
 
 #define GEN_PASS_REGISTRATION
