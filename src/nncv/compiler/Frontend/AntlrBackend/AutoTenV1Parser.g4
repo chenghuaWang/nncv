@@ -6,13 +6,16 @@ options {
 }
 
 sourceFile:
-	packageClause eos ((functionDecl | declaration) eos)* EOF;
+	packageClause eos importClasue* ((functionDecl | declaration) eos)* EOF;
+
+importClasue:
+	Import StringLiteral eos;
 
 packageClause: At Package Assign StringLiteral;
 
 // -- compile ctrl blok --
 compileFlags:
-	At Identifier (.Identifier)* (
+	At Identifier (Dot Identifier)* (
 		Assign (True_ | False_ | expression)
 	)?;
 

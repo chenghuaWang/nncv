@@ -19,6 +19,9 @@ public:
   virtual void enterSourceFile(AutoTenV1Parser::SourceFileContext *ctx) = 0;
   virtual void exitSourceFile(AutoTenV1Parser::SourceFileContext *ctx) = 0;
 
+  virtual void enterImportClasue(AutoTenV1Parser::ImportClasueContext *ctx) = 0;
+  virtual void exitImportClasue(AutoTenV1Parser::ImportClasueContext *ctx) = 0;
+
   virtual void enterPackageClause(AutoTenV1Parser::PackageClauseContext *ctx) = 0;
   virtual void exitPackageClause(AutoTenV1Parser::PackageClauseContext *ctx) = 0;
 

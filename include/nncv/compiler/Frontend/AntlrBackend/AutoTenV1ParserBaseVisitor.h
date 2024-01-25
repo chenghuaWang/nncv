@@ -21,6 +21,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitImportClasue(AutoTenV1Parser::ImportClasueContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitPackageClause(AutoTenV1Parser::PackageClauseContext *ctx) override {
     return visitChildren(ctx);
   }

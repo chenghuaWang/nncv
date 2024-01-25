@@ -28,10 +28,10 @@ public:
     LessEqual = 68, GreaterEqual = 69, AndAnd = 70, OrOr = 71, PlusPlus = 72, 
     MinusMinus = 73, Comma = 74, ArrowReturnType = 75, Colon = 76, Dot = 77, 
     DotStar = 78, ArrowStar = 79, At = 80, Semi = 81, Map = 82, Ellipsis = 83, 
-    Identifier = 84, DecimalLiteral = 85, OctalLiteral = 86, HexadecimalLiteral = 87, 
-    BinaryLiteral = 88, Integersuffix = 89, UserDefinedIntegerLiteral = 90, 
-    UserDefinedFloatingLiteral = 91, UserDefinedStringLiteral = 92, UserDefinedCharacterLiteral = 93, 
-    Whitespace = 94, Newline = 95, BlockComment = 96, LineComment = 97
+    Import = 84, Identifier = 85, DecimalLiteral = 86, OctalLiteral = 87, 
+    HexadecimalLiteral = 88, BinaryLiteral = 89, Integersuffix = 90, UserDefinedIntegerLiteral = 91, 
+    UserDefinedFloatingLiteral = 92, UserDefinedStringLiteral = 93, UserDefinedCharacterLiteral = 94, 
+    Whitespace = 95, Newline = 96, BlockComment = 97, LineComment = 98
   };
 
   explicit AutoTenV1Lexer(antlr4::CharStream *input);

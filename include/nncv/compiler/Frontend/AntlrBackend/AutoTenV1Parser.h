@@ -28,36 +28,36 @@ public:
     LessEqual = 68, GreaterEqual = 69, AndAnd = 70, OrOr = 71, PlusPlus = 72, 
     MinusMinus = 73, Comma = 74, ArrowReturnType = 75, Colon = 76, Dot = 77, 
     DotStar = 78, ArrowStar = 79, At = 80, Semi = 81, Map = 82, Ellipsis = 83, 
-    Identifier = 84, DecimalLiteral = 85, OctalLiteral = 86, HexadecimalLiteral = 87, 
-    BinaryLiteral = 88, Integersuffix = 89, UserDefinedIntegerLiteral = 90, 
-    UserDefinedFloatingLiteral = 91, UserDefinedStringLiteral = 92, UserDefinedCharacterLiteral = 93, 
-    Whitespace = 94, Newline = 95, BlockComment = 96, LineComment = 97
+    Import = 84, Identifier = 85, DecimalLiteral = 86, OctalLiteral = 87, 
+    HexadecimalLiteral = 88, BinaryLiteral = 89, Integersuffix = 90, UserDefinedIntegerLiteral = 91, 
+    UserDefinedFloatingLiteral = 92, UserDefinedStringLiteral = 93, UserDefinedCharacterLiteral = 94, 
+    Whitespace = 95, Newline = 96, BlockComment = 97, LineComment = 98
   };
 
   enum {
-    RuleSourceFile = 0, RulePackageClause = 1, RuleCompileFlags = 2, RuleDeclaration = 3, 
-    RuleTypeDecl = 4, RuleTypeSpec = 5, RuleType_ = 6, RuleTensorType = 7, 
-    RuleBuiltinType = 8, RuleTypeName = 9, RuleTypeLit = 10, RuleArrayType = 11, 
-    RuleArrayLength = 12, RuleElementType = 13, RulePointerType = 14, RuleImplType = 15, 
-    RuleSliceType = 16, RuleMapType = 17, RuleMethodSpec = 18, RuleFunctionType = 19, 
-    RuleVarDecl = 20, RuleVarSpec = 21, RuleSignature = 22, RuleResult = 23, 
-    RuleParameters = 24, RuleIndex = 25, RuleSlice_ = 26, RuleTypeAssertion = 27, 
-    RuleArguments = 28, RuleMethodExpr = 29, RuleParameterDecl = 30, RuleExpression = 31, 
-    RulePrimaryExpr = 32, RuleConversion = 33, RuleNonNamedType = 34, RuleOperand = 35, 
-    RuleExpressionList = 36, RuleIdentifierList = 37, RuleLiteral = 38, 
-    RuleBasicLit = 39, RuleOperandName = 40, RuleQualifiedIdent = 41, RuleCompositeLit = 42, 
-    RuleLiteralType = 43, RuleLiteralValue = 44, RuleElementList = 45, RuleKeyedElement = 46, 
-    RuleKey = 47, RuleElement = 48, RuleStructType = 49, RuleFieldDecl = 50, 
-    RuleEmbeddedField = 51, RuleFunctionLit = 52, RuleFunctionDecl = 53, 
-    RuleBlock = 54, RuleStatementList = 55, RuleStatement = 56, RuleSimpleStmt = 57, 
-    RuleExpressionStmt = 58, RuleIncDecStmt = 59, RuleAssignment = 60, RuleAssign_op = 61, 
-    RuleShortVarDecl = 62, RuleEmptyStmt = 63, RuleLabeledStmt = 64, RuleReturnStmt = 65, 
-    RuleBreakStmt = 66, RuleContinueStmt = 67, RuleGotoStmt = 68, RuleFallthroughStmt = 69, 
-    RuleIfStmt = 70, RuleSwitchStmt = 71, RuleExprSwitchStmt = 72, RuleExprCaseClause = 73, 
-    RuleExprSwitchCase = 74, RuleTypeSwitchStmt = 75, RuleTypeSwitchGuard = 76, 
-    RuleTypeCaseClause = 77, RuleTypeSwitchCase = 78, RuleTypeList = 79, 
-    RuleForStmt = 80, RulePforStmt = 81, RulePforClause = 82, RuleForClause = 83, 
-    RuleWhileStmt = 84, RuleDoWhileStmt = 85, RuleEos = 86
+    RuleSourceFile = 0, RuleImportClasue = 1, RulePackageClause = 2, RuleCompileFlags = 3, 
+    RuleDeclaration = 4, RuleTypeDecl = 5, RuleTypeSpec = 6, RuleType_ = 7, 
+    RuleTensorType = 8, RuleBuiltinType = 9, RuleTypeName = 10, RuleTypeLit = 11, 
+    RuleArrayType = 12, RuleArrayLength = 13, RuleElementType = 14, RulePointerType = 15, 
+    RuleImplType = 16, RuleSliceType = 17, RuleMapType = 18, RuleMethodSpec = 19, 
+    RuleFunctionType = 20, RuleVarDecl = 21, RuleVarSpec = 22, RuleSignature = 23, 
+    RuleResult = 24, RuleParameters = 25, RuleIndex = 26, RuleSlice_ = 27, 
+    RuleTypeAssertion = 28, RuleArguments = 29, RuleMethodExpr = 30, RuleParameterDecl = 31, 
+    RuleExpression = 32, RulePrimaryExpr = 33, RuleConversion = 34, RuleNonNamedType = 35, 
+    RuleOperand = 36, RuleExpressionList = 37, RuleIdentifierList = 38, 
+    RuleLiteral = 39, RuleBasicLit = 40, RuleOperandName = 41, RuleQualifiedIdent = 42, 
+    RuleCompositeLit = 43, RuleLiteralType = 44, RuleLiteralValue = 45, 
+    RuleElementList = 46, RuleKeyedElement = 47, RuleKey = 48, RuleElement = 49, 
+    RuleStructType = 50, RuleFieldDecl = 51, RuleEmbeddedField = 52, RuleFunctionLit = 53, 
+    RuleFunctionDecl = 54, RuleBlock = 55, RuleStatementList = 56, RuleStatement = 57, 
+    RuleSimpleStmt = 58, RuleExpressionStmt = 59, RuleIncDecStmt = 60, RuleAssignment = 61, 
+    RuleAssign_op = 62, RuleShortVarDecl = 63, RuleEmptyStmt = 64, RuleLabeledStmt = 65, 
+    RuleReturnStmt = 66, RuleBreakStmt = 67, RuleContinueStmt = 68, RuleGotoStmt = 69, 
+    RuleFallthroughStmt = 70, RuleIfStmt = 71, RuleSwitchStmt = 72, RuleExprSwitchStmt = 73, 
+    RuleExprCaseClause = 74, RuleExprSwitchCase = 75, RuleTypeSwitchStmt = 76, 
+    RuleTypeSwitchGuard = 77, RuleTypeCaseClause = 78, RuleTypeSwitchCase = 79, 
+    RuleTypeList = 80, RuleForStmt = 81, RulePforStmt = 82, RulePforClause = 83, 
+    RuleForClause = 84, RuleWhileStmt = 85, RuleDoWhileStmt = 86, RuleEos = 87
   };
 
   explicit AutoTenV1Parser(antlr4::TokenStream *input);
@@ -78,6 +78,7 @@ public:
 
 
   class SourceFileContext;
+  class ImportClasueContext;
   class PackageClauseContext;
   class CompileFlagsContext;
   class DeclarationContext;
@@ -173,6 +174,8 @@ public:
     std::vector<EosContext *> eos();
     EosContext* eos(size_t i);
     antlr4::tree::TerminalNode *EOF();
+    std::vector<ImportClasueContext *> importClasue();
+    ImportClasueContext* importClasue(size_t i);
     std::vector<FunctionDeclContext *> functionDecl();
     FunctionDeclContext* functionDecl(size_t i);
     std::vector<DeclarationContext *> declaration();
@@ -186,6 +189,23 @@ public:
   };
 
   SourceFileContext* sourceFile();
+
+  class  ImportClasueContext : public antlr4::ParserRuleContext {
+  public:
+    ImportClasueContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *Import();
+    antlr4::tree::TerminalNode *StringLiteral();
+    EosContext *eos();
+
+    virtual void enterRule(antlr4::tree::ParseTreeListener *listener) override;
+    virtual void exitRule(antlr4::tree::ParseTreeListener *listener) override;
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ImportClasueContext* importClasue();
 
   class  PackageClauseContext : public antlr4::ParserRuleContext {
   public:
@@ -212,6 +232,8 @@ public:
     antlr4::tree::TerminalNode *At();
     std::vector<antlr4::tree::TerminalNode *> Identifier();
     antlr4::tree::TerminalNode* Identifier(size_t i);
+    std::vector<antlr4::tree::TerminalNode *> Dot();
+    antlr4::tree::TerminalNode* Dot(size_t i);
     antlr4::tree::TerminalNode *Assign();
     antlr4::tree::TerminalNode *True_();
     antlr4::tree::TerminalNode *False_();

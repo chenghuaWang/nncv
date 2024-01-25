@@ -39,6 +39,10 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc);
+void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
+                        mlir::ValueRange& vr);
+
 class VisitorParserReturn;
 
 class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
@@ -91,6 +95,8 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   std::any visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) override;
 
   std::any visitPackageClause(AutoTenV1Parser::PackageClauseContext* ctx) override;
+
+  std::any visitImportClasue(AutoTenV1Parser::ImportClasueContext* ctx) override;
 
   std::any visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx) override;
 

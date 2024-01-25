@@ -172,6 +172,8 @@ endif(nncv_enable_cuda)
 endif(nncv_build_vm)
 
 if(nncv_build_model_compiler)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/src/libnncv)
+
     message(STATUS "Building NNCV Modle Compiler")
 
 

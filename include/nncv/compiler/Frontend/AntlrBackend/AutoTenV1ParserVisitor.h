@@ -22,6 +22,8 @@ public:
    */
     virtual std::any visitSourceFile(AutoTenV1Parser::SourceFileContext *context) = 0;
 
+    virtual std::any visitImportClasue(AutoTenV1Parser::ImportClasueContext *context) = 0;
+
     virtual std::any visitPackageClause(AutoTenV1Parser::PackageClauseContext *context) = 0;
 
     virtual std::any visitCompileFlags(AutoTenV1Parser::CompileFlagsContext *context) = 0;

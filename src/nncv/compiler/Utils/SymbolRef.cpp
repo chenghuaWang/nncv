@@ -4,6 +4,20 @@ namespace nncv {
 namespace compiler {
 namespace utils {
 
+void __BuiltinSymbolInPackage::registerFuncPtr(const std::string& name,
+                                               const __rt_func_builder_ptr& lambda) {
+  methods[name] = lambda;
+}
+
+void PackageRegister::registerPackage(const std::string& name) {
+  auto ptr = new __BuiltinSymbolInPackage();
+  concretePackages[name] = ptr;
+}
+
+__BuiltinSymbolInPackage* PackageRegister::getPackage(const std::string& name) {
+  return concretePackages[name];
+}
+
 //===----------------------------------------------------------------------===//
 // AtenStructSymbolPaylod Implement
 //===----------------------------------------------------------------------===//

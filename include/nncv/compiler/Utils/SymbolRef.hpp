@@ -14,6 +14,9 @@
 #ifndef NNCV_COMPILER_UTILS_SYMBOL_REF_HPP
 #define NNCV_COMPILER_UTILS_SYMBOL_REF_HPP
 
+#include <functional>
+#include "mlir/IR/Location.h"
+#include "mlir/IR/ValueRange.h"
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 
 #if defined(_WIN32) && _MSC_VER > 1000
@@ -59,7 +62,30 @@ namespace utils {
 
 // only need namespace to generate function name.
 // lld will check if they are in the symbol table or not.
-static std::vector<std::string> __rt_namespace__ = {"std", "io", "nncv"};
+static std::vector<std::string> __rt_namespace__ = {"io", "image"};
+using __rt_func_builder_ptr =
+    std::function<void(mlir::OpBuilder&, mlir::ValueRange&, mlir::Location& loc)>;
+
+struct __BuiltinSymbolInPackage {
+  void registerFuncPtr(const std::string& name, const __rt_func_builder_ptr& lambda);
+
+  std::string PackageName;
+  std::unordered_map<std::string, __rt_func_builder_ptr> methods;
+};
+
+class PackageRegister {
+ public:
+  PackageRegister() = default;
+  ~PackageRegister() {
+    for (auto& item : concretePackages) { delete item.second; }
+  }
+
+  void registerPackage(const std::string& name);
+  __BuiltinSymbolInPackage* getPackage(const std::string& name);
+
+ private:
+  std::unordered_map<std::string, __BuiltinSymbolInPackage*> concretePackages;
+};
 
 //===----------------------------------------------------------------------===//
 // The Organization of Aten Symbol Table:
@@ -376,6 +402,8 @@ class AtenSymbolTable {
   inline void registerMLIRModule(const AtenModuleNameAttr& attr, mlir::ModuleOp* mo) {
     m_MLIRModule[attr.name] = mo;
   }
+
+  PackageRegister pr;
 
  private:
   std::unordered_map<std::string, AtenSymbolRef*> m_SymbolRefs;

@@ -21,6 +21,9 @@ public:
   virtual void enterSourceFile(AutoTenV1Parser::SourceFileContext * /*ctx*/) override { }
   virtual void exitSourceFile(AutoTenV1Parser::SourceFileContext * /*ctx*/) override { }
 
+  virtual void enterImportClasue(AutoTenV1Parser::ImportClasueContext * /*ctx*/) override { }
+  virtual void exitImportClasue(AutoTenV1Parser::ImportClasueContext * /*ctx*/) override { }
+
   virtual void enterPackageClause(AutoTenV1Parser::PackageClauseContext * /*ctx*/) override { }
   virtual void exitPackageClause(AutoTenV1Parser::PackageClauseContext * /*ctx*/) override { }
 

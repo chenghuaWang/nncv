@@ -1,4 +1,6 @@
 #include "nncv/compiler/Runner/InitJit.hpp"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Parser/Parser.h"
@@ -50,6 +52,12 @@ bool NncvJit::run(const std::string& entry_point) {
   // create execution engine.
   mlir::ExecutionEngineOptions engineOptions;
   engineOptions.transformer = optPipeline;
+
+  llvm::ArrayRef<llvm::StringRef> libPath = {
+      "libmlir_c_runner_utils.so.18git", "libmlir_cuda_runtime.so.18git",
+      "libmlir_runner_utils.so.18git", "libmlir_async_runtime.so.18git",
+      "libmlir_float16_utils.so.18git"};
+  engineOptions.sharedLibPaths = libPath;
 
   // create Engine on this Module.
   auto maybeEngine = mlir::ExecutionEngine::create(*m_Module, engineOptions);

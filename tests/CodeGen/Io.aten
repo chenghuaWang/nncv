@@ -1,0 +1,15 @@
+@package = "main";
+
+import "io";
+
+func main() {
+    var c Tensor<6, 6, float32>;
+
+    for (i:=0; i < 6; i++) {
+        for (j:=0; j < 6; j++) {
+            c[i, j] = 6.0;
+        };
+    };
+
+    io.print(c);
+};

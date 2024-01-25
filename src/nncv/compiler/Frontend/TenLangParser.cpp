@@ -1,11 +1,13 @@
+
+#include "mlir/IR/ValueRange.h"
+#ifdef NNCV_ENABLE_ANTLR
+
 #include <string>
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/SymbolTable.h"
-#include "nncv/compiler/Utils/SymbolRef.hpp"
-#ifdef NNCV_ENABLE_ANTLR
 
 #include "llvm/ADT/SmallVector.h"
-
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -15,13 +17,55 @@
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Frontend/TenLangParser.hpp"
 #include "nncv/compiler/Utils/CliFormatOutput.hpp"
+#include "nncv/compiler/Utils/SymbolRef.hpp"
 
 namespace nncv {
 namespace compiler {
 namespace frontend {
 
-// Utilities
+void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc) {
+  nncv::compiler::frontend::FuncCompilerFlag funcFlags;
+  llvm::SmallVector<mlir::DictionaryAttr> _ub;
+  llvm::SmallVector<mlir::NamedAttribute> _attrs;
+  auto extraEx = mlir::aten::ExtFuncAttr::get(builder.getContext(),
+                                              funcFlags.genDictAttrs(builder.getContext()));
 
+  // f32
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getF32Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefF32", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+}
+
+void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
+                        mlir::ValueRange& vr) {
+  auto vT = vr[0].getType();
+  if (mlir::isa<mlir::MemRefType>(vT)) {
+    // cast memref to unranked
+    auto castedV = builder.create<mlir::memref::CastOp>(
+        loc, mlir::UnrankedMemRefType::get(vT.cast<mlir::MemRefType>().getElementType(), 0), vr[0]);
+    // if is float32
+    if (mlir::isa<mlir::FloatType>(vT.cast<mlir::MemRefType>().getElementType())
+        || vT.cast<mlir::MemRefType>().getElementType().cast<mlir::FloatType>().getWidth() == 32) {
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(module.lookupSymbol("printMemrefF32"));
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+    }
+  }
+}
+
+// Utilities
 llvm::SmallVector<mlir::Value, 4> AutoTen2MlirVisitor::castAtenArithToMlirArith(
     llvm::SmallVector<mlir::Value, 4>& valueArry) {
   llvm::SmallVector<mlir::Value, 4> res;
@@ -153,7 +197,32 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
 
   auto funcName = value.getValue<std::string>();
 
-  // auto funcSymbol = m_curSymbolTable->getFuncSymbol(funcName);
+  // check if this funcName has dot
+  auto funcNameIter = funcName.find_last_of('.');
+  if (funcNameIter != std::string::npos) {
+    std::string methodName = funcName.substr(funcNameIter + 1);
+    std::string packageName = funcName.substr(0, funcNameIter);
+
+    // FIXME
+    // this language is just for experiment. So I just check if package name is io and
+    // if method name is print
+    if (packageName == "io" && methodName == "print") {
+      llvm::SmallVector<mlir::Value, 4> args;
+      if (ctx->expressionList()) {
+        for (const auto item : ctx->expressionList()->expression()) {
+          auto ret = std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>();
+          args.emplace_back(ret);
+        }
+      }
+
+      // build
+      auto vr = mlir::ValueRange{args[0]};
+      buildIoPrintCallOp(m_TheModule, m_OpBuilder, location, vr);
+    }
+
+    return VisitorParserReturn();
+  }
+
   // using mlir own lookup table instead.
   auto funcOp = mlir::cast<mlir::aten::FuncOp>(*m_TheModule.lookupSymbol(funcName));
 
@@ -228,17 +297,19 @@ inline llvm::SmallVector<mlir::Value, 2> AutoTen2MlirVisitor::autoTypeCastSolver
 
 //===----------------------------------------------------------------------===//
 // sourceFile:
-//	packageClause eos ((functionDecl | declaration) eos)* EOF;
+// 	packageClause eos importClasue* ((functionDecl | declaration) eos)* EOF;
 //
 // packageClause: At Package Assign StringLiteral;
 //===----------------------------------------------------------------------===//
 std::any AutoTen2MlirVisitor::visitSourceFile(AutoTenV1Parser::SourceFileContext* ctx) {
   visit(ctx->packageClause());
+
+  for (auto& item : ctx->importClasue()) { visit(item); }
+
   auto functionDeclCtxs = ctx->functionDecl();
   auto declarationCtxs = ctx->declaration();
   for (auto& item : declarationCtxs) { visit(item); }
   for (auto& item : functionDeclCtxs) { visit(item); }
-  // TODO
   return VisitorParserReturn();
 }
 
@@ -1079,6 +1150,32 @@ std::any AutoTen2MlirVisitor::visitParameters(AutoTenV1Parser::ParametersContext
 }
 
 //===----------------------------------------------------------------------===//
+// importClasue:
+// 	Import StringLiteral eos;
+//===----------------------------------------------------------------------===//
+std::any AutoTen2MlirVisitor::visitImportClasue(AutoTenV1Parser::ImportClasueContext* ctx) {
+  visit(ctx->Import());
+
+  int __line = ctx->Import()->getSymbol()->getLine();
+  int __row = ctx->Import()->getSymbol()->getCharPositionInLine();
+  mlir::Location location = loc(__line, __row);
+
+  std::string packageName = ctx->StringLiteral()->getText();
+
+  // register a new package
+  utils::AtenSymbolTable::getInstance().pr.registerPackage(packageName);
+
+  // FIXME
+  // this language is experimental. This kind of package check is ok. :-)
+  if (packageName == "\"io\"") {
+    // build all symbols.
+    insertAllIoMethods(m_TheModule, m_OpBuilder, location);
+  }
+
+  return VisitorParserReturn();
+}
+
+//===----------------------------------------------------------------------===//
 // declaration : typeDecl | varDecl;
 //
 // All done. Code Freezed!!!
@@ -1500,7 +1597,11 @@ std::any AutoTen2MlirVisitor::visitPrimaryExpr(AutoTenV1Parser::PrimaryExprConte
   if (ctx->primaryExpr()) {
     auto visitRet = std::any_cast<VisitorParserReturn>(visit(ctx->primaryExpr()));
     if (ctx->Dot()) {
-      // TODO
+      // operand dot Identifier
+      // for package using
+      std::string packaegName = visitRet.getValue<std::string>();
+      std::string res = packaegName + ctx->Dot()->getText() + ctx->Identifier()->getText();
+      return VisitorParserReturn(res);
     } else if (ctx->index()) {
       return parseIndex_(ctx->index(), visitRet);
     } else if (ctx->slice_()) {
@@ -1618,7 +1719,8 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
 
   auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
   if (!_value.has_value()) {
-    if (Ps.IsInVarDecl() || m_TheModule.lookupSymbol(ctx->Identifier()->getText()))
+    if (Ps.IsInVarDecl() || m_TheModule.lookupSymbol(ctx->Identifier()->getText())
+        || ctx->Identifier()->getText() == "io")
       return VisitorParserReturn(ctx->Identifier()->getText());
     else {
       printf("[ Erro ] Symbol [%s] is not defined!\n", ctx->Identifier()->getText().c_str());

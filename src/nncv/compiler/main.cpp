@@ -164,6 +164,30 @@ int main(int argc, char* argv[]) {
     SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
     mlir::ParserConfig config(&MlirContext);
     MlirModule = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
+
+    ///< Below for NNCV
+    // Start to lower all
+    if (SetLowerTarget.empty()) { return 0; }
+
+    mlir::PassManager pm(MlirModule.get()->getName());
+
+    // ---------------------------------------------------------------------
+    //  Middle end. Register Some Pass for optimize and lowering.
+    // ---------------------------------------------------------------------
+    nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(&pm);
+    if (SetLowerTarget.getValue() == "HostWParallel") {
+      dnnModelLowerPipeline.setGenHostWParallel();
+    } else if (SetLowerTarget.getValue() == "HostWoParallel") {
+      dnnModelLowerPipeline.setGenHostWoParallel();
+    } else if (SetLowerTarget.getValue() == "NVPTX") {
+      dnnModelLowerPipeline.setGenNVPTX();
+    }
+    dnnModelLowerPipeline.registerAllPass();
+
+    // ---------------------------------------------------------------------
+    // Run all passes
+    // ---------------------------------------------------------------------
+    if (mlir::failed(pm.run(*MlirModule))) { return -1; }
   } else if (SuffixStr == "nvm") {
     if (!VmMode.getValue()) {
       printf("[ Erro ] The input is .nvm file, but -vm flag for nncv-c is not set\n");
@@ -179,30 +203,4 @@ int main(int argc, char* argv[]) {
       exit(-1);
     }
   }
-
-  // Start to lower all
-  if (SetLowerTarget.empty()) { return 0; }
-
-  mlir::PassManager pm(MlirModule.get()->getName());
-
-  // ---------------------------------------------------------------------
-  //  Middle end. Register Some Pass for optimize and lowering.
-  // ---------------------------------------------------------------------
-  nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(&pm);
-  if (SetLowerTarget.getValue() == "HostWParallel") {
-    dnnModelLowerPipeline.setGenHostWParallel();
-  } else if (SetLowerTarget.getValue() == "HostWoParallel") {
-    dnnModelLowerPipeline.setGenHostWoParallel();
-  } else if (SetLowerTarget.getValue() == "NVPTX") {
-    dnnModelLowerPipeline.setGenNVPTX();
-  }
-  dnnModelLowerPipeline.registerAllPass();
-
-  // ---------------------------------------------------------------------
-  // Run all passes
-  // ---------------------------------------------------------------------
-  if (mlir::failed(pm.run(*MlirModule))) { return -1; }
-
-  // for debug purpose
-  if (OnlyShowBuiltInMlir.getValue()) { MlirModule->dump(); }
 }

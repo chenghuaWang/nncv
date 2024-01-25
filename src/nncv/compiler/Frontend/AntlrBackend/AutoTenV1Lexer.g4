@@ -196,6 +196,8 @@ Map: 'map';
 
 Ellipsis: '...';
 
+Import: 'import';
+
 fragment Hexquad:
 	HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT;
 
