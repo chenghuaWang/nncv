@@ -760,6 +760,8 @@ class AtenCastOpLowering : public OpConversionPattern<aten::CastOp> {
         break;
       }
       case ::mlir::aten::CastPredicate::float_to_int: {
+        auto toNewType = getTypeConverter()->convertType(op.getType());
+        rewriter.replaceOpWithNewOp<mlir::arith::FPToSIOp>(op, toNewType, adaptor.getInput());
         break;
       }
       case ::mlir::aten::CastPredicate::floating: {
@@ -769,15 +771,21 @@ class AtenCastOpLowering : public OpConversionPattern<aten::CastOp> {
         break;
       }
       case ::mlir::aten::CastPredicate::int_to_float: {
+        auto toNewType = getTypeConverter()->convertType(op.getType());
+        rewriter.replaceOpWithNewOp<mlir::arith::SIToFPOp>(op, toNewType, adaptor.getInput());
         break;
       }
       case ::mlir::aten::CastPredicate::integral: {
         break;
       }
       case ::mlir::aten::CastPredicate::bool_to_mlir_i1: {
-        getTypeConverter()->convertType(adaptor.getInput().getType());
         rewriter.replaceOpWithNewOp<mlir::UnrealizedConversionCastOp>(
             op, /*resultT*/ rewriter.getI1Type(), adaptor.getInput());
+        break;
+      }
+      case ::mlir::aten::CastPredicate::mlir_index_to_int: {
+        auto toNewType = getTypeConverter()->convertType(op.getType());
+        rewriter.replaceOpWithNewOp<mlir::arith::IndexCastOp>(op, toNewType, adaptor.getInput());
         break;
       }
       default: break;

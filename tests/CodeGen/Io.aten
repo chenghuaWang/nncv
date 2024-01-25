@@ -36,6 +36,13 @@ func initEyeTensor(inplaceV Tensor<6, 6, float32>, value float32) {
     };
 };
 
+func fillTensor(inplaceV Tensor<6, 6, float32>, value float32) {
+    pfor (i:=0; 6; 1) {
+        pfor (j:=0; 6; 1) {
+            inplaceV[i, j] = 6.666;
+        };
+    };
+};
 
 func main() -> void {
     var lhs Tensor<6, 6, float32>;
@@ -48,6 +55,10 @@ func main() -> void {
     initTensor(dst);
 
     matmul(lhs, rhs, dst);
+
+    io.print(dst);
+
+    fillTensor(dst, 6.66666);
 
     io.print(dst);
 };

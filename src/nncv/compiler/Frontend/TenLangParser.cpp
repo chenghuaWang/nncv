@@ -412,38 +412,173 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
 
 // auto cast v1 type and v2 type to the same type.
 // !!! mlir::Index should be casted manully, not in this function !!!
+// castType:
+// 1-> In Binop
+// 2-> In AssignOp
 inline llvm::SmallVector<mlir::Value, 2> AutoTen2MlirVisitor::autoTypeCastSolver(mlir::Value& v1,
-                                                                                 mlir::Value& v2) {
+                                                                                 mlir::Value& v2,
+                                                                                 int32_t castType) {
   auto type1 = v1.getType();
   auto type2 = v2.getType();
 
+  if (castType == 2) {
+    if (type1.isa<mlir::MemRefType>()) {
+      type1 = type1.cast<mlir::MemRefType>().getElementType();
+    } else if (type1.isa<mlir::UnrankedMemRefType>()) {
+      type1 = type1.cast<mlir::UnrankedMemRefType>().getElementType();
+    } else if (type1.isa<mlir::aten::PointerType>()) {
+      type1 = type1.cast<mlir::aten::PointerType>().getPointee();
+    }
+  }
+
   llvm::SmallVector<mlir::Value> result;
 
-  // case 1. int32 and float32. case int32 to float32
-  if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::Float32Type>()) {
-    mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
-        v1.getLoc(), type2,
-        mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
-                                           mlir::aten::CastPredicate::int_to_float),
-        v1);
-    result.emplace_back(value);
-    result.emplace_back(v2);
-    return result;
-  }
-  if ((type1.isa<mlir::Float32Type>() && type2.isa<mlir::aten::IntType>())) {
-    mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
-        v2.getLoc(), type2,
-        mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
-                                           mlir::aten::CastPredicate::int_to_float),
-        v2);
-    result.emplace_back(v1);
-    result.emplace_back(value);
-    return result;
-  }
+  switch (castType) {
+    // case1 is bin op.
+    case 1: {
+      // case 1. int and float. <cast int to float>
+      if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::FloatType>()) {
+        printf("[ Warn ] Implicit conversion from [int] to [float] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type2,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            v1);
+        result.emplace_back(value);
+        result.emplace_back(v2);
+        return result;
+      }
+      if ((type1.isa<mlir::FloatType>() && type2.isa<mlir::aten::IntType>())) {
+        printf("[ Warn ] Implicit conversion from [int] to [float] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v2.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
 
-  // case 2.
-  // TODO
+      // case 2. index and int. <cast index to int>
+      if (type1.isa<mlir::IndexType>() && type2.isa<mlir::aten::IntType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [int] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type2,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v1);
+        result.emplace_back(value);
+        result.emplace_back(v2);
+        return result;
+      }
+      if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::IndexType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [int] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v2.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
 
+      // case 3. index and float. <cast index to float>
+      if (type1.isa<mlir::IndexType>() && type2.isa<mlir::FloatType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [float] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), mlir::aten::IntType::get(m_OpBuilder.getContext(), 64, true),
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v1);
+        auto value2 = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type2,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            value);
+        result.emplace_back(value2);
+        result.emplace_back(v2);
+        return result;
+      }
+      if (type1.isa<mlir::FloatType>() && type2.isa<mlir::IndexType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [float] in binary Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v2.getLoc(), mlir::aten::IntType::get(m_OpBuilder.getContext(), 64, true),
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v2);
+        auto value2 = m_OpBuilder.create<mlir::aten::CastOp>(
+            v2.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            value);
+        result.emplace_back(v1);
+        result.emplace_back(value2);
+        return result;
+      }
+      break;
+    }
+    case 2: {
+      // case 1. float Assign int. <cast int to float>
+      if (type1.isa<mlir::FloatType>() && type2.isa<mlir::aten::IntType>()) {
+        printf("[ Warn ] Implicit conversion from [int] to [float] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
+      // case 2. int Assign float. <cast float to int>
+      if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::FloatType>()) {
+        printf("[ Warn ] Implicit conversion from [float] to [int] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::float_to_int),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
+      // case 3. int Assign Index. <cast Index to int>
+      if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::IndexType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [int] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
+      // case 4. float Assign Index. <cast Index to float>
+      if (type1.isa<mlir::FloatType>() && type2.isa<mlir::IndexType>()) {
+        printf("[ Warn ] Implicit conversion from [Index] to [float] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), mlir::aten::IntType::get(m_OpBuilder.getContext(), 64, true),
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_index_to_int),
+            v2);
+        auto value2 = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::int_to_float),
+            value);
+        result.emplace_back(v1);
+        result.emplace_back(value2);
+        return result;
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
   result.emplace_back(v1);
   result.emplace_back(v2);
   return result;
@@ -928,6 +1063,11 @@ std::any AutoTen2MlirVisitor::visitAssignment(AutoTenV1Parser::AssignmentContext
 
   auto rhs =
       std::any_cast<VisitorParserReturn>(visit(ctx->expressionList()[1])).getValue<mlir::Value>();
+
+  // auto assgin type casting
+  auto newValues = autoTypeCastSolver(lhs, rhs, /*assign code is 2*/ 2);
+  lhs = newValues[0];
+  rhs = newValues[1];
 
   if (!lhs.getType().isa<mlir::MemRefType>()) {
     m_OpBuilder.create<mlir::aten::StoreOp>(location, rhs, lhs);
@@ -1968,6 +2108,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Value rhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
+    // auto assgin type casting
+    auto newValues = autoTypeCastSolver(lhsValue, rhsValue, /*bin op code is 1*/ 1);
+    lhsValue = newValues[0];
+    rhsValue = newValues[1];
+
     mlir::Location location = loc(ctx->mul_op->getLine(), ctx->mul_op->getCharPositionInLine());
 
     if (mulOpType == m_Lexer.Star) {
@@ -2016,6 +2161,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Value rhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
+    // auto assgin type casting
+    auto newValues = autoTypeCastSolver(lhsValue, rhsValue, /*bin op code is 1*/ 1);
+    lhsValue = newValues[0];
+    rhsValue = newValues[1];
+
     mlir::Location location = loc(ctx->add_op->getLine(), ctx->add_op->getCharPositionInLine());
     if (addOpType == m_Lexer.Plus) {
       mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
@@ -2055,6 +2205,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
     mlir::Value rhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
+
+    // auto assgin type casting
+    auto newValues = autoTypeCastSolver(lhsValue, rhsValue, /*bin op code is 1*/ 1);
+    lhsValue = newValues[0];
+    rhsValue = newValues[1];
 
     mlir::Location location = loc(ctx->rel_op->getLine(), ctx->rel_op->getCharPositionInLine());
 
@@ -2110,6 +2265,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
     mlir::Value rhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
 
+    // auto assgin type casting
+    auto newValues = autoTypeCastSolver(lhsValue, rhsValue, /*bin op code is 1*/ 1);
+    lhsValue = newValues[0];
+    rhsValue = newValues[1];
+
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());
 
@@ -2127,6 +2287,11 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
     mlir::Value rhsValue =
         std::any_cast<VisitorParserReturn>(visit(ctx->expression()[1])).getValue<mlir::Value>();
+
+    // auto assgin type casting
+    auto newValues = autoTypeCastSolver(lhsValue, rhsValue, /*bin op code is 1*/ 1);
+    lhsValue = newValues[0];
+    rhsValue = newValues[1];
 
     mlir::Location location = loc(ctx->AndAnd()->getSymbol()->getLine(),
                                   ctx->AndAnd()->getSymbol()->getCharPositionInLine());

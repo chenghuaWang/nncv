@@ -155,6 +155,13 @@ LogicalResult CastOp::verify() {
       }
       return success();
     }
+    case aten::CastPredicate::mlir_index_to_int: {
+      if (!inputType.dyn_cast<mlir::IndexType>() && !resType.dyn_cast<mlir::IntegerType>()) {
+        return emitOpError()
+               << "requires mlir::IndexType for input and mlir::IntegerType for result";
+      }
+      return success();
+    }
   }
   llvm_unreachable("Unknown Cast way!");
 }

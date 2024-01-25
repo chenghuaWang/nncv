@@ -23,6 +23,10 @@ class NncvJit {
   inline void setFilePath(const std::string& file_path) { m_FilePath = file_path; }
 
   bool run(const std::string& entry_point = "main");
+  inline void setModuleOp(mlir::OwningOpRef<mlir::ModuleOp>* module) {
+    m_DirectlyRunModule = module;
+    m_isDirectlyRun = true;
+  }
 
  private:
   bool init();
@@ -30,7 +34,10 @@ class NncvJit {
  private:
   std::string m_FilePath;
   mlir::OwningOpRef<mlir::ModuleOp> m_Module;
+  mlir::OwningOpRef<mlir::ModuleOp>* m_DirectlyRunModule = nullptr;
   std::vector<std::string> m_Libs;
+
+  bool m_isDirectlyRun = false;
 };
 
 }  // namespace runner

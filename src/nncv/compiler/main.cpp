@@ -152,6 +152,19 @@ int main(int argc, char* argv[]) {
     }
     ablp.run();
 
+    if (RunDirectly.getValue()) {
+      // the code follow is for run aten's llvm ir in jit
+      nncv::runner::NncvJit Jit;
+      // set module
+      Jit.setModuleOp(&MlirModule);
+      // Run jit
+      if (Jit.run()) {
+        exit(0);
+      } else {
+        exit(-1);
+      }
+    }
+
   } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
     std::string ErrorMessage;
     auto __file = mlir::openInputFile(CurFilePath, &ErrorMessage);
