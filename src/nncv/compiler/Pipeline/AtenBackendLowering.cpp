@@ -33,11 +33,13 @@ void AtenBackendLoweringPipeline::run() {
       }
       exit(0);
     } else {
-      if (!m_OutputFilePath.empty()) {
-        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-      } else {
-        std::string filePath = "a.nvm";
-        compiler::utils::SaveMlirModuleToFile(m_Module, filePath);
+      if (!m_DierctlyRun) {
+        if (!m_OutputFilePath.empty()) {
+          compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+        } else {
+          std::string filePath = "a.nvm";
+          compiler::utils::SaveMlirModuleToFile(m_Module, filePath);
+        }
       }
     }
   } else if (m_isNVPTX && !m_isNative) {

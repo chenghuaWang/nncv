@@ -143,6 +143,7 @@ int main(int argc, char* argv[]) {
     nncv::compiler::pipeline::AtenBackendLoweringPipeline ablp(MlirContext, MlirModule);
     if (!OutputFilename.getValue().empty()) { ablp.setOutputFilePath(OutputFilename.getValue()); }
     ablp.setShowLlvmIR(OnlyShowLlvmIR.getValue());
+    ablp.setDierectlyRun(RunDirectly.getValue());
     if (SetLowerTarget.getValue() == "NVPTX") {
       ablp.setGenNative(false);
       ablp.setGenNVPTX(true);

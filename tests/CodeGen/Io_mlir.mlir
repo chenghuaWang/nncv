@@ -48,17 +48,29 @@ module @__main {
     }
     return
   }
+  func.func private @fillTensor(%arg0: memref<6x6xf32>, %arg1: f32) {
+    %cst = arith.constant 6.666000e+00 : f32
+    affine.for %arg2 = 0 to 6 {
+      affine.for %arg3 = 0 to 6 {
+        memref.store %cst, %arg0[%arg2, %arg3] : memref<6x6xf32>
+      }
+    }
+    return
+  }
   func.func private @main() {
-    %cst = arith.constant 3.000000e+00 : f32
-    %cst_0 = arith.constant 2.000000e+00 : f32
+    %cst = arith.constant 6.666660e+00 : f32
+    %cst_0 = arith.constant 3.000000e+00 : f32
+    %cst_1 = arith.constant 2.000000e+00 : f32
     %alloc = memref.alloc() : memref<6x6xf32>
-    %alloc_1 = memref.alloc() : memref<6x6xf32>
     %alloc_2 = memref.alloc() : memref<6x6xf32>
-    call @initEyeTensor(%alloc, %cst_0) : (memref<6x6xf32>, f32) -> ()
-    call @initEyeTensor(%alloc_1, %cst) : (memref<6x6xf32>, f32) -> ()
-    call @initTensor(%alloc_2) : (memref<6x6xf32>) -> ()
-    call @matmul(%alloc, %alloc_1, %alloc_2) : (memref<6x6xf32>, memref<6x6xf32>, memref<6x6xf32>) -> ()
-    %cast = memref.cast %alloc_2 : memref<6x6xf32> to memref<*xf32>
+    %alloc_3 = memref.alloc() : memref<6x6xf32>
+    call @initEyeTensor(%alloc, %cst_1) : (memref<6x6xf32>, f32) -> ()
+    call @initEyeTensor(%alloc_2, %cst_0) : (memref<6x6xf32>, f32) -> ()
+    call @initTensor(%alloc_3) : (memref<6x6xf32>) -> ()
+    call @matmul(%alloc, %alloc_2, %alloc_3) : (memref<6x6xf32>, memref<6x6xf32>, memref<6x6xf32>) -> ()
+    %cast = memref.cast %alloc_3 : memref<6x6xf32> to memref<*xf32>
+    call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
+    call @fillTensor(%alloc_3, %cst) : (memref<6x6xf32>, f32) -> ()
     call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
     return
   }
