@@ -1,5 +1,5 @@
 # NNCV
-Neural Networks Inference&Compiling Framework for Computer Vision(NNCV).
+Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 
 **:exclamation::exclamation::exclamation:This is a personal project for practicing purpose:exclamation::exclamation::exclamation:** 
 
@@ -8,13 +8,13 @@ Neural Networks Inference&Compiling Framework for Computer Vision(NNCV).
 
 ## nncv's lang
 
-nncv provides a small programming language called aten-lang(The aten for nncv is different from the aten for torch. :joy: ). It use antlr as its frontend(lexer/parser), mlir/llvm as its backend. nncv defined a `aten dialect` as its high-level IR, and use mlir's downstream dialects as its low-level IR. You can use the command below to run a aten file.
+nncv provides a small programming language called aten-lang(The aten for nncv is different from the aten for torch. :joy: ). It use antlr as its frontend(lexer/parser), mlir/llvm as its backend. nncv defined a `aten dialect` as its high-level IR, and use mlir's downstream dialects as its low-level IR. You can use the command below to run an aten file.
 
 ```sh
 nncv-c -run example.aten
 ```
 
-The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scope to `affine.for` in mlir. Such as:
+The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
 
 ```aten
 @package = "main";
