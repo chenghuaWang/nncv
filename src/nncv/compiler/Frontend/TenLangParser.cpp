@@ -30,6 +30,22 @@ void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
   auto extraEx = mlir::aten::ExtFuncAttr::get(builder.getContext(),
                                               funcFlags.genDictAttrs(builder.getContext()));
 
+  // f64
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getF64Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefF64", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
   // f32
   {
     auto UrankT = mlir::UnrankedMemRefType::get(builder.getF32Type(), 0);
@@ -45,6 +61,76 @@ void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
     mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
     op.setPrivate();
   }
+
+  // f16
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getF16Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefF16", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // I64
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getI64Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefI64", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // I32
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getI32Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefI32", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // I16
+  {
+    auto UrankT = mlir::UnrankedMemRefType::get(builder.getI16Type(), 0);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printMemrefI16", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // Integer in mlir
+  {}
+
+  // float in mlir
+  {}
 }
 
 void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
@@ -54,13 +140,92 @@ void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
     // cast memref to unranked
     auto castedV = builder.create<mlir::memref::CastOp>(
         loc, mlir::UnrankedMemRefType::get(vT.cast<mlir::MemRefType>().getElementType(), 0), vr[0]);
-    // if is float32
+    // if is float64
     if (mlir::isa<mlir::FloatType>(vT.cast<mlir::MemRefType>().getElementType())
-        || vT.cast<mlir::MemRefType>().getElementType().cast<mlir::FloatType>().getWidth() == 32) {
-      auto funcOp = mlir::cast<mlir::aten::FuncOp>(module.lookupSymbol("printMemrefF32"));
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::FloatType>().getWidth() == 64) {
+      auto funcPtr = module.lookupSymbol("printMemrefF64");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefF64] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
       auto args = mlir::ValueRange{castedV};
 
       builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
+    }
+    // if is float32
+    if (mlir::isa<mlir::FloatType>(vT.cast<mlir::MemRefType>().getElementType())
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::FloatType>().getWidth() == 32) {
+      auto funcPtr = module.lookupSymbol("printMemrefF32");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefF32] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
+    }
+    // if is float16
+    if (mlir::isa<mlir::FloatType>(vT.cast<mlir::MemRefType>().getElementType())
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::FloatType>().getWidth() == 16) {
+      auto funcPtr = module.lookupSymbol("printMemrefF16");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefF16] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
+    }
+    // if is int64
+    if (mlir::isa<mlir::IntegerType>(vT.cast<mlir::MemRefType>().getElementType())
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::IntegerType>().getWidth()
+               == 64) {
+      auto funcPtr = module.lookupSymbol("printMemrefI64");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefI64] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
+    }
+    // if is int32
+    if (mlir::isa<mlir::IntegerType>(vT.cast<mlir::MemRefType>().getElementType())
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::IntegerType>().getWidth()
+               == 32) {
+      auto funcPtr = module.lookupSymbol("printMemrefI32");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefI32] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
+    }
+    // if is int64
+    if (mlir::isa<mlir::IntegerType>(vT.cast<mlir::MemRefType>().getElementType())
+        && vT.cast<mlir::MemRefType>().getElementType().cast<mlir::IntegerType>().getWidth()
+               == 16) {
+      auto funcPtr = module.lookupSymbol("printMemrefI16");
+      if (!funcPtr) {
+        printf("[ Erro ] Function Symbol [printMemrefI16] not found. you should import \"io\"\n");
+        exit(-1);
+      }
+      auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+      auto args = mlir::ValueRange{castedV};
+
+      builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+      return;
     }
   }
 }

@@ -365,6 +365,16 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
     auto oldType = adaptor.getLhs().getType();
     auto integerType = mlir::IntegerType::get(getContext(), 1, mlir::IntegerType::Signless);
 
+    auto lhsV = adaptor.getLhs();
+    auto rhsV = adaptor.getRhs();
+
+    if (mlir::isa<mlir::IndexType>(oldType)) {
+      lhsV = rewriter.create<mlir::arith::IndexCastOp>(op->getLoc(), rewriter.getI64Type(),
+                                                       adaptor.getLhs());
+      rhsV = rewriter.create<mlir::arith::IndexCastOp>(op->getLoc(), rewriter.getI64Type(),
+                                                       adaptor.getRhs());
+    }
+
     mlir::Value newResult;
     switch (op.getPredicate()) {
       case mlir::aten::CmpOpPredicate::lt: {
@@ -372,13 +382,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ult),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::ULT),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ult),
+              lhsV, rhsV);
         }
         break;
       }
@@ -387,13 +402,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ule),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::ULE),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ule),
+              lhsV, rhsV);
         }
         break;
       }
@@ -402,13 +422,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ugt),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UGT),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ugt),
+              lhsV, rhsV);
         }
         break;
       }
@@ -417,13 +442,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::uge),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UGE),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::uge),
+              lhsV, rhsV);
         }
         break;
       }
@@ -432,13 +462,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::eq),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UEQ),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::eq),
+              lhsV, rhsV);
         }
         break;
       }
@@ -447,13 +482,18 @@ class AtenCmpOpLowering : public OpConversionPattern<aten::CmpOp> {
           newResult = rewriter.create<mlir::arith::CmpIOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ne),
-              adaptor.getLhs(), adaptor.getRhs());
+              lhsV, rhsV);
         } else if (oldType.isa<mlir::FloatType>()) {
           newResult = rewriter.create<mlir::arith::CmpFOp>(
               op.getLoc(), integerType,
               mlir::arith::CmpFPredicateAttr::get(getContext(), mlir::arith::CmpFPredicate::UNE),
-              adaptor.getLhs(), adaptor.getRhs(),
+              lhsV, rhsV,
               mlir::arith::FastMathFlagsAttr::get(getContext(), mlir::arith::FastMathFlags::none));
+        } else if (oldType.isa<mlir::IndexType>()) {
+          newResult = rewriter.create<mlir::arith::CmpIOp>(
+              op.getLoc(), integerType,
+              mlir::arith::CmpIPredicateAttr::get(getContext(), mlir::arith::CmpIPredicate::ne),
+              lhsV, rhsV);
         }
         break;
       }

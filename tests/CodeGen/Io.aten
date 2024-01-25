@@ -1,15 +1,53 @@
+/**
+ * author: chenghua.wang (chenghua.wang.edu@gmail.com)
+ * brief: test aten-lang frontend code generation
+ */
 @package = "main";
 
 import "io";
 
-func main() {
-    var c Tensor<6, 6, float32>;
-
-    for (i:=0; i < 6; i++) {
-        for (j:=0; j < 6; j++) {
-            c[i, j] = 6.0;
+func matmul(lhs Tensor<6, 6, float32>, rhs Tensor<6, 6, float32>, dst Tensor<6, 6, float32>) {
+    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/6; /*step*/ 1) {
+        pfor (j := 0; 6; 1) {
+            pfor (k := 0; 6; 1) {
+                dst[i, j] = dst[i, j] + lhs[i, k] * rhs[k, j]; // do 
+            };
         };
     };
+};
 
-    io.print(c);
+func initTensor(inplaceV Tensor<6, 6, float32>) {
+    pfor (i:=0; 6; 1) {
+        pfor (j:=0; 6; 1) {
+            inplaceV[i, j] = 0.0;
+        };
+    };
+};
+
+func initEyeTensor(inplaceV Tensor<6, 6, float32>, value float32) {
+    pfor (i:=0; 6; 1) {
+        pfor (j:=0; 6; 1) {
+            if (i == j) {
+                inplaceV[i, j] = value;
+            } else {
+                inplaceV[i, j] = 0.0;
+            };
+        };
+    };
+};
+
+
+func main() -> void {
+    var lhs Tensor<6, 6, float32>;
+    var rhs Tensor<6, 6, float32>;
+    var dst Tensor<6, 6, float32>;
+
+    // init all
+    initEyeTensor(lhs, 2.0);
+    initEyeTensor(rhs, 3.0);
+    initTensor(dst);
+
+    matmul(lhs, rhs, dst);
+
+    io.print(dst);
 };

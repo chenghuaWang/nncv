@@ -1,0 +1,60 @@
+module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @matmul(%arg0: memref<6x6xf32>, %arg1: memref<6x6xf32>, %arg2: memref<6x6xf32>) {
+    affine.for %arg3 = 0 to 6 {
+      affine.for %arg4 = 0 to 6 {
+        affine.for %arg5 = 0 to 6 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<6x6xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<6x6xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<6x6xf32>
+          %3 = Aten.binop(mul, %1, %2) : f32
+          %4 = Aten.binop(add, %0, %3) : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<6x6xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @initTensor(%arg0: memref<6x6xf32>) {
+    %0 = Aten.const(0.000000e+00 : f32) : f32
+    affine.for %arg1 = 0 to 6 {
+      affine.for %arg2 = 0 to 6 {
+        memref.store %0, %arg0[%arg1, %arg2] : memref<6x6xf32>
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @initEyeTensor(%arg0: memref<6x6xf32>, %arg1: f32) {
+    %0 = Aten.const(0.000000e+00 : f32) : f32
+    affine.for %arg2 = 0 to 6 {
+      affine.for %arg3 = 0 to 6 {
+        %1 = Aten.cmp(eq, %arg2, %arg3) : index, !Aten.bool
+        Aten.if %1 then{
+          memref.store %arg1, %arg0[%arg2, %arg3] : memref<6x6xf32>
+        } else {
+          memref.store %0, %arg0[%arg2, %arg3] : memref<6x6xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(3.000000e+00 : f32) : f32
+    %1 = Aten.const(2.000000e+00 : f32) : f32
+    %alloc = memref.alloc() : memref<6x6xf32>
+    %alloc_0 = memref.alloc() : memref<6x6xf32>
+    %alloc_1 = memref.alloc() : memref<6x6xf32>
+    Aten.call @initEyeTensor(%alloc, %1) : (memref<6x6xf32>, f32) -> ()
+    Aten.call @initEyeTensor(%alloc_0, %0) : (memref<6x6xf32>, f32) -> ()
+    Aten.call @initTensor(%alloc_1) : (memref<6x6xf32>) -> ()
+    Aten.call @matmul(%alloc, %alloc_0, %alloc_1) : (memref<6x6xf32>, memref<6x6xf32>, memref<6x6xf32>) -> ()
+    %cast = memref.cast %alloc_1 : memref<6x6xf32> to memref<*xf32>
+    Aten.call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
+    Aten.return
+  }
+}
