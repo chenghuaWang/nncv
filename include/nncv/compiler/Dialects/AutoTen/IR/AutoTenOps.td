@@ -62,6 +62,8 @@ def Aten_IntegralToFloat : I32EnumAttrCase<"int_to_float", 9>;
 def Aten_IntToMlirIndex : I32EnumAttrCase<"int_to_mlir_index", 10>;
 def Aten_BoolToMlirI1 : I32EnumAttrCase<"bool_to_mlir_i1", 11>;
 def Aten_MlirIndexToIndex : I32EnumAttrCase<"mlir_index_to_int", 12>;
+def Aten_MlirIntToAtenInt : I32EnumAttrCase<"mlir_int_to_aten_int", 13>;
+def Aten_AtenIntToMlirInt : I32EnumAttrCase<"aten_int_to_mlir_int", 14>;
 
 def CastPrdicate : I32EnumAttr<
     "CastPredicate",
@@ -79,6 +81,8 @@ def CastPrdicate : I32EnumAttr<
     Aten_IntToMlirIndex,
     Aten_BoolToMlirI1,
     Aten_MlirIndexToIndex,
+    Aten_MlirIntToAtenInt,
+    Aten_AtenIntToMlirInt,
 ]> {
   let cppNamespace = "::mlir::aten";
 }

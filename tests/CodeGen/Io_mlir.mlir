@@ -33,8 +33,8 @@ module @__main {
     %c0_i8 = arith.constant 0 : i8
     %cst = arith.constant 0.000000e+00 : f32
     affine.for %arg2 = 0 to 6 {
+      %0 = arith.index_cast %arg2 : index to i64
       affine.for %arg3 = 0 to 6 {
-        %0 = arith.index_cast %arg2 : index to i64
         %1 = arith.index_cast %arg3 : index to i64
         %2 = arith.cmpi eq, %0, %1 : i64
         %3 = arith.extui %2 : i1 to i8

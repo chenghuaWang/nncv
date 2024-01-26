@@ -46,10 +46,6 @@ module @__main {
     scf.if %2 {
       %4 = arith.addi %arg0, %arg1 : i32
       memref.store %4, %alloca[] : memref<i32>
-      %alloca_0 = memref.alloca() {alignment = 4 : i64} : memref<i32>
-      %5 = memref.load %alloca[] : memref<i32>
-      %6 = arith.addi %5, %arg1 : i32
-      memref.store %6, %alloca_0[] : memref<i32>
     }
     %3 = memref.load %alloca[] : memref<i32>
     return %3 : i32

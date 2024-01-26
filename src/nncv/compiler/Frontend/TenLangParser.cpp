@@ -573,6 +573,30 @@ inline llvm::SmallVector<mlir::Value, 2> AutoTen2MlirVisitor::autoTypeCastSolver
         result.emplace_back(value2);
         return result;
       }
+      // case 5. int Assign Aten int. <cast Aten int to int>
+      if (type1.isa<mlir::IntegerType>() && type2.isa<mlir::aten::IntType>()) {
+        printf("[ Warn ] Implicit conversion from [aten int] to [int] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::aten_int_to_mlir_int),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
+      // case 6. aten int Assign int. <cast int to aten int>
+      if (type1.isa<mlir::aten::IntType>() && type2.isa<mlir::IntegerType>()) {
+        printf("[ Warn ] Implicit conversion from [int] to [aten int] in Assign Op\n");
+        mlir::Value value = m_OpBuilder.create<mlir::aten::CastOp>(
+            v1.getLoc(), type1,
+            mlir::aten::CastPredicateAttr::get(m_OpBuilder.getContext(),
+                                               mlir::aten::CastPredicate::mlir_int_to_aten_int),
+            v2);
+        result.emplace_back(v1);
+        result.emplace_back(value);
+        return result;
+      }
       break;
     }
     default: {
@@ -1156,7 +1180,11 @@ std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
         [&](mlir::OpBuilder& builder, mlir::Location loc) {
           Ps.PushIfStmt();
           m_curSymbolTable->createVarSymbolTableOnTop();
-          visit(ctx->block()[1]);
+          if (ctx->block().size() == 2) {
+            visit(ctx->block()[1]);
+          } else {
+            visit(ctx->ifStmt());
+          }
           m_curSymbolTable->deleteVarSymbolTableOnTop();
           if (!Ps.IsIfHadTerminated()) { builder.create<mlir::aten::YieldOp>(loc); }
           Ps.Pop();
@@ -1786,7 +1814,7 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
   // case 9. declare Tensor type(MemRef)
   if (type.isa<mlir::MemRefType>()) {
     mlir::Value value =
-        m_OpBuilder.create<mlir::memref::AllocOp>(location, type.dyn_cast<mlir::MemRefType>());
+        m_OpBuilder.create<mlir::memref::AllocOp>(location, type.cast<mlir::MemRefType>());
     m_curSymbolTable->registerVarSymbol(symbolName, value, utils::VarSymbolKind::kNormal);
   } else if (type.isa<mlir::UnrankedMemRefType>()) {
     // TODO

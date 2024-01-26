@@ -1,0 +1,21 @@
+@package = "main";
+
+import "io";
+
+func QuickPow(a int32, n int32) -> int32 {
+  res := 0;
+  if (n == 0) {
+    res = 1;
+  } else if (n%2 == 1) {
+    res = QuickPow(a, n-1) * a;
+  } else {
+    temp := QuickPow(a, n/2);
+    res = temp * temp;
+  };
+  return res;
+};
+
+func main() {
+  res := QuickPow(2, 10);
+  io.print(res);
+};

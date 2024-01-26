@@ -162,6 +162,20 @@ LogicalResult CastOp::verify() {
       }
       return success();
     }
+    case aten::CastPredicate::mlir_int_to_aten_int: {
+      if (!inputType.dyn_cast<mlir::IntegerType>() && !resType.dyn_cast<mlir::aten::IntType>()) {
+        return emitOpError()
+               << "requires mlir::IntegerType for input and mlir::aten::IntType for result";
+      }
+      return success();
+    }
+    case aten::CastPredicate::aten_int_to_mlir_int: {
+      if (!inputType.dyn_cast<mlir::aten::IntType>() && !resType.dyn_cast<mlir::IntegerType>()) {
+        return emitOpError()
+               << "requires mlir::aten::IntType for input and mlir::IntType for result";
+      }
+      return success();
+    }
   }
   llvm_unreachable("Unknown Cast way!");
 }
@@ -553,6 +567,11 @@ static LogicalResult __checkReturnAndFunction(ReturnOp op, aten::FuncOp function
 
 LogicalResult ReturnOp::verify() {
   auto* fnOp = getOperation()->getParentOp();
+  while (fnOp) {
+    if (mlir::isa<aten::FuncOp>(fnOp)) { break; }
+    fnOp = fnOp->getParentOp();
+  }
+  if (fnOp == nullptr) { fnOp = getOperation()->getParentOp(); }
   if (__checkReturnAndFunction(*this, cast<aten::FuncOp>(fnOp)).failed()) { return failure(); }
 
   return success();

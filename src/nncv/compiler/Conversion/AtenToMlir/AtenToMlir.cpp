@@ -788,6 +788,14 @@ class AtenCastOpLowering : public OpConversionPattern<aten::CastOp> {
         rewriter.replaceOpWithNewOp<mlir::arith::IndexCastOp>(op, toNewType, adaptor.getInput());
         break;
       }
+      case ::mlir::aten::CastPredicate::mlir_int_to_aten_int: {
+        rewriter.replaceOp(op, adaptor.getInput());
+        break;
+      }
+      case ::mlir::aten::CastPredicate::aten_int_to_mlir_int: {
+        rewriter.replaceOp(op, adaptor.getInput());
+        break;
+      }
       default: break;
     }
 

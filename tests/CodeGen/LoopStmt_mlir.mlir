@@ -46,7 +46,6 @@ module @__main {
   }
   func.func private @testLoopWithEmpty() {
     %c1_i32 = arith.constant 1 : i32
-    %c10_i32 = arith.constant 10 : i32
     %c100_i32 = arith.constant 100 : i32
     %c0_i32 = arith.constant 0 : i32
     %alloca = memref.alloca() {alignment = 4 : i64} : memref<i32>
@@ -56,22 +55,9 @@ module @__main {
       %1 = arith.cmpi ult, %0, %c100_i32 : i32
       scf.condition(%1)
     } do {
-      %alloca_1 = memref.alloca() {alignment = 4 : i64} : memref<i32>
-      memref.store %c0_i32, %alloca_1[] : memref<i32>
       %0 = memref.load %alloca[] : memref<i32>
       %1 = arith.addi %0, %c1_i32 : i32
       memref.store %1, %alloca[] : memref<i32>
-      scf.yield
-    }
-    %alloca_0 = memref.alloca() {alignment = 4 : i64} : memref<i32>
-    memref.store %c10_i32, %alloca_0[] : memref<i32>
-    scf.while : () -> () {
-      %0 = memref.load %alloca_0[] : memref<i32>
-      %1 = arith.cmpi ugt, %0, %c0_i32 : i32
-      scf.condition(%1)
-    } do {
-      %alloca_1 = memref.alloca() {alignment = 4 : i64} : memref<i32>
-      memref.store %c0_i32, %alloca_1[] : memref<i32>
       scf.yield
     }
     return
@@ -87,8 +73,6 @@ module @__main {
       %1 = arith.cmpi ne, %0, %c0_i32 : i32
       scf.condition(%1)
     } do {
-      %alloca_0 = memref.alloca() {alignment = 4 : i64} : memref<i32>
-      memref.store %c0_i32, %alloca_0[] : memref<i32>
       %0 = memref.load %alloca[] : memref<i32>
       %1 = arith.subi %0, %c1_i32 : i32
       memref.store %1, %alloca[] : memref<i32>

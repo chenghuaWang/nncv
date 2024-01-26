@@ -113,6 +113,8 @@ add_llvm_executable(nncv-c
 set(LinkedLibs
 
     # common libs
+    MLIRObservers
+    MLIRSupport
     MLIRAnalysis
     MLIRBuiltinToLLVMIRTranslation
     MLIRCallInterfaces
@@ -136,6 +138,15 @@ set(LinkedLibs
     MLIRPDLDialect
     MLIRPDLInterpDialect
     MLIRControlFlowDialect
+    MLIRPluginsLib
+    MLIRBufferizationDialect
+    MLIRBufferizationPipelines
+    MLIRBufferizationToMemRef
+    MLIRBufferizationTransformOps
+    MLIRBufferizationTransforms
+    MLIRIRDL
+    MLIRMemRefTransforms
+    MLIRMemRefUtils
 
     # NNCV Libs
     # dialect itself

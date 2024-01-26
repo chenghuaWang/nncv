@@ -1,4 +1,7 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
+#include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 #include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
@@ -46,6 +49,7 @@ void FrontendPipeline::run() {
     // High level aten ir optimization
     {
       mlir::nncv::aten::createAtenLangHighLevelOptimizePipeline(pm);
+      pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
         printf("[ Erro ] When doing aten-lang [high level optimization]\n");
@@ -80,6 +84,7 @@ void FrontendPipeline::run() {
       // Closure
       pm.clear();
       pm.addPass(mlir::nncv::createConvertAtenToMlirPass(true));
+      pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
 
       if (mlir::failed(pm.run(*m_Module))) {
@@ -92,6 +97,8 @@ void FrontendPipeline::run() {
     {
       pm.clear();
       pm.addPass(mlir::nncv::aten::createEliminateRedundantLoadStoreForScfConditionalPass());
+      pm.addPass(mlir::createLoopInvariantCodeMotionPass());
+      pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
         printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
@@ -99,6 +106,16 @@ void FrontendPipeline::run() {
         exit(-1);
       }
     }
+    // deallocation
+    // {
+    //   pm.clear();
+    //   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+    //   if (mlir::failed(pm.run(*m_Module))) {
+    //     printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
+    //            "at auto deallocation\n");
+    //     exit(-1);
+    //   }
+    // }
     if (m_genBuiltinMlir) {
       if (!m_OutputFilePath.empty()) {
         compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);

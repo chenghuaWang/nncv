@@ -1,0 +1,46 @@
+module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @QuickPow(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.const(#Aten.int<2> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["res"] {alignment = 4 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %4 = Aten.cmp(eq, %arg1, %2) : !Aten.int<s, 32>, !Aten.bool
+    Aten.if %4 then{
+      Aten.store %1, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    } else {
+      %6 = Aten.binop(Mod, %arg1, %0) : !Aten.int<s, 32>
+      %7 = Aten.cmp(eq, %6, %1) : !Aten.int<s, 32>, !Aten.bool
+      Aten.if %7 then{
+        %8 = Aten.binop(sub, %arg1, %1) : !Aten.int<s, 32>
+        %9 = Aten.call @QuickPow(%arg0, %8) : (!Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+        %10 = Aten.binop(mul, %9, %arg0) : !Aten.int<s, 32>
+        Aten.store %10, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      } else {
+        %8 = Aten.binop(div, %arg1, %0) : !Aten.int<s, 32>
+        %9 = Aten.call @QuickPow(%arg0, %8) : (!Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+        %10 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["temp"] {alignment = 4 : i64}
+        Aten.store %9, %10 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+        %11 = Aten.load %10 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %12 = Aten.binop(mul, %11, %11) : !Aten.int<s, 32>
+        Aten.store %12, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      }
+    }
+    %5 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    Aten.return %5 : !Aten.int<s, 32>
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(#Aten.int<2> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<10> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.call @QuickPow(%0, %1) : (!Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+    %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["res"] {alignment = 4 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    Aten.return
+  }
+}
