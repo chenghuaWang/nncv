@@ -295,11 +295,21 @@ class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
         break;
       }
       case mlir::aten::BinOpPredicate::LogicAnd: {
-        // TODO
+        // l-bool and r-bool
+        mlir::Value andV = rewriter.replaceOpWithNewOp<mlir::arith::AndIOp>(op, adaptor.getLhs(),
+                                                                            adaptor.getRhs());
+
+        // trunci to i1
+        rewriter.create<mlir::arith::TruncIOp>(op.getLoc(), rewriter.getI1Type(), andV);
         break;
       }
       case mlir::aten::BinOpPredicate::LogicOr: {
-        // TODO
+        // l-bool and r-bool
+        mlir::Value andV =
+            rewriter.replaceOpWithNewOp<mlir::arith::OrIOp>(op, adaptor.getLhs(), adaptor.getRhs());
+
+        // trunci to i1
+        rewriter.create<mlir::arith::TruncIOp>(op.getLoc(), rewriter.getI1Type(), andV);
         break;
       }
     }
@@ -634,15 +644,19 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
             mlir::Value oldCondValue;
             if (storeOp) {
               auto allocaOp = storeOp->getPrevNode();
-              auto extuiOp = allocaOp->getPrevNode();
-              auto cmpiOp = extuiOp->getPrevNode();
-              if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
-                  || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
-                oldCondValue = cmpiOp->getResults()[0];
+              auto extuiOrTrunciOp = allocaOp->getPrevNode();
+              if (mlir::isa<mlir::arith::TruncIOp>(extuiOrTrunciOp)) {
+                oldCondValue = extuiOrTrunciOp->getResults()[0];
               } else {
-                printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
-                       "arith.cmp op\n");
-                exit(-1);
+                auto cmpiOp = extuiOrTrunciOp->getPrevNode();
+                if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
+                    || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
+                  oldCondValue = cmpiOp->getResults()[0];
+                } else {
+                  printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                         "arith.cmp op\n");
+                  exit(-1);
+                }
               }
 
             } else {
@@ -695,15 +709,19 @@ class AtenLoopOpLowering : public OpConversionPattern<aten::LoopOp> {
             mlir::Value oldCondValue;
             if (storeOp) {
               auto allocaOp = storeOp->getPrevNode();
-              auto extuiOp = allocaOp->getPrevNode();
-              auto cmpiOp = extuiOp->getPrevNode();
-              if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
-                  || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
-                oldCondValue = cmpiOp->getResults()[0];
+              auto extuiOrTrunciOp = allocaOp->getPrevNode();
+              if (mlir::isa<mlir::arith::TruncIOp>(extuiOrTrunciOp)) {
+                oldCondValue = extuiOrTrunciOp->getResults()[0];
               } else {
-                printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
-                       "arith.cmp op\n");
-                exit(-1);
+                auto cmpiOp = extuiOrTrunciOp->getPrevNode();
+                if (mlir::isa<mlir::arith::CmpIOp>(cmpiOp)
+                    || mlir::isa<mlir::arith::CmpFOp>(cmpiOp)) {
+                  oldCondValue = cmpiOp->getResults()[0];
+                } else {
+                  printf("[ Erro ] When getting arith.cmp op for scf condition failed. Missing "
+                         "arith.cmp op\n");
+                  exit(-1);
+                }
               }
 
             } else {

@@ -1,0 +1,30 @@
+@package = "main";
+
+import "io";
+
+func _partion(A Tensor<6, int32>, low int32, high int32) -> int32 {
+    low_t := low; high_t := high; pivot := A[low_t];
+    while(low_t < high_t) {
+        while(low_t < high_t && A[high_t] >= pivot) {high_t--;};
+        A[low_t] = A[high_t];
+        while(low_t < high_t && A[low_t] <= pivot) {low_t++;};
+        A[high_t] = A[low_t];
+    };
+    A[low_t] = pivot;
+    return low_t;
+};
+
+func QuickSort(A Tensor<6, int32>, low int32, high int32) {
+    if (low < high) {
+        pivotPos := _partion(A, low, high);
+        QuickSort(A, low, pivotPos-1);
+        QuickSort(A, pivotPos+1, high);
+    };
+};
+
+func main() {
+    var array Tensor<6, int32>;
+    io.print(array);
+    QuickSort(array, 1, 6);
+    io.print(array);
+};

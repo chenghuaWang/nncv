@@ -43,6 +43,37 @@ class EliminateStoreLoadForScfPattern final : public mlir::OpRewritePattern<mlir
   }
 };
 
+class EliminateStoreLoadForScfPattern_2 final
+    : public mlir::OpRewritePattern<mlir::arith::TruncIOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::arith::TruncIOp op,
+                                      mlir::PatternRewriter& rewriter) const override {
+    mlir::Operation* memAllocaOp = nullptr;
+    mlir::Operation* memStoreOp = nullptr;
+    if (op->getNextNode() && mlir::isa<mlir::memref::AllocaOp>(op->getNextNode())) {
+      memAllocaOp = op->getNextNode();
+    } else {
+      return mlir::failure();
+    }
+    if (memAllocaOp->getNextNode()
+        && mlir::isa<mlir::memref::StoreOp>(memAllocaOp->getNextNode())) {
+      memStoreOp = memAllocaOp->getNextNode();
+    } else {
+      return mlir::failure();
+    }
+    if (memStoreOp->getNextNode() && mlir::isa<mlir::scf::ConditionOp>(memStoreOp->getNextNode())) {
+      rewriter.eraseOp(memStoreOp);
+      rewriter.eraseOp(memAllocaOp);
+      return mlir::success();
+    } else {
+      return mlir::failure();
+    }
+    return mlir::failure();
+  }
+};
+
 class EliminateRedundantLoadStoreForScfConditional
     : public EliminateRedundantLoadStoreForScfConditionalBase<
           EliminateRedundantLoadStoreForScfConditional> {
@@ -56,7 +87,7 @@ class EliminateRedundantLoadStoreForScfConditional
     mlir::RewritePatternSet patterns(context);
 
     // insert rewrite patternt
-    patterns.insert<EliminateStoreLoadForScfPattern>(context);
+    patterns.insert<EliminateStoreLoadForScfPattern, EliminateStoreLoadForScfPattern_2>(context);
 
     // do rewrite
     if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
