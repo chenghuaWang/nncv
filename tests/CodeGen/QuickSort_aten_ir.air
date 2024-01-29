@@ -1,0 +1,115 @@
+module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @_partion(%arg0: memref<6xi32>, %arg1: !Aten.int<s, 32>, %arg2: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
+    %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["low_t"] {alignment = 4 : i64}
+    Aten.store %arg1, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %1 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["high_t"] {alignment = 4 : i64}
+    Aten.store %arg2, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %2 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %3 = Aten.cast(int_to_mlir_index, %2 : !Aten.int<s, 32>), index
+    %4 = memref.load %arg0[%3] : memref<6xi32>
+    %5 = Aten.alloca i32, aten.ptr <i32>, ["pivot"] {alignment = 4 : i64}
+    Aten.store %4, %5 : i32, aten.ptr <i32>
+    Aten.loop while(cond : {
+      %10 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %11 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %12 = Aten.cmp(lt, %10, %11) : !Aten.int<s, 32>, !Aten.bool
+      %13 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@0"] {alignment = 1 : i64}
+      Aten.store %12, %13 : !Aten.bool, aten.ptr <!Aten.bool>
+      Aten.yield
+    }, step : {
+      Aten.yield
+    }) {
+      Aten.loop while(cond : {
+        %20 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %21 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %22 = Aten.cmp(lt, %20, %21) : !Aten.int<s, 32>, !Aten.bool
+        %23 = Aten.cast(int_to_mlir_index, %21 : !Aten.int<s, 32>), index
+        %24 = memref.load %arg0[%23] : memref<6xi32>
+        %25 = Aten.load %5 : aten.ptr <i32>, i32
+        %26 = Aten.cmp(ge, %24, %25) : i32, !Aten.bool
+        %27 = Aten.binop(logic_and, %22, %26) : !Aten.bool
+        %28 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@1"] {alignment = 1 : i64}
+        Aten.store %27, %28 : !Aten.bool, aten.ptr <!Aten.bool>
+        Aten.yield
+      }, step : {
+        Aten.yield
+      }) {
+        %20 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %21 = Aten.unary(dec, %20) : !Aten.int<s, 32>, !Aten.int<s, 32>
+        Aten.store %21, %1 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+        Aten.yield
+      }
+      %10 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %11 = Aten.cast(int_to_mlir_index, %10 : !Aten.int<s, 32>), index
+      %12 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %13 = Aten.cast(int_to_mlir_index, %12 : !Aten.int<s, 32>), index
+      %14 = memref.load %arg0[%13] : memref<6xi32>
+      memref.store %14, %arg0[%11] : memref<6xi32>
+      Aten.loop while(cond : {
+        %20 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %21 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %22 = Aten.cmp(lt, %20, %21) : !Aten.int<s, 32>, !Aten.bool
+        %23 = Aten.cast(int_to_mlir_index, %20 : !Aten.int<s, 32>), index
+        %24 = memref.load %arg0[%23] : memref<6xi32>
+        %25 = Aten.load %5 : aten.ptr <i32>, i32
+        %26 = Aten.cmp(le, %24, %25) : i32, !Aten.bool
+        %27 = Aten.binop(logic_and, %22, %26) : !Aten.bool
+        %28 = Aten.alloca !Aten.bool, aten.ptr <!Aten.bool>, ["__tmp_condition@2"] {alignment = 1 : i64}
+        Aten.store %27, %28 : !Aten.bool, aten.ptr <!Aten.bool>
+        Aten.yield
+      }, step : {
+        Aten.yield
+      }) {
+        %20 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+        %21 = Aten.unary(inc, %20) : !Aten.int<s, 32>, !Aten.int<s, 32>
+        Aten.store %21, %0 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+        Aten.yield
+      }
+      %15 = Aten.load %1 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %16 = Aten.cast(int_to_mlir_index, %15 : !Aten.int<s, 32>), index
+      %17 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %18 = Aten.cast(int_to_mlir_index, %17 : !Aten.int<s, 32>), index
+      %19 = memref.load %arg0[%18] : memref<6xi32>
+      memref.store %19, %arg0[%16] : memref<6xi32>
+      Aten.yield
+    }
+    %6 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %7 = Aten.cast(int_to_mlir_index, %6 : !Aten.int<s, 32>), index
+    %8 = Aten.load %5 : aten.ptr <i32>, i32
+    memref.store %8, %arg0[%7] : memref<6xi32>
+    %9 = Aten.load %0 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    Aten.return %9 : !Aten.int<s, 32>
+  }
+  Aten.func private @QuickSort(%arg0: memref<6xi32>, %arg1: !Aten.int<s, 32>, %arg2: !Aten.int<s, 32>) {
+    %0 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.cmp(lt, %arg1, %arg2) : !Aten.int<s, 32>, !Aten.bool
+    Aten.if %1 then{
+      %2 = Aten.call @_partion(%arg0, %arg1, %arg2) : (memref<6xi32>, !Aten.int<s, 32>, !Aten.int<s, 32>) -> !Aten.int<s, 32>
+      %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["pivotPos"] {alignment = 4 : i64}
+      Aten.store %2, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+      %4 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %5 = Aten.binop(sub, %4, %0) : !Aten.int<s, 32>
+      Aten.call @QuickSort(%arg0, %arg1, %5) : (memref<6xi32>, !Aten.int<s, 32>, !Aten.int<s, 32>) -> ()
+      %6 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+      %7 = Aten.binop(add, %6, %0) : !Aten.int<s, 32>
+      Aten.call @QuickSort(%arg0, %7, %arg2) : (memref<6xi32>, !Aten.int<s, 32>, !Aten.int<s, 32>) -> ()
+    }
+    Aten.return
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(#Aten.int<6> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %alloc = memref.alloc() : memref<6xi32>
+    %cast = memref.cast %alloc : memref<6xi32> to memref<*xi32>
+    Aten.call @printMemrefI32(%cast) : (memref<*xi32>) -> ()
+    Aten.call @QuickSort(%alloc, %1, %0) : (memref<6xi32>, !Aten.int<s, 32>, !Aten.int<s, 32>) -> ()
+    Aten.call @printMemrefI32(%cast) : (memref<*xi32>) -> ()
+    Aten.return
+  }
+}

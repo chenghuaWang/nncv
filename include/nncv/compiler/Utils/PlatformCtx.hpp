@@ -21,6 +21,12 @@ namespace nncv {
 namespace compiler {
 namespace utils {
 
+struct MatMulTileSize {
+  int loop0 = 8;
+  int loop1 = 32;
+  int loop2 = 1;
+};
+
 // now support X86 and NVIDIA, general-linux, with only single CPU/GPU
 struct PlatformCtx {
   /// Basic CPU Info
@@ -55,6 +61,9 @@ struct PlatformCtx {
   int64_t MatMul_VecSize;
   int64_t MatMul_Kernel_M = 4;
   int64_t MatMul_Kernel_N = 4;
+
+  /// MatMul Pass's Tiled Size
+  MatMulTileSize MatMulTile;
 
   inline void init() {
     //< conv optimize

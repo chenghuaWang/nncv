@@ -116,6 +116,7 @@ int main(int argc, char* argv[]) {
 
   // init dialect
   mlir::DialectRegistry registry;
+  mlir::registerAllDialects(registry);
 
   // init MLIR
   mlir::MLIRContext MlirContext(registry);
@@ -188,7 +189,7 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------------------------------
     //  Middle end. Register Some Pass for optimize and lowering.
     // ---------------------------------------------------------------------
-    nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(&pm);
+    nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(MlirContext, MlirModule);
     if (SetLowerTarget.getValue() == "HostWParallel") {
       dnnModelLowerPipeline.setGenHostWParallel();
     } else if (SetLowerTarget.getValue() == "HostWoParallel") {
@@ -196,12 +197,7 @@ int main(int argc, char* argv[]) {
     } else if (SetLowerTarget.getValue() == "NVPTX") {
       dnnModelLowerPipeline.setGenNVPTX();
     }
-    dnnModelLowerPipeline.registerAllPass();
-
-    // ---------------------------------------------------------------------
-    // Run all passes
-    // ---------------------------------------------------------------------
-    if (mlir::failed(pm.run(*MlirModule))) { return -1; }
+    dnnModelLowerPipeline.run();
   } else if (SuffixStr == "nvm") {
     if (!VmMode.getValue()) {
       printf("[ Erro ] The input is .nvm file, but -vm flag for nncv-c is not set\n");

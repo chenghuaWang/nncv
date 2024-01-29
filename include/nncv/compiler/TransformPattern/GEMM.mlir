@@ -3,17 +3,9 @@
 //
 // Date: Jan 20, 2024
 
-module attributes { transform.with_named_sequence } {
-    transform.named_sequence @__transform_main(%arg1: !transform.any_op {transform.readonly}) {
-        // match op: linalg.matmul
-        %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
-
-        // Judging to use GEMM or GEMV
-        
-        // then
-        %1:2 = transform.structured.tile_using_forall %0 num_threads [10, 20] (mapping = [ #gpu.thread<y>, #gpu.thread<x> ] )
-           : (!transform.any_op) -> (!transform.any_op, !transform.any_op)
-
-        transform.yield
-    }
+transform.sequence failures(propagate) {
+    ^bb0(%arg1: !transform.any_op):
+    %matmul_op = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!transform.any_op) -> !transform.any_op
+    %tiled_matmul, %loops:3 = transform.structured.tile_using_for %matmul_op [8, 32, 1] : (!transform.any_op) -> (!transform.any_op, !transform.any_op, !transform.any_op, !transform.any_op)
+    // transform.structured.vectorize %tiled_matmul vector_sizes [8, 32, 1] : !transform.any_op
 }

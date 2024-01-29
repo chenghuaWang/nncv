@@ -1,5 +1,7 @@
 @package = "main";
 
+import "io";
+
 func testIfWoElse(a int32, b int32) -> int32 {
     var c int32;
     if (a < b) {
@@ -47,4 +49,14 @@ func testIntInIfCondition(a int32) -> int32 {
         b++;
     };
     return b;
+};
+
+func main() {
+    a := 1;
+    b := 2;
+    c := 3;
+    if (a < b && b < c) {
+        var t Tensor<1, 1, float32>;
+        io.print(t);
+    };
 };

@@ -107,15 +107,15 @@ void FrontendPipeline::run() {
       }
     }
     // deallocation
-    // {
-    //   pm.clear();
-    //   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
-    //   if (mlir::failed(pm.run(*m_Module))) {
-    //     printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
-    //            "at auto deallocation\n");
-    //     exit(-1);
-    //   }
-    // }
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] When doing aten-lang [high level optimization; aten to mlir lowering]"
+               "at auto deallocation\n");
+        exit(-1);
+      }
+    }
     if (m_genBuiltinMlir) {
       if (!m_OutputFilePath.empty()) {
         compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);

@@ -1,4 +1,10 @@
 module @__main {
+  func.func private @printMemrefF64(memref<*xf64>)
+  func.func private @printMemrefF32(memref<*xf32>)
+  func.func private @printMemrefF16(memref<*xf16>)
+  func.func private @printMemrefI64(memref<*xi64>)
+  func.func private @printMemrefI32(memref<*xi32>)
+  func.func private @printMemrefI16(memref<*xi16>)
   func.func private @testFor() -> i8 {
     %c1_i32 = arith.constant 1 : i32
     %c32_i32 = arith.constant 32 : i32
@@ -75,6 +81,30 @@ module @__main {
     } do {
       %0 = memref.load %alloca[] : memref<i32>
       %1 = arith.subi %0, %c1_i32 : i32
+      memref.store %1, %alloca[] : memref<i32>
+      scf.yield
+    }
+    return
+  }
+  func.func private @main() {
+    %c1_i32 = arith.constant 1 : i32
+    %c3_i32 = arith.constant 3 : i32
+    %c2_i32 = arith.constant 2 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %alloca = memref.alloca() {alignment = 4 : i64} : memref<i32>
+    memref.store %c0_i32, %alloca[] : memref<i32>
+    scf.while : () -> () {
+      %0 = memref.load %alloca[] : memref<i32>
+      %1 = arith.cmpi ult, %0, %c2_i32 : i32
+      %2 = arith.cmpi ult, %0, %c3_i32 : i32
+      %3 = arith.andi %1, %2 : i1
+      scf.condition(%3)
+    } do {
+      %alloc = memref.alloc() : memref<1x1xf32>
+      %cast = memref.cast %alloc : memref<1x1xf32> to memref<*xf32>
+      func.call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
+      %0 = memref.load %alloca[] : memref<i32>
+      %1 = arith.addi %0, %c1_i32 : i32
       memref.store %1, %alloca[] : memref<i32>
       scf.yield
     }

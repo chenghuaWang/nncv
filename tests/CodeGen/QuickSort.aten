@@ -24,7 +24,10 @@ func QuickSort(A Tensor<6, int32>, low int32, high int32) {
 
 func main() {
     var array Tensor<6, int32>;
+    for(i:=0; i < 6; i++) {
+        array[i] = 6 - i;
+    };
     io.print(array);
-    QuickSort(array, 1, 6);
+    QuickSort(array, 0, 5);
     io.print(array);
 };

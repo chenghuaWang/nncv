@@ -1,4 +1,10 @@
 module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
   Aten.func private @testIfWoElse(%arg0: !Aten.int<s, 32>, %arg1: !Aten.int<s, 32>) -> !Aten.int<s, 32> {
     %0 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["c"] {alignment = 4 : i64}
     %1 = Aten.cmp(lt, %arg0, %arg1) : !Aten.int<s, 32>, !Aten.bool
@@ -68,5 +74,28 @@ module @__main {
     }
     %4 = Aten.load %2 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
     Aten.return %4 : !Aten.int<s, 32>
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(#Aten.int<3> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(#Aten.int<2> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %2 = Aten.const(#Aten.int<1> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %3 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["a"] {alignment = 4 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %4 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["b"] {alignment = 4 : i64}
+    Aten.store %1, %4 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %5 = Aten.alloca !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>, ["c"] {alignment = 4 : i64}
+    Aten.store %0, %5 : !Aten.int<s, 32>, aten.ptr <!Aten.int<s, 32>>
+    %6 = Aten.load %3 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %7 = Aten.load %4 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %8 = Aten.cmp(lt, %6, %7) : !Aten.int<s, 32>, !Aten.bool
+    %9 = Aten.load %5 : aten.ptr <!Aten.int<s, 32>>, !Aten.int<s, 32>
+    %10 = Aten.cmp(lt, %7, %9) : !Aten.int<s, 32>, !Aten.bool
+    %11 = Aten.binop(logic_and, %8, %10) : !Aten.bool
+    Aten.if %11 then{
+      %alloc = memref.alloc() : memref<1x1xf32>
+      %cast = memref.cast %alloc : memref<1x1xf32> to memref<*xf32>
+      Aten.call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
+    }
+    Aten.return
   }
 }

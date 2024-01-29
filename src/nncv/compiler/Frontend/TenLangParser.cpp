@@ -1691,7 +1691,7 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
       /*if the return is just a int literal. I use `ConstantOp` to create one*/
       if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
           || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-        int64_t intValue;
+        int64_t intValue = 0;
         if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
           intValue = (int64_t)exprAny.getValue<float>();
         } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
@@ -1733,7 +1733,7 @@ std::any AutoTen2MlirVisitor::visitVarDecl(AutoTenV1Parser::VarDeclContext* ctx)
       /*if the return is just a int literal. I use `ConstantOp` to create one*/
       if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)
           || exprAny.isa(VisitorParserReturnType::kIntLiteral)) {
-        double floatValue;
+        double floatValue = 0;
         if (exprAny.isa(VisitorParserReturnType::kFloatLiteral)) {
           floatValue = exprAny.getValue<double>();
         } else if (exprAny.isa(VisitorParserReturnType::kIntLiteral)) {

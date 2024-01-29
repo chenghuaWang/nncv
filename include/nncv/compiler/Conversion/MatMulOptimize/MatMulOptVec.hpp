@@ -11,7 +11,7 @@
 namespace mlir {
 namespace nncv {
 namespace matmul_optimize {
-std::unique_ptr<mlir::Pass> createMatMulOptimizationVecPass();
+std::unique_ptr<mlir::Pass> createMatMulOptimizationVecPass(bool flag = false);
 }
 }  // namespace nncv
 }  // namespace mlir

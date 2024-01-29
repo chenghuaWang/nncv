@@ -144,9 +144,13 @@ set(LinkedLibs
     MLIRBufferizationToMemRef
     MLIRBufferizationTransformOps
     MLIRBufferizationTransforms
+    MLIRBufferizationTestPasses
     MLIRIRDL
     MLIRMemRefTransforms
     MLIRMemRefUtils
+    MLIRLoopLikeInterfaceTestPasses
+    MLIRMemRefTestPasses
+    MLIRTilingInterfaceTestPasses
 
     # NNCV Libs
     # dialect itself
@@ -202,4 +206,5 @@ if (nncv_enable_cuda)
     )
 endif (nncv_enable_cuda)
 mlir_check_all_link_libraries(nncv-c)
+export_executable_symbols_for_plugins(nncv-c)
 llvm_update_compile_flags(nncv-c)

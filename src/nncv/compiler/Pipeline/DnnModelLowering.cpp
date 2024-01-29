@@ -30,6 +30,7 @@
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
@@ -60,54 +61,80 @@ namespace pipeline {
 //===----------------------------------------------------------------------===//
 // TODO
 //===----------------------------------------------------------------------===//
-void DnnModelLowering::registerAllPass() {
+void DnnModelLowering::run() {
+  mlir::PassManager pm(m_Module.get()->getName());
   if (m_GenNVPTX) {
-    mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
+    mlir::nncv::createNncvFrontendToNormalPipeline(pm);
 
     // Level 1.1(Top). Canonicalize and CSE
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 
     // Level 1.2. Bufferize all.
     auto oneShotOption = mlir::bufferization::OneShotBufferizationOptions();
     oneShotOption.bufferizeFunctionBoundaries = true;
-    m_PM->addPass(mlir::bufferization::createOneShotBufferizePass(oneShotOption));
-    m_PM->addPass(mlir::bufferization::createBufferDeallocationPass());
-    m_PM->addPass(mlir::createBufferizationToMemRefPass());
+    pm.addPass(mlir::bufferization::createOneShotBufferizePass(oneShotOption));
+    pm.addPass(mlir::bufferization::createBufferDeallocationPass());
+    pm.addPass(mlir::createBufferizationToMemRefPass());
 
     // Level 1.3 lower affine and linalg to parallel
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createConvertLinalgToParallelLoopsPass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertLinalgToParallelLoopsPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
 
-    m_PM->addPass(mlir::memref::createExpandStridedMetadataPass());
+    pm.addPass(mlir::memref::createExpandStridedMetadataPass());
 
     // Level 2. GPU Lowering
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
-    m_PM->addPass(mlir::createParallelLoopToGpuPass());
-    m_PM->addPass(mlir::createGpuKernelOutliningPass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
+    pm.addPass(mlir::createParallelLoopToGpuPass());
+    pm.addPass(mlir::createGpuKernelOutliningPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
 
     // Level 3. All to LLVM
 
     return;
   }
   if (m_GenHostWoParallel) {
-    mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
+    mlir::nncv::createNncvFrontendToNormalPipeline(pm);
     return;
   }
   if (m_GenHostWParallel) {
-    mlir::nncv::createNncvFrontendToNormalPipeline(*m_PM);
+    // Stage 1. Finalize all input
+    {
+      pm.clear();
+      mlir::nncv::createNncvFrontendToNormalPipeline(pm);
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] Frontend Normalize Pass Pipeline. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] Frontend Normalize Pass Pipeline. Success.\n");
+      }
+    }
 
     // using winograd
     // FIXME
-    m_PM->addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
+    // pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
+    // pm.addNestedPass<mlir::func::FuncOp>(
+    //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
+    // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 
-    // Tiling anf Decompose on winograd should followed by a cse.
-    m_PM->addNestedPass<mlir::func::FuncOp>(
-        mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-    m_PM->addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    // Stage 2. High Level Tile
+    {
+      pm.clear();
+      pm.addPass(
+          mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ false));
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] High Level Tiling. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] High Level Tiling. Success.\n");
+      }
+    }
+
+    m_Module->dump();
 
     return;
   }
