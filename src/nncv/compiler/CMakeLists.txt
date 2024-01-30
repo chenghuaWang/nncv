@@ -108,6 +108,10 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/RunnerCtx.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Runner/InitJit.cpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Runner/InitAllPass.cpp
+
+    # TransformCommon
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/TransformCommon/Common.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/TransformCommon/Common.cpp
 )
 
 set(LinkedLibs
@@ -163,6 +167,7 @@ set(LinkedLibs
     # convert pass
     ConvOptimizeConversion
     AtenToArithConversion
+    NncvVectorizationConversion
 )
 
 if (nncv_compiler_use_antlr)

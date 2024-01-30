@@ -1,3 +1,4 @@
 add_subdirectory(AtenToMlir)
 add_subdirectory(ConvOptimize)
 add_subdirectory(MatMulOptimize)
+add_subdirectory(Vectorization)

@@ -35,30 +35,76 @@ class MatMulOptimizationVec : public impl::MatMulOptimization_VecBase<MatMulOpti
   }
 
   void runOnOperation() override {
+    IRRewriter rewriter(&getContext());
     if (m_enableNvGPU) {
     } else {
-      // Step 1. Tiling
-      IRRewriter rewriter(&getContext());
+      // Step 1.1 Tiling outter loops
       getOperation()->walk([&](linalg::MatmulOp op) {
         // This pass should work on tensor.
         if (op.hasBufferSemantics()) return signalPassFailure();
         // [Linalg + Tensor] High Level Tile
-        llvm::SmallVector<OpFoldResult> tiles(op.getNumLoops());
-        auto loop0 = ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTile.loop0;
-        auto loop1 = ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTile.loop1;
-        auto loop2 = ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTile.loop2;
+        SmallVector<int64_t, 3> tiles(op.getNumLoops());
+        tiles[0] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[0];
+        tiles[1] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[1];
+        tiles[2] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[2];
 
-        tiles[0] = mlir::getAsIndexOpFoldResult(rewriter.getContext(), loop0);
-        tiles[1] = mlir::getAsIndexOpFoldResult(rewriter.getContext(), loop1);
-        tiles[2] = mlir::getAsIndexOpFoldResult(rewriter.getContext(), loop2);
+        linalg::LinalgTilingOptions tileOption;
+        tileOption.setTileSizes(tiles);
 
         OpBuilder::InsertionGuard guard(rewriter);
         rewriter.setInsertionPoint(op);
 
-        // TODO tile_using_for's c++ API Check
-        auto tiledResults = mlir::linalg::tileToForallOpUsingTileSizes(
-            rewriter, mlir::cast<TilingInterface>(op.getOperation()), tiles, std::nullopt);
-        rewriter.replaceOp(op, tiledResults->tileOp->getResults());
+        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+        rewriter.replaceOp(op, tiledOps->tensorResults);
+      });
+
+      // Step 1.1 Tiling inner loops
+      getOperation()->walk([&](linalg::MatmulOp op) {
+        // This pass should work on tensor.
+        if (op.hasBufferSemantics()) return signalPassFailure();
+        // [Linalg + Tensor] High Level Tile
+        SmallVector<int64_t, 3> tiles(op.getNumLoops());
+        tiles[0] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[0];
+        tiles[1] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[1];
+        tiles[2] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[2];
+
+        linalg::LinalgTilingOptions tileOption;
+        tileOption.setTileSizes(tiles);
+
+        OpBuilder::InsertionGuard guard(rewriter);
+        rewriter.setInsertionPoint(op);
+
+        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+        rewriter.replaceOp(op, tiledOps->tensorResults);
+      });
+
+      // Step 1.1 Tiling register loops
+      getOperation()->walk([&](linalg::MatmulOp op) {
+        // This pass should work on tensor.
+        if (op.hasBufferSemantics()) return signalPassFailure();
+        // [Linalg + Tensor] High Level Tile
+        SmallVector<int64_t, 3> tiles(op.getNumLoops());
+        tiles[0] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[0];
+        tiles[1] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[1];
+        tiles[2] =
+            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[2];
+
+        linalg::LinalgTilingOptions tileOption;
+        tileOption.setTileSizes(tiles);
+
+        OpBuilder::InsertionGuard guard(rewriter);
+        rewriter.setInsertionPoint(op);
+
+        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+        rewriter.replaceOp(op, tiledOps->tensorResults);
       });
     }
 

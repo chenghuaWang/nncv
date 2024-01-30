@@ -13,6 +13,8 @@
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
+#include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
+
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"

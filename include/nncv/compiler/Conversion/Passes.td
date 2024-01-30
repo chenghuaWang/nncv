@@ -127,4 +127,20 @@ def MatMulOptimization_ForBatch : Pass<"optimize-batch-matmul-vec-method", "Modu
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// Vectorization All
+// FIXME: modify func::FuncOp after impl outline in nncv.
+//===----------------------------------------------------------------------===//
+def Vectorization : Pass<"vectorization", ""> {
+    let summary = "vectorization after all tiling";
+    let constructor = "mlir::nncv::createVectorizationPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES

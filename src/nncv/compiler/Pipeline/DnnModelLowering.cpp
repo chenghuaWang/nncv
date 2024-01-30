@@ -31,6 +31,7 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
+#include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
@@ -119,18 +120,38 @@ void DnnModelLowering::run() {
     //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
     // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 
-    // Stage 2. High Level Tile
+    // Stage 2.1 High Level Tile for MatMul
     {
       pm.clear();
       pm.addPass(
           mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ false));
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
         printf("[ Erro ] High Level Tiling. Failed\n");
         exit(-1);
       } else {
         printf("[ Info ] High Level Tiling. Success.\n");
+      }
+    }
+
+    // stage 2.2 Tile for Conv2d
+    {}
+
+    // Stage 2.3 Tile others
+    {}
+
+    // stage 3. Vectorization
+    {
+      pm.clear();
+      pm.addPass(mlir::nncv::createVectorizationPass(/*use nv gpu*/ false));
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] Middle Level Vectorization. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] Middle Level Vectorization. Success.\n");
       }
     }
 

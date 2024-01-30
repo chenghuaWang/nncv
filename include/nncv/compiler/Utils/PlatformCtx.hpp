@@ -10,6 +10,7 @@
  */
 #pragma once
 #include <string>
+#include <vector>
 #include <cpuinfo/include/cpuinfo.h>
 
 #ifdef NNCV_ENABLE_CUDA
@@ -21,10 +22,10 @@ namespace nncv {
 namespace compiler {
 namespace utils {
 
-struct MatMulTileSize {
-  int loop0 = 8;
-  int loop1 = 32;
-  int loop2 = 1;
+struct MatMulTileSize_CPU {
+  std::vector<int64_t> outerLevelLoops = {8, 32, 0};
+  std::vector<int64_t> innerLevelLoops = {4, 4, 0};
+  std::vector<int64_t> registerLevelLoops = {0, 0, 4};
 };
 
 // now support X86 and NVIDIA, general-linux, with only single CPU/GPU
@@ -63,7 +64,7 @@ struct PlatformCtx {
   int64_t MatMul_Kernel_N = 4;
 
   /// MatMul Pass's Tiled Size
-  MatMulTileSize MatMulTile;
+  MatMulTileSize_CPU MatMulTileCpu;
 
   inline void init() {
     //< conv optimize
