@@ -144,7 +144,8 @@ void DnnModelLowering::run() {
     // stage 3. Vectorization
     {
       pm.clear();
-      pm.addPass(mlir::nncv::createVectorizationPass(/*use nv gpu*/ false));
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createVectorizationPass(/*use nv gpu*/ false));
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
