@@ -28,6 +28,12 @@ struct MatMulTileSize_CPU {
   std::vector<int64_t> registerLevelLoops = {0, 0, 4};
 };
 
+struct LinalgGenericTileSize_CPU {
+  std::vector<int64_t> outerLevelLoops = {8, 32, 0};
+  std::vector<int64_t> innerLevelLoops = {4, 4, 0};
+  std::vector<int64_t> registerLevelLoops = {0, 0, 4};
+};
+
 // now support X86 and NVIDIA, general-linux, with only single CPU/GPU
 struct PlatformCtx {
   /// Basic CPU Info
@@ -65,6 +71,8 @@ struct PlatformCtx {
 
   /// MatMul Pass's Tiled Size
   MatMulTileSize_CPU MatMulTileCpu;
+  /// Linalg generic tile size
+  LinalgGenericTileSize_CPU LinalgGenericTileCpu;
 
   inline void init() {
     //< conv optimize

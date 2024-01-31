@@ -64,16 +64,37 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
       // Stage 1.1 vectorize all linalg generic ops.
       {
         mlir::RewritePatternSet patterns(&getContext());
+        llvm::SmallVector<mlir::Operation*> Candidates;
         getOperation()->walk([&](linalg::LinalgOp op) {
           // This pass should work on tensor.
           if (op.hasBufferSemantics()) return WalkResult::skip();
-          OpBuilder::InsertionGuard guard(rewriter);
-          rewriter.setInsertionPoint(op);
-
-          // transform dialect
-          if (failed(linalg::vectorize(rewriter, op))) return WalkResult::skip();
+          if (mlir::isa<linalg::LinalgOp>(op)) Candidates.push_back(op);
+          // TODO Add tensor.pad
           return WalkResult::advance();
         });
+
+        // process Candidates
+        for (mlir::Operation* op : Candidates) {
+          llvm::SmallVector<int64_t> VectorSizes;
+          llvm::SmallVector<bool> ScalableVecDims;
+
+          if (auto linalgOp = mlir::dyn_cast<linalg::LinalgOp>(op)) {
+            // Compute sizes
+            // TODO
+          } else if (auto padOp = dyn_cast<tensor::PadOp>(op)) {
+          }
+
+          ScalableVecDims.resize(VectorSizes.size());
+
+          // TODO
+          // change VectorizeSize / ScalableDims
+          if (failed(linalg::vectorize(rewriter, op, {4, 4, 4}, {false, false, false}))) {
+            printf("[ Erro ] linalg can't be vectorized\n");
+          }
+        }
+
+        // patterns
+        mlir::vector::populateVectorMaskLoweringPatternsForSideEffectingOps(patterns);
         mlir::vector::populateVectorTransferPermutationMapLoweringPatterns(patterns);
         mlir::vector::populateVectorReductionToContractPatterns(patterns);
         if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
@@ -121,6 +142,20 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         mlir::applyOpPatternsAndFold(ReductionOps, frozenSet,
                                      /*config=*/ApplyConfig);
       }
+
+      // Stage 1.5 lowering all masks
+      // TODO
+      {
+        mlir::RewritePatternSet patterns(&getContext());
+        mlir::vector::populateVectorMaskOpLoweringPatterns(patterns);
+        mlir::vector::ContractionOp::getCanonicalizationPatterns(patterns, &getContext());
+        mlir::vector::TransposeOp::getCanonicalizationPatterns(patterns, &getContext());
+        if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+          signalPassFailure();
+        }
+      }
+
+      return;
 
       // Stage 2. Unroll
       {

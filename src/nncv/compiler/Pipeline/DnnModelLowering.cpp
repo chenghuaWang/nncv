@@ -157,7 +157,6 @@ void DnnModelLowering::run() {
     }
 
     m_Module->dump();
-
     return;
   }
 }

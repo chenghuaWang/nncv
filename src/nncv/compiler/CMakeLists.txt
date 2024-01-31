@@ -168,6 +168,7 @@ set(LinkedLibs
     ConvOptimizeConversion
     AtenToArithConversion
     NncvVectorizationConversion
+    NncvLinalgOptimizeConversion
 )
 
 if (nncv_compiler_use_antlr)

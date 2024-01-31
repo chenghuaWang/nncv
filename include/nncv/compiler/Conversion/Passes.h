@@ -14,6 +14,7 @@
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
 #include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

@@ -128,6 +128,21 @@ def MatMulOptimization_ForBatch : Pass<"optimize-batch-matmul-vec-method", "Modu
 }
 
 //===----------------------------------------------------------------------===//
+// Linalg Generic Tile
+//===----------------------------------------------------------------------===//
+def LinalgGenericTile : Pass<"linalg-generic-tile", "func::FuncOp"> {
+    let summary = "prepare linalg generic tiling for vectorization";
+    let constructor = "mlir::nncv::createLinalgGenericTilePass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+//===----------------------------------------------------------------------===//
 // Vectorization All
 // FIXME: modify func::FuncOp after impl outline in nncv.
 //===----------------------------------------------------------------------===//
