@@ -10,6 +10,10 @@
 
 namespace mlir {
 namespace nncv {
+
+std::pair<llvm::SmallVector<int64_t>, llvm::SmallVector<bool>> buildVectorizationSize(
+    mlir::Operation* op);
+
 std::unique_ptr<mlir::Pass> createVectorizationPass(bool flag = false);
 }  // namespace nncv
 }  // namespace mlir

@@ -10,6 +10,7 @@
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
@@ -38,6 +39,7 @@
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
+#include "nncv/compiler/Utils/MlirIo.hpp"
 
 namespace nncv {
 namespace pipeline {
@@ -146,6 +148,8 @@ void DnnModelLowering::run() {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ false));
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
         printf("[ Erro ] High Level Tiling [Generic]. Failed\n");
         exit(-1);
@@ -153,9 +157,6 @@ void DnnModelLowering::run() {
         printf("[ Info ] High Level Tiling [Generic]. Success.\n");
       }
     }
-
-    m_Module->dump();
-    return;
 
     // stage 3. Vectorization
     {
@@ -172,7 +173,22 @@ void DnnModelLowering::run() {
       }
     }
 
-    m_Module->dump();
+    // Stage 4. Lowering all left linalg to affine and try to do super affine.
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertLinalgToAffineLoopsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createLoopFusionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize());
+      (void)pm.run(*m_Module);
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
     return;
   }
 }

@@ -198,6 +198,9 @@ int main(int argc, char* argv[]) {
     } else if (SetLowerTarget.getValue() == "NVPTX") {
       dnnModelLowerPipeline.setGenNVPTX();
     }
+    if (!OutputFilename.getValue().empty()) {
+      dnnModelLowerPipeline.setOutputFilePath(OutputFilename.getValue());
+    }
     dnnModelLowerPipeline.run();
   } else if (SuffixStr == "nvm") {
     if (!VmMode.getValue()) {

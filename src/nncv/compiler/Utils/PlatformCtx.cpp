@@ -35,6 +35,14 @@ void PlatformCtx::InitFromConfigFile() {
       tileSizeData["Generic"]["inner"].get<std::vector<int64_t>>();
   this->LinalgGenericTileCpu.registerLevelLoops =
       tileSizeData["Generic"]["register"].get<std::vector<int64_t>>();
+  //===----------------------------------------------------------------------===//
+  // 1.2 Vec Size.
+  //===----------------------------------------------------------------------===//
+  auto vecSizeData = data["VecSize"];
+  // MatMul
+  this->MatMulVecCpu.vecSize = vecSizeData["Matmul"].get<std::vector<int64_t>>();
+  // Generic
+  this->LinalgGenericVecCpu.vecSize = vecSizeData["Generic"].get<std::vector<int64_t>>();
 }
 
 }  // namespace nncv::compiler::utils

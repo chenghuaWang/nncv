@@ -31,6 +31,27 @@ namespace mlir::nncv {
 namespace mlir {
 namespace nncv {
 
+std::pair<llvm::SmallVector<int64_t>, llvm::SmallVector<bool>> buildVectorizationSize(
+    mlir::Operation* op) {
+  if (mlir::isa<mlir::linalg::MatmulOp>(op)) {
+    auto _vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulVecCpu.vecSize;
+    llvm::SmallVector<int64_t> vecSize;
+    for (auto item : _vecSize) vecSize.emplace_back(item);
+    llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+    return std::make_pair(vecSize, scaleDims);
+  }
+  if (mlir::isa<mlir::linalg::GenericOp>(op)) {
+    auto _vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().LinalgGenericVecCpu.vecSize;
+    llvm::SmallVector<int64_t> vecSize;
+    for (auto item : _vecSize) vecSize.emplace_back(item);
+    llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+    return std::make_pair(vecSize, scaleDims);
+  }
+  llvm::SmallVector<int64_t> vecRes;
+  llvm::SmallVector<bool> scaleRes;
+  return std::make_pair(vecRes, scaleRes);
+}
+
 // using info from plateform ctx.
 vector::UnrollVectorOptions buildUnrollVectorOptions() {
   vector::UnrollVectorOptions res;
@@ -38,12 +59,6 @@ vector::UnrollVectorOptions buildUnrollVectorOptions() {
   // use ::nncv::compiler::utils::PlatformCtx::getInstance().MatMul_VecSize
   res.setNativeShape({1, 4, 1});
 
-  return res;
-}
-
-vector::VectorTransformsOptions buildVectorTransformsOptions() {
-  vector::VectorTransformsOptions res;
-  res.setVectorTransformsOptions(vector::VectorContractLowering::OuterProduct);
   return res;
 }
 
@@ -76,17 +91,13 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
 
         // process Candidates
         for (mlir::Operation* op : Candidates) {
-          llvm::SmallVector<int64_t> VectorSizes;
-          llvm::SmallVector<bool> ScalableVecDims;
-
           if (auto linalgOp = mlir::dyn_cast<linalg::LinalgOp>(op)) {
-            // Compute sizes
-            // TODO
+            auto [VectorSizes, ScalableVecDims] = buildVectorizationSize(op);
+            if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) {
+              printf("[ Warn ] %s Op can't be vectorized\n",
+                     op->getName().getStringRef().str().c_str());
+            }
           } else if (auto padOp = dyn_cast<tensor::PadOp>(op)) {
-          }
-          ScalableVecDims.resize(VectorSizes.size());
-          if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) {
-            printf("[ Erro ] MatMul can't be vectorized\n");
           }
         }
       }
@@ -168,13 +179,6 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
       //===----------------------------------------------------------------------===//
       // 2.0 Unroll
       //===----------------------------------------------------------------------===//
-      // {
-      //   mlir::RewritePatternSet patterns(&getContext());
-      //   mlir::vector::populateVectorUnrollPatterns(patterns, buildUnrollVectorOptions());
-      //   if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-      //     signalPassFailure();
-      //   }
-      // }
       {
         mlir::RewritePatternSet patterns(&getContext());
         auto options = mlir::vector::VectorTransformsOptions().setVectorTransformsOptions(
@@ -185,6 +189,13 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
           return signalPassFailure();
         }
       }
+      // {
+      //   mlir::RewritePatternSet patterns(&getContext());
+      //   mlir::vector::populateVectorUnrollPatterns(patterns, buildUnrollVectorOptions());
+      //   if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+      //     signalPassFailure();
+      //   }
+      // }
 
       //===----------------------------------------------------------------------===//
       // 3.1 Clear High dimension vector

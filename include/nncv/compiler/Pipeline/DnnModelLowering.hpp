@@ -30,6 +30,7 @@ class DnnModelLowering {
   inline void setGenHostWoParallel() { m_GenHostWoParallel = true; }
   inline void setGenHostWParallel() { m_GenHostWParallel = true; }
   inline void setUsingNncvIR() { m_UsingNncvIR = true; }
+  inline void setOutputFilePath(const std::string& _CurPath) { m_OutputFilePath = _CurPath; }
 
  private:
   bool m_GenNVPTX = false;
@@ -38,6 +39,7 @@ class DnnModelLowering {
   bool m_UsingNncvIR = false;
   mlir::MLIRContext& m_Context;
   mlir::OwningOpRef<mlir::ModuleOp>& m_Module;
+  std::string m_OutputFilePath;
 };
 
 }  // namespace pipeline

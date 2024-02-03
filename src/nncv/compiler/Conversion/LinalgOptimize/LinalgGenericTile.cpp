@@ -1,4 +1,5 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -31,11 +32,19 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
   }
 
   void runOnOperation() override {
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateFuseTensorPadWithProducerLinalgOpPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
     IRRewriter rewriter(&getContext());
     if (m_enableNvGPU) {
     } else {
       llvm::SmallVector<mlir::Operation*> candidates;
-      getOperation()->walk([&](mlir::linalg::LinalgOp op) {
+      getOperation()->walk([&](mlir::linalg::GenericOp op) {
         // linalg generic tile like Matmul tiling, I adopt [[], [], []] 3 levels tilings here.
         if (op.hasBufferSemantics()) return signalPassFailure();
         candidates.emplace_back(op);
@@ -45,10 +54,8 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
         // The linalg op below will not tiled
         // a. Matmul: it will be tiled before this pass
         // b. Any conv2d: also will be tiled before this pass
-        // TODO c. fill: ?
-        if (mlir::isa<mlir::linalg::MatmulOp>(_op)
-            || mlir::linalg::isaConvolutionOpInterface(mlir::cast<mlir::linalg::LinalgOp>(_op))
-            || mlir::isa<mlir::linalg::FillOp>(_op)
+        // c. fill: ?
+        if (mlir::isa<mlir::linalg::MatmulOp>(_op) || mlir::isa<mlir::linalg::FillOp>(_op)
             || linalg::vectorizeOpPrecondition(_op).failed()) {
           continue;
         }
@@ -68,8 +75,6 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
 
           op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
         }
-
-        continue;
 
         ///<------------------------ Step 1.2. Tilling inner loop
         {
@@ -99,6 +104,13 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
               linalg::tileLinalgOp(rewriter, op, tileOption);
           rewriter.replaceOp(op, tiledOps->tensorResults);
         }
+      }
+    }
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
       }
     }
   }
