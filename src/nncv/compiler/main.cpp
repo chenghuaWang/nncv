@@ -112,6 +112,7 @@ int main(int argc, char* argv[]) {
   // detecting platform
   nncv::compiler::utils::PlatformCtxInit(GetPlatformInfoOnly.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().init();
+  nncv::compiler::utils::PlatformCtx::getInstance().InitFromConfigFile();
   if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
 
   // init dialect

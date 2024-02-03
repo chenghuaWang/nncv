@@ -10,6 +10,7 @@
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -17,6 +18,7 @@
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Vector/Transforms/Passes.h"
 
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -28,6 +30,7 @@
 
 // FIXME
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
@@ -128,10 +131,10 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] High Level Tiling. Failed\n");
+        printf("[ Erro ] High Level Tiling [Matmul]. Failed\n");
         exit(-1);
       } else {
-        printf("[ Info ] High Level Tiling. Success.\n");
+        printf("[ Info ] High Level Tiling [Matmul]. Success.\n");
       }
     }
 
@@ -139,7 +142,20 @@ void DnnModelLowering::run() {
     {}
 
     // Stage 2.3 Tile others
-    {}
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ false));
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] High Level Tiling [Generic]. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] High Level Tiling [Generic]. Success.\n");
+      }
+    }
+
+    m_Module->dump();
+    return;
 
     // stage 3. Vectorization
     {

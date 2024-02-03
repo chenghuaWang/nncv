@@ -37,6 +37,7 @@ else()
 endif()
 
 find_package(fmt CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # Add Dialets into this project
 add_subdirectory(Dialects)
@@ -99,6 +100,7 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/SymbolRef.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/SymbolRef.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/PlatformCtx.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/PlatformCtx.cpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/MlirIo.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/MlirIo.hpp
 
@@ -188,6 +190,8 @@ if (nncv_compiler_use_antlr)
 
         # cpu info
         cpuinfo
+        # json
+        nlohmann_json::nlohmann_json
     )
 else()
     target_link_libraries(nncv-c PRIVATE
@@ -203,6 +207,8 @@ else()
 
         # Cpu info
         cpuinfo
+        # json
+        nlohmann_json::nlohmann_json
     )
 endif()
 

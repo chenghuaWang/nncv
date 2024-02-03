@@ -93,6 +93,8 @@ struct PlatformCtx {
     static PlatformCtx instance;
     return instance;
   }
+
+  void InitFromConfigFile();
 };
 
 inline static void PlatformCtxInit(bool printed = false) {

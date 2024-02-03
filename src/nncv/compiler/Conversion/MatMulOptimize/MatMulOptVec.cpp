@@ -38,79 +38,65 @@ class MatMulOptimizationVec : public impl::MatMulOptimization_VecBase<MatMulOpti
     IRRewriter rewriter(&getContext());
     if (m_enableNvGPU) {
     } else {
-      // Step 1.1 Tiling outter loops
+      llvm::SmallVector<mlir::linalg::MatmulOp> candidates;
       getOperation()->walk([&](linalg::MatmulOp op) {
         // This pass should work on tensor.
         if (op.hasBufferSemantics()) return signalPassFailure();
-        // [Linalg + Tensor] High Level Tile
-        SmallVector<int64_t, 3> tiles(op.getNumLoops());
-        tiles[0] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[0];
-        tiles[1] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[1];
-        tiles[2] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops[2];
-
-        linalg::LinalgTilingOptions tileOption;
-        tileOption.setTileSizes(tiles);
-
-        OpBuilder::InsertionGuard guard(rewriter);
-        rewriter.setInsertionPoint(op);
-
-        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-        rewriter.replaceOp(op, tiledOps->tensorResults);
+        candidates.emplace_back(op);
       });
 
-      // Step 1.1 Tiling inner loops
-      getOperation()->walk([&](linalg::MatmulOp op) {
-        // This pass should work on tensor.
-        if (op.hasBufferSemantics()) return signalPassFailure();
-        // [Linalg + Tensor] High Level Tile
-        SmallVector<int64_t, 3> tiles(op.getNumLoops());
-        tiles[0] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[0];
-        tiles[1] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[1];
-        tiles[2] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops[2];
+      for (auto& _op : candidates) {
+        FailureOr<linalg::TiledLinalgOp> tiledOps;
+        mlir::linalg::MatmulOp op = _op;
+        ///<------------------------ Step 1.1. Tilling out loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(
+              ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.outerLevelLoops);
 
-        linalg::LinalgTilingOptions tileOption;
-        tileOption.setTileSizes(tiles);
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPoint(op);
 
-        OpBuilder::InsertionGuard guard(rewriter);
-        rewriter.setInsertionPoint(op);
+          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
 
-        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-        rewriter.replaceOp(op, tiledOps->tensorResults);
-      });
+          op = mlir::cast<mlir::linalg::MatmulOp>(tiledOps->op);
+        }
 
-      // Step 1.1 Tiling register loops
-      getOperation()->walk([&](linalg::MatmulOp op) {
-        // This pass should work on tensor.
-        if (op.hasBufferSemantics()) return signalPassFailure();
-        // [Linalg + Tensor] High Level Tile
-        SmallVector<int64_t, 3> tiles(op.getNumLoops());
-        tiles[0] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[0];
-        tiles[1] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[1];
-        tiles[2] =
-            ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops[2];
+        ///<------------------------ Step 1.2. Tilling inner loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(
+              ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.innerLevelLoops);
 
-        linalg::LinalgTilingOptions tileOption;
-        tileOption.setTileSizes(tiles);
+          OpBuilder::InsertionGuard guard0(rewriter);
+          rewriter.setInsertionPoint(op);
 
-        OpBuilder::InsertionGuard guard(rewriter);
-        rewriter.setInsertionPoint(op);
+          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
 
-        FailureOr<linalg::TiledLinalgOp> tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-        rewriter.replaceOp(op, tiledOps->tensorResults);
-      });
+          op = mlir::cast<mlir::linalg::MatmulOp>(tiledOps->op);
+        }
+
+        ///<------------------------ Step 1.3. Tilling register loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(
+              ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileCpu.registerLevelLoops);
+
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPoint(op);
+
+          FailureOr<linalg::TiledLinalgOp> tiledOps =
+              linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
+        }
+      }
     }
 
     // Step 2.
     mlir::RewritePatternSet patterns(&getContext());
-    linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+    mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
     if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
       signalPassFailure();
     }
