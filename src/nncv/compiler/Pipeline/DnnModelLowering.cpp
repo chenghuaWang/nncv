@@ -12,6 +12,7 @@
 
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/MLProgram/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -181,6 +182,14 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createLoopFusionPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize());
+      (void)pm.run(*m_Module);
+    }
+
+    // Stage final
+    // TODO
+    {
+      pm.clear();
+      pm.addPass(mlir::ml_program::createMLProgramPipelineGlobalsPass());
       (void)pm.run(*m_Module);
     }
 
