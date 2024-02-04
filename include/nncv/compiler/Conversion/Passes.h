@@ -15,6 +15,8 @@
 
 #include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

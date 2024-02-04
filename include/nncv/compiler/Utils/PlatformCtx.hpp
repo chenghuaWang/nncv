@@ -39,7 +39,7 @@ struct LinalgGenericTileSize_CPU {
 };
 
 struct LinalgGenericVec_CPU {
-  std::vector<int64_t> vecSize = {0, 4, 4, 4};
+  std::vector<int64_t> vecSize = {1, 4, 4};
 };
 
 // now support X86 and NVIDIA, general-linux, with only single CPU/GPU

@@ -143,6 +143,36 @@ def LinalgGenericTile : Pass<"linalg-generic-tile", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// Linalg Generic Tile
+//===----------------------------------------------------------------------===//
+def LinalgPoolingTile : Pass<"linalg-pooling-tile", "func::FuncOp"> {
+    let summary = "prepare linalg pooling tiling for vectorization";
+    let constructor = "mlir::nncv::createLinalgPoolingTilePass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+//===----------------------------------------------------------------------===//
+// Linalg Op: Cast Away tensor leading one dim
+//===----------------------------------------------------------------------===//
+def LinalgOpCastAwayTensorLeadingOneDim : Pass<"linalg-cast-away-tensor-leading-one-dim", "func::FuncOp"> {
+    let summary = "cast away tensor leading one dim";
+    let constructor = "mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
+//===----------------------------------------------------------------------===//
 // Vectorization All
 // FIXME: modify func::FuncOp after impl outline in nncv.
 //===----------------------------------------------------------------------===//

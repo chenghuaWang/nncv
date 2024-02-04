@@ -11,6 +11,8 @@ void AtenBackendLoweringPipeline::run() {
 
   if (m_isNative && !m_isNVPTX) {
     // TODO Affine scheduler
+    // 1. read scheduler from file.
+    // 2. provide a method that can gen a schedule file.
     {
 
     }

@@ -5,6 +5,8 @@
 #include "mlir/Dialect/Transform/LoopExtension/LoopExtensionOps.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/IR/Visitors.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -41,24 +43,59 @@ std::pair<llvm::SmallVector<int64_t>, llvm::SmallVector<bool>> buildVectorizatio
     return std::make_pair(vecSize, scaleDims);
   }
   if (mlir::isa<mlir::linalg::GenericOp>(op)) {
-    auto _vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().LinalgGenericVecCpu.vecSize;
-    llvm::SmallVector<int64_t> vecSize;
-    for (auto item : _vecSize) vecSize.emplace_back(item);
-    llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
-    return std::make_pair(vecSize, scaleDims);
+    auto genericOp = mlir::cast<mlir::linalg::GenericOp>(op);
+    // TODO make code below gorgeous
+    if (/*default is 3*/ genericOp.getNumParallelLoops() == 3) {
+      auto _vecSize =
+          ::nncv::compiler::utils::PlatformCtx::getInstance().LinalgGenericVecCpu.vecSize;
+      llvm::SmallVector<int64_t> vecSize;
+      for (auto item : _vecSize) vecSize.emplace_back(item);
+      llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+      return std::make_pair(vecSize, scaleDims);
+    } else if (genericOp.getNumParallelLoops() == 2) {
+      std::vector<int64_t> _vecSize = {1, 4};
+      llvm::SmallVector<int64_t> vecSize;
+      for (auto item : _vecSize) vecSize.emplace_back(item);
+      llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+      return std::make_pair(vecSize, scaleDims);
+    } else if (genericOp.getNumParallelLoops() == 1) {
+      std::vector<int64_t> _vecSize = {4};
+      llvm::SmallVector<int64_t> vecSize;
+      for (auto item : _vecSize) vecSize.emplace_back(item);
+      llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+      return std::make_pair(vecSize, scaleDims);
+    }
   }
   llvm::SmallVector<int64_t> vecRes;
   llvm::SmallVector<bool> scaleRes;
   return std::make_pair(vecRes, scaleRes);
 }
 
-// using info from plateform ctx.
-vector::UnrollVectorOptions buildUnrollVectorOptions() {
-  vector::UnrollVectorOptions res;
-  // FIXME:
-  // use ::nncv::compiler::utils::PlatformCtx::getInstance().MatMul_VecSize
-  res.setNativeShape({1, 4, 1});
+mlir::vector::UnrollVectorOptions buildUnrollVectorOptions() {
+  mlir::vector::UnrollVectorOptions res;
+  res.setFilterConstraint([](mlir::Operation* op) -> mlir::LogicalResult {
+    if (mlir::isa<mlir::vector::ContractionOp>(op) || mlir::isa<mlir::vector::TransposeOp>(op))
+      return mlir::failure();
 
+    return mlir::success();
+  });
+  res.setNativeShapeFn([](mlir::Operation* op) -> std::optional<llvm::SmallVector<int64_t>> {
+    auto opT = op->getOperandTypes()[0];
+
+    if (!opT.isa<mlir::VectorType>()) return std::nullopt;
+    auto vectorT = opT.cast<mlir::VectorType>();
+    size_t vectorShapeLen = vectorT.getShape().size();
+
+    if (vectorShapeLen == 0) return std::nullopt;
+
+    llvm::SmallVector<int64_t> _nativeShape;
+    for (size_t i = 0; i < vectorShapeLen - 1; ++i) _nativeShape.emplace_back(1);
+
+    // TODO change this.
+    _nativeShape.emplace_back(4);
+
+    return _nativeShape;
+  });
   return res;
 }
 
@@ -175,10 +212,17 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         (void)mlir::applyOpPatternsAndFold(ReductionOps, frozenSet,
                                            /*config=*/ApplyConfig);
       }
-
       //===----------------------------------------------------------------------===//
       // 2.0 Unroll
       //===----------------------------------------------------------------------===//
+      // unroll vector<4x4> or others but without contraction op in vector.
+      // {
+      //   mlir::RewritePatternSet patterns(&getContext());
+      //   mlir::vector::populateVectorUnrollPatterns(patterns, buildUnrollVectorOptions());
+      //   if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+      //     signalPassFailure();
+      //   }
+      // }
       {
         mlir::RewritePatternSet patterns(&getContext());
         auto options = mlir::vector::VectorTransformsOptions().setVectorTransformsOptions(
@@ -189,13 +233,6 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
           return signalPassFailure();
         }
       }
-      // {
-      //   mlir::RewritePatternSet patterns(&getContext());
-      //   mlir::vector::populateVectorUnrollPatterns(patterns, buildUnrollVectorOptions());
-      //   if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-      //     signalPassFailure();
-      //   }
-      // }
 
       //===----------------------------------------------------------------------===//
       // 3.1 Clear High dimension vector

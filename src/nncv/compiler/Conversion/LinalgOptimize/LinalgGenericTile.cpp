@@ -62,47 +62,76 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
 
         FailureOr<linalg::TiledLinalgOp> tiledOps;
         mlir::linalg::LinalgOp op = llvm::dyn_cast<linalg::LinalgOp>(_op);
-        ///<------------------------ Step 1.1. Tilling out loop
-        {
-          linalg::LinalgTilingOptions tileOption;
-          tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
-                                      .LinalgGenericTileCpu.outerLevelLoops);
+        // TODO make the code below more gorgeous
+        if (op.getNumLoops() == 3) {
+          ///<------------------------ Step 1.1. Tilling out loop
+          {
+            linalg::LinalgTilingOptions tileOption;
+            tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
+                                        .LinalgGenericTileCpu.outerLevelLoops);
 
-          OpBuilder::InsertionGuard guard(rewriter);
-          rewriter.setInsertionPoint(op);
-          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-          rewriter.replaceOp(op, tiledOps->tensorResults);
+            OpBuilder::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(op);
+            tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+            rewriter.replaceOp(op, tiledOps->tensorResults);
 
-          op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
-        }
+            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+          }
 
-        ///<------------------------ Step 1.2. Tilling inner loop
-        {
-          linalg::LinalgTilingOptions tileOption;
-          tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
-                                      .LinalgGenericTileCpu.innerLevelLoops);
+          ///<------------------------ Step 1.2. Tilling inner loop
+          {
+            linalg::LinalgTilingOptions tileOption;
+            tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
+                                        .LinalgGenericTileCpu.innerLevelLoops);
 
-          OpBuilder::InsertionGuard guard0(rewriter);
-          rewriter.setInsertionPoint(op);
+            OpBuilder::InsertionGuard guard0(rewriter);
+            rewriter.setInsertionPoint(op);
 
-          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-          rewriter.replaceOp(op, tiledOps->tensorResults);
+            tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+            rewriter.replaceOp(op, tiledOps->tensorResults);
 
-          op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
-        }
+            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+          }
 
-        ///<------------------------ Step 1.3. Tilling register loop
-        {
-          linalg::LinalgTilingOptions tileOption;
-          tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
-                                      .LinalgGenericTileCpu.registerLevelLoops);
+          ///<------------------------ Step 1.3. Tilling register loop
+          {
+            linalg::LinalgTilingOptions tileOption;
+            tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
+                                        .LinalgGenericTileCpu.registerLevelLoops);
 
-          OpBuilder::InsertionGuard guard(rewriter);
-          rewriter.setInsertionPoint(op);
+            OpBuilder::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(op);
 
-          FailureOr<linalg::TiledLinalgOp> tiledOps =
-              linalg::tileLinalgOp(rewriter, op, tileOption);
-          rewriter.replaceOp(op, tiledOps->tensorResults);
+            FailureOr<linalg::TiledLinalgOp> tiledOps =
+                linalg::tileLinalgOp(rewriter, op, tileOption);
+            rewriter.replaceOp(op, tiledOps->tensorResults);
+          }
+        } else if (op.getNumLoops() == 2) {
+          ///<------------------------ Step 1.1. Tilling out loop
+          {
+            linalg::LinalgTilingOptions tileOption;
+            tileOption.setTileSizes({1, 4});
+
+            OpBuilder::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(op);
+            tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+            rewriter.replaceOp(op, tiledOps->tensorResults);
+
+            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+          }
+        } else if (op.getNumLoops() == 1) {
+          ///<------------------------ Step 1.1. Tilling out loop
+          {
+            linalg::LinalgTilingOptions tileOption;
+            tileOption.setTileSizes({4});
+
+            OpBuilder::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(op);
+            tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+            rewriter.replaceOp(op, tiledOps->tensorResults);
+
+            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+          }
         }
       }
     }
