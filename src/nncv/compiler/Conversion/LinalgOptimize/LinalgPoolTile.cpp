@@ -23,6 +23,49 @@ namespace mlir {
 namespace nncv {
 
 namespace {
+
+struct LinalgPoolingOptions {
+  int64_t kernelH;
+  int64_t kernelW;
+  int64_t outputC;
+  int64_t outputH;
+  int64_t outputW;
+  int64_t batch;
+  llvm::SmallVector<int64_t> loops;
+  llvm::SmallVector<int64_t> tileSizes;
+};
+
+LinalgPoolingOptions getLinalgPoolingOptions(mlir::Operation* op) {
+  if (mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
+                mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
+                mlir::linalg::PoolingNhwcMinUnsignedOp>(op)) {
+    LinalgPoolingOptions res;
+    res.loops = mlir::cast<mlir::linalg::LinalgOp>(op).getStaticLoopRanges();
+    assert(res.loops.size() == 6 && "[assert] linalg.pooling* should have 6 loops\n");
+    res.batch = res.loops[0];
+    res.outputH = res.loops[1];
+    res.outputW = res.loops[2];
+    res.kernelH = res.loops[3];
+    res.kernelW = res.loops[4];
+    res.outputC = res.loops[5];
+    res.tileSizes = {0, 0, 0, 0, 0, 0};
+    return res;
+  } else if (mlir::isa<mlir::linalg::PoolingNchwMaxOp, mlir::linalg::PoolingNchwSumOp>(op)) {
+    LinalgPoolingOptions res;
+    res.loops = mlir::cast<mlir::linalg::LinalgOp>(op).getStaticLoopRanges();
+    assert(res.loops.size() == 6 && "[assert] linalg.pooling* should have 6 loops\n");
+    res.batch = res.loops[0];
+    res.outputC = res.loops[1];
+    res.outputH = res.loops[2];
+    res.outputW = res.loops[3];
+    res.kernelH = res.loops[4];
+    res.kernelW = res.loops[5];
+    res.tileSizes = {0, 0, 0, 0, 0, 0};
+    return res;
+  }
+  return LinalgPoolingOptions();
+}
+
 class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTilePass> {
  public:
   void getDependentDialects(mlir::DialectRegistry& registry) const override {
@@ -44,6 +87,8 @@ class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTi
       }
     });
 
+    IRRewriter rewriter(&getContext());
+
     for (auto item : candidates) {
       auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
 
@@ -51,7 +96,14 @@ class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTi
       if (linalg::vectorizeOpPrecondition(op).failed()) continue;
 
       // get the number of loops in the first level
-      auto numLoops = op.getNumLoops();
+      auto res = getLinalgPoolingOptions(op);
+      linalg::LinalgTilingOptions tileOption;
+      tileOption.setTileSizes(res.tileSizes);
+
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPoint(op);
+      auto tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+      rewriter.replaceOp(op, tiledOps->tensorResults);
     }
   }
 };

@@ -2,6 +2,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
+#include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Transforms/Passes.h"
 
 void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm) {

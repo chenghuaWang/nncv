@@ -76,6 +76,18 @@ def OptimizeConv2dUsingWinograd : Pass <"optimize-conv2d-winograd", "ModuleOp"> 
     ];
 }
 
+def Conv2dTile : Pass <"conv2d-tile", "func::FuncOp"> {
+    let summary = "tile conv2d to conv1d";
+    let constructor = "mlir::nncv::createConv2dTilePass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 //===----------------------------------------------------------------------===//
 // MatMul optimization
 //===----------------------------------------------------------------------===//

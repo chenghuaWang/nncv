@@ -4,6 +4,7 @@
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingCB.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
+#include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"

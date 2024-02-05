@@ -66,6 +66,16 @@ std::pair<llvm::SmallVector<int64_t>, llvm::SmallVector<bool>> buildVectorizatio
       return std::make_pair(vecSize, scaleDims);
     }
   }
+  if (mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
+                mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
+                mlir::linalg::PoolingNhwcMinUnsignedOp, mlir::linalg::PoolingNchwMaxOp,
+                mlir::linalg::PoolingNchwSumOp>(op)) {
+    std::vector<int64_t> _vecSize = {1, 3, 2, 2};
+    llvm::SmallVector<int64_t> vecSize;
+    for (auto item : _vecSize) vecSize.emplace_back(item);
+    llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
+    return std::make_pair(vecSize, scaleDims);
+  }
   llvm::SmallVector<int64_t> vecRes;
   llvm::SmallVector<bool> scaleRes;
   return std::make_pair(vecRes, scaleRes);

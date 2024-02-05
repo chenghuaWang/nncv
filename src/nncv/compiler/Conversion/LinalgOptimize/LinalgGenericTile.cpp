@@ -61,9 +61,10 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
         }
 
         FailureOr<linalg::TiledLinalgOp> tiledOps;
-        mlir::linalg::LinalgOp op = llvm::dyn_cast<linalg::LinalgOp>(_op);
+        mlir::linalg::GenericOp op = llvm::dyn_cast<linalg::GenericOp>(_op);
+
         // TODO make the code below more gorgeous
-        if (op.getNumLoops() == 3) {
+        if (op.getNumParallelLoops() == 3) {
           ///<------------------------ Step 1.1. Tilling out loop
           {
             linalg::LinalgTilingOptions tileOption;
@@ -75,7 +76,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
             tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
             rewriter.replaceOp(op, tiledOps->tensorResults);
 
-            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+            op = mlir::cast<mlir::linalg::GenericOp>(tiledOps->op);
           }
 
           ///<------------------------ Step 1.2. Tilling inner loop
@@ -90,7 +91,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
             tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
             rewriter.replaceOp(op, tiledOps->tensorResults);
 
-            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+            op = mlir::cast<mlir::linalg::GenericOp>(tiledOps->op);
           }
 
           ///<------------------------ Step 1.3. Tilling register loop
@@ -106,7 +107,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
                 linalg::tileLinalgOp(rewriter, op, tileOption);
             rewriter.replaceOp(op, tiledOps->tensorResults);
           }
-        } else if (op.getNumLoops() == 2) {
+        } else if (op.getNumParallelLoops() == 2) {
           ///<------------------------ Step 1.1. Tilling out loop
           {
             linalg::LinalgTilingOptions tileOption;
@@ -117,9 +118,9 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
             tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
             rewriter.replaceOp(op, tiledOps->tensorResults);
 
-            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+            op = mlir::cast<mlir::linalg::GenericOp>(tiledOps->op);
           }
-        } else if (op.getNumLoops() == 1) {
+        } else if (op.getNumParallelLoops() == 1) {
           ///<------------------------ Step 1.1. Tilling out loop
           {
             linalg::LinalgTilingOptions tileOption;
@@ -130,7 +131,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
             tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
             rewriter.replaceOp(op, tiledOps->tensorResults);
 
-            op = mlir::cast<mlir::linalg::LinalgOp>(tiledOps->op);
+            op = mlir::cast<mlir::linalg::GenericOp>(tiledOps->op);
           }
         }
       }

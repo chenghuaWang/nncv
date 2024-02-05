@@ -3,6 +3,7 @@ add_mlir_conversion_library(ConvOptimizeConversion
     OptimizeConv2dUsingCB.cpp
     OptimizeConv2dUsingWinograd.cpp
     OptimizeConv2dUsingQnnPack.cpp
+    Conv2dTile.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/compiler/Conversion/ConvOptimize

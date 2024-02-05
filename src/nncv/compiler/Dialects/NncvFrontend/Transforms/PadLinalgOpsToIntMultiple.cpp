@@ -132,7 +132,7 @@ class PadMatmulOp : public OpInterfaceRewritePattern<linalg::LinalgOp> {
   }
 
  private:
-  int paddingSize;
+  int paddingSize = 4;
 };
 
 class PadLinalgOpsToIntegerMultiple : public PadLinalgOpsBase<PadLinalgOpsToIntegerMultiple> {

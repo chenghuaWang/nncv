@@ -33,10 +33,12 @@
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 
 // FIXME
+#include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
@@ -123,26 +125,33 @@ void DnnModelLowering::run() {
       }
     }
 
-    // test
     {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createEmptyTensorEliminationPass());
       (void)pm.run(*m_Module);
     }
 
-    // using winograd
-    // FIXME
-    // pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
-    // pm.addNestedPass<mlir::func::FuncOp>(
-    //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-    // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    // stage 2.2 winograd
+    {
+      pm.clear();
+      // winograd or img2col here.
+      // pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(
+      //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      (void)pm.run(*m_Module);
+    }
 
     // Stage 2.1 High Level Tile for MatMul
     {
       pm.clear();
       pm.addPass(
           mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ false));
+      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {
@@ -153,15 +162,10 @@ void DnnModelLowering::run() {
       }
     }
 
-    // stage 2.2 Tile for Conv2d
+    // conv2d
     {
       pm.clear();
-      // TODO
-      // winograd or img2col here.
-      // pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(
-      //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createConv2dTilePass());
       (void)pm.run(*m_Module);
     }
 
@@ -200,12 +204,12 @@ void DnnModelLowering::run() {
     // Stage 4. Lowering all left linalg to affine and try to do super affine.
     {
       pm.clear();
-      pm.addPass(mlir::bufferization::createOneShotBufferizePass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertLinalgToAffineLoopsPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createLoopFusionPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize());
+      // pm.addPass(mlir::bufferization::createOneShotBufferizePass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertLinalgToAffineLoopsPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createLoopFusionPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize());
 
       // TODO
       // mlir::ConvertVectorToLLVMPassOptions option;

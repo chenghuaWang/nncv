@@ -1,6 +1,10 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 
+#include "mlir/IR/Operation.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/PassDetails.hpp"
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
 
@@ -14,7 +18,14 @@ class ConvertConv2DToImg2Col
     return;
   }
 
-  void runOnOperation() override { return; }
+  void runOnOperation() override {
+    mlir::RewritePatternSet patterns(&getContext());
+    mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
+    mlir::linalg::populateConvertConv2DToImg2ColPatterns(patterns);
+    if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+      signalPassFailure();
+    }
+  }
 };
 
 }  // namespace
