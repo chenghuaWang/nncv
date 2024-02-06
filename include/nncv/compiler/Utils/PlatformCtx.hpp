@@ -105,6 +105,10 @@ struct PlatformCtx {
   }
 
   void InitFromConfigFile();
+  inline void SetConfigFilePath(const std::string& path) { m_ConfigFilePath = path; }
+
+ private:
+  std::string m_ConfigFilePath;
 };
 
 inline static void PlatformCtxInit(bool printed = false) {

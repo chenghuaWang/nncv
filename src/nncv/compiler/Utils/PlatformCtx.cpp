@@ -10,10 +10,7 @@ namespace nncv::compiler::utils {
 
 void PlatformCtx::InitFromConfigFile() {
   // open json file
-  llvm::cl::opt<std::string> configFilePathOption(
-      "config-file-path", llvm::cl::desc("<config file path>"), llvm::cl::Optional);
-  std::string filePath =
-      configFilePathOption.getValue().empty() ? "config.json" : configFilePathOption.getValue();
+  std::string filePath = m_ConfigFilePath.empty() ? "config.json" : m_ConfigFilePath;
 
   // read json
   std::ifstream f(filePath);

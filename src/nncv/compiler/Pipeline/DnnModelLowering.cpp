@@ -130,6 +130,12 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createEmptyTensorEliminationPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] Cast Away Tensor Leading One Dims. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] Cast Away Tensor Leading One Dims. Success.\n");
+      }
       (void)pm.run(*m_Module);
     }
 
@@ -166,7 +172,14 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createConv2dTilePass());
-      (void)pm.run(*m_Module);
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createLinalgPoolingTilePass(/*use nv gpu*/ false));
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf("[ Erro ] High Level Tiling [Conv/Pool]. Failed\n");
+        exit(-1);
+      } else {
+        printf("[ Info ] High Level Tiling [Conv/Pool]. Success.\n");
+      }
     }
 
     // Stage 2.3 Tile others
@@ -174,8 +187,6 @@ void DnnModelLowering::run() {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ false));
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::createLinalgPoolingTilePass(/*use nv gpu*/ false));
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       if (mlir::failed(pm.run(*m_Module))) {

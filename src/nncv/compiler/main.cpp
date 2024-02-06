@@ -87,6 +87,9 @@ llvm::cl::opt<bool> RunDirectly("run", llvm::cl::desc("<run a .aten file directl
                                 llvm::cl::Optional);
 llvm::cl::opt<bool> WarpC("warp-c-interface", llvm::cl::desc("<warp c interface>"),
                           llvm::cl::Optional);
+llvm::cl::opt<std::string> ConfigFilePathOption("config-file-path",
+                                                llvm::cl::desc("<config file path>"),
+                                                llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -112,6 +115,8 @@ int main(int argc, char* argv[]) {
   // detecting platform
   nncv::compiler::utils::PlatformCtxInit(GetPlatformInfoOnly.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().init();
+  nncv::compiler::utils::PlatformCtx::getInstance().SetConfigFilePath(
+      ConfigFilePathOption.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().InitFromConfigFile();
   if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
 

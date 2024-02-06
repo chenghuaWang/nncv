@@ -131,7 +131,15 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         getOperation()->walk([&](linalg::LinalgOp op) {
           // This pass should work on tensor.
           if (op.hasBufferSemantics()) return WalkResult::skip();
-          if (mlir::isa<linalg::LinalgOp>(op)) Candidates.push_back(op);
+          if (mlir::isa<linalg::LinalgOp>(op)
+              && !mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
+                            mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
+                            mlir::linalg::PoolingNhwcMinUnsignedOp, mlir::linalg::PoolingNchwMaxOp,
+                            mlir::linalg::PoolingNchwSumOp, mlir::linalg::Conv2DNhwcHwcfOp,
+                            mlir::linalg::Conv2DNchwFchwOp, mlir::linalg::Conv2DNhwcFhwcOp,
+                            mlir::linalg::Conv1DNcwFcwOp, mlir::linalg::Conv1DNwcWcfOp,
+                            mlir::linalg::PoolingNcwMaxOp, mlir::linalg::PoolingNcwSumOp>(op))
+            Candidates.push_back(op);
           // TODO Add tensor.pad
           return WalkResult::advance();
         });

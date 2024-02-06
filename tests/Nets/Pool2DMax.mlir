@@ -9,3 +9,23 @@ module attributes {torch.debug_module_name = "net_pool2d_max"} {
     return %3 : tensor<1x3x74x74xf32>
   }
 }
+
+
+// scf.for %arg1 = %c0 to %c1 step %c1 {
+//   scf.for %arg2 = %c0 to %c3 step %c1 {
+//     scf.for %arg3 = %c0 to %c74 step %c1 {
+//       scf.for %arg4 = %c0 to %c74 step %c1 {
+//         scf.for %arg5 = %c0 to %c3 step %c1 {
+//           scf.for %arg6 = %c0 to %c3 step %c1 {
+//             %2 = affine.apply #map(%arg3, %arg5)
+//             %3 = affine.apply #map(%arg4, %arg6)
+//             %4 = memref.load %0[%arg1, %arg2, %2, %3] : memref<1x3x224x224xf32, strided<[?, ?, ?, ?], offset: ?>>
+//             %5 = memref.load %alloc[%arg1, %arg2, %arg3, %arg4] : memref<1x3x74x74xf32>
+//             %6 = arith.maximumf %5, %4 : f32
+//             memref.store %6, %alloc[%arg1, %arg2, %arg3, %arg4] : memref<1x3x74x74xf32>
+//           }
+//         }
+//       }
+//     }
+//   }
+// }

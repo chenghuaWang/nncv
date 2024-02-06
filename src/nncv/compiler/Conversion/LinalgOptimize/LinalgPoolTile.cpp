@@ -24,46 +24,37 @@ namespace nncv {
 
 namespace {
 
-struct LinalgPoolingOptions {
-  int64_t kernelH;
-  int64_t kernelW;
-  int64_t outputC;
-  int64_t outputH;
-  int64_t outputW;
-  int64_t batch;
-  llvm::SmallVector<int64_t> loops;
-  llvm::SmallVector<int64_t> tileSizes;
-};
+llvm::SmallVector<scf::ForOp> toScfForOp(llvm::SmallVector<mlir::Operation*, 8>& ops) {
+  llvm::SmallVector<scf::ForOp> res;
+  for (auto item : ops) res.emplace_back(mlir::cast<mlir::scf::ForOp>(item));
+  return res;
+}
 
-LinalgPoolingOptions getLinalgPoolingOptions(mlir::Operation* op) {
-  if (mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
-                mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
-                mlir::linalg::PoolingNhwcMinUnsignedOp>(op)) {
-    LinalgPoolingOptions res;
-    res.loops = mlir::cast<mlir::linalg::LinalgOp>(op).getStaticLoopRanges();
-    assert(res.loops.size() == 6 && "[assert] linalg.pooling* should have 6 loops\n");
-    res.batch = res.loops[0];
-    res.outputH = res.loops[1];
-    res.outputW = res.loops[2];
-    res.kernelH = res.loops[3];
-    res.kernelW = res.loops[4];
-    res.outputC = res.loops[5];
-    res.tileSizes = {0, 0, 0, 0, 0, 0};
-    return res;
-  } else if (mlir::isa<mlir::linalg::PoolingNchwMaxOp, mlir::linalg::PoolingNchwSumOp>(op)) {
-    LinalgPoolingOptions res;
-    res.loops = mlir::cast<mlir::linalg::LinalgOp>(op).getStaticLoopRanges();
-    assert(res.loops.size() == 6 && "[assert] linalg.pooling* should have 6 loops\n");
-    res.batch = res.loops[0];
-    res.outputC = res.loops[1];
-    res.outputH = res.loops[2];
-    res.outputW = res.loops[3];
-    res.kernelH = res.loops[4];
-    res.kernelW = res.loops[5];
-    res.tileSizes = {0, 0, 0, 0, 0, 0};
-    return res;
+FailureOr<mlir::linalg::TiledLinalgOp> tileAndReplacePoolOp(IRRewriter& rewriter,
+                                                            mlir::Operation* op,
+                                                            llvm::SmallVector<int64_t> sizes) {
+  // process a new sizes;
+  auto linalgOp = mlir::cast<mlir::linalg::LinalgOp>(op);
+  auto opLoops = linalgOp.getStaticLoopRanges();
+  assert(opLoops.size() == sizes.size()
+         && "[assert] The size of static loops from linalg op should match tiled sizes' length.");
+  for (size_t i = 0; i < sizes.size(); ++i) {
+    auto cur = opLoops[i];
+    auto want = sizes[i];
+    if (cur <= want) sizes[i] = 0;
   }
-  return LinalgPoolingOptions();
+
+  // do tiling
+  linalg::LinalgTilingOptions tileOption;
+  tileOption.setTileSizes(sizes);
+
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(op);
+
+  auto tiledOps =
+      linalg::tileLinalgOp(rewriter, mlir::cast<mlir::linalg::LinalgOp>(op), tileOption);
+  rewriter.replaceOp(op, tiledOps->tensorResults);
+  return tiledOps;
 }
 
 class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTilePass> {
@@ -92,18 +83,42 @@ class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTi
     for (auto item : candidates) {
       auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
 
-      // if this op can't be vectorized. No need to tile anymore.
-      if (linalg::vectorizeOpPrecondition(op).failed()) continue;
+      if (mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
+                    mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
+                    mlir::linalg::PoolingNhwcMinUnsignedOp>(op)) {
+        auto tiled = tileAndReplacePoolOp(
+            rewriter, op,
+            {/*batch*/ 0, /*outputH*/ 1, /*outputW*/ 8, /*kernelC*/ 8, /*kernelH*/ 1,
+             /*kernelW*/ 0, /*kernelF*/ 0});
+        if (succeeded(tiled)) {
+          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
+          continue;
+        }
+      }
 
-      // get the number of loops in the first level
-      auto res = getLinalgPoolingOptions(op);
-      linalg::LinalgTilingOptions tileOption;
-      tileOption.setTileSizes(res.tileSizes);
+      if (mlir::isa<mlir::linalg::PoolingNchwMaxOp, mlir::linalg::PoolingNchwSumOp>(op)) {
+        auto tiled = tileAndReplacePoolOp(
+            rewriter, op,
+            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 1, /*outputW*/ 8, /*kernelH*/ 1,
+             /*kernelW*/ 0});
+        if (succeeded(tiled)) {
+          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
+          continue;
+        }
+      }
 
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPoint(op);
-      auto tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-      rewriter.replaceOp(op, tiledOps->tensorResults);
+      printf("[ Warn ] The data layout of pooling that nncv supported now is [nhwc/nchw]. %s "
+             " in this file will fail through to nested for loops.\n",
+             op->getName().getStringRef().str().c_str());
+    }
+
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
+      // mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
     }
   }
 };
