@@ -19,11 +19,13 @@ class ExecObject {
   int32_t runSyncWait();
   inline int32_t getRet() { return m_Ret; }
   inline bool isSuccess() { return m_Ret == 0; }
+  inline void setHideOutput(bool flag) { m_hideOutput = flag; }
 
  private:
   std::string m_ExecFilePath;
   std::vector<std::string> m_Args;
   int32_t m_Ret;
+  bool m_hideOutput = false;
 };
 
 }  // namespace utils

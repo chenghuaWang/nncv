@@ -4,6 +4,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
+#include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
 #include "nncv/compiler/Utils/MlirIo.hpp"
 #include "nncv/compiler/Utils/Exec.hpp"
 
@@ -16,7 +17,15 @@ void AtenBackendLoweringPipeline::run() {
     // if memref is in affine scope.
     {
       pm.clear();
-      // pm.addNestedPass<mlir::func::FuncOp>();
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+      if (mlir::failed(pm.run(*m_Module))) {
+        printf(
+            "[ Erro ] Raise memref.load and memref.store to affine.load and affine.store failed\n");
+        exit(-1);
+      } else {
+        compiler::utils::SaveMlirModuleToFile(m_Module, ".cache.air");
+      }
     }
 
     // Affine Scheduler
@@ -25,16 +34,22 @@ void AtenBackendLoweringPipeline::run() {
       exec.pushArgs("-reg2mem");
       exec.pushArgs("-extract-scop-stmt");
       exec.pushArgs("-pluto-opt");
-      exec.pushArgs("cache.aten");
+      exec.pushArgs(".cache.air");
       exec.pushArgs("-o");
-      exec.pushArgs("cache.mlir");
+      exec.pushArgs(".cache.mlir");
 
+      exec.setHideOutput(true);
       exec.runSyncWait();
 
       if (!exec.isSuccess()) {
-        printf("[ Erro] Failed when doing polly, using original aten-ir\n");
+        printf("[ Erro ] Failed when doing polly, using original aten-ir\n");
       }
     }
+
+    // TODO read from ".cache.mlir" if success.
+    {}
+
+    exit(0);
 
     // Lowering to all Llvm IR
     {
