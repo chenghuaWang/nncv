@@ -42,7 +42,109 @@ func main() -> void {
 };
 ```
 
-nncv will use mlir's native transform dialect to optimize all affine loops. And it also provides some python scripts for creating customized transform file. More examples can be found at [test](./tests/) directory.
+after lowering to atenir-mlir, we will get:
+
+```mlir
+module @__main {
+  Aten.func private @matmul(%arg0: memref<512x512xf32>, %arg1: memref<512x512xf32>, %arg2: memref<512x512xf32>) {
+    affine.for %arg3 = 0 to 512 {
+      affine.for %arg4 = 0 to 512 {
+        affine.for %arg5 = 0 to 512 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<512x512xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<512x512xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<512x512xf32>
+          %3 = Aten.binop(mul, %1, %2) : f32
+          %4 = Aten.binop(add, %0, %3) : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<512x512xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @main() {
+    %alloc = memref.alloc() : memref<512x512xf32>
+    %alloc_0 = memref.alloc() : memref<512x512xf32>
+    %alloc_1 = memref.alloc() : memref<512x512xf32>
+    Aten.call @matmul(%alloc, %alloc_0, %alloc_1) : (memref<512x512xf32>, memref<512x512xf32>, memref<512x512xf32>) -> ()
+    Aten.return
+  }
+}
+```
+
+then lowering all aten-ir to mlir:
+
+```mlir
+module @__main {
+  func.func private @matmul(%arg0: memref<512x512xf32>, %arg1: memref<512x512xf32>, %arg2: memref<512x512xf32>) {
+    affine.for %arg3 = 0 to 512 {
+      affine.for %arg4 = 0 to 512 {
+        affine.for %arg5 = 0 to 512 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<512x512xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<512x512xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<512x512xf32>
+          %3 = arith.mulf %1, %2 : f32
+          %4 = arith.addf %0, %3 : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<512x512xf32>
+        }
+      }
+    }
+    return
+  }
+  func.func private @main() {
+    %alloc = memref.alloc() : memref<512x512xf32>
+    %alloc_0 = memref.alloc() : memref<512x512xf32>
+    %alloc_1 = memref.alloc() : memref<512x512xf32>
+    call @matmul(%alloc, %alloc_0, %alloc_1) : (memref<512x512xf32>, memref<512x512xf32>, memref<512x512xf32>) -> ()
+    return
+  }
+}
+```
+
+nncv will try to use [polymer](https://github.com/kumasento/polymer) to optimize all affine loops. (memref(loadOp, storeOp) will raise to affine if necessary). After optimization, we will get:
+
+```mlir
+#map = affine_map<(d0) -> (d0 * 32)>
+#map1 = affine_map<(d0) -> (d0 * 32 + 32)>
+module @__main {
+  func.func private @S0(%arg0: memref<512x512xf32>, %arg1: index, %arg2: index, %arg3: memref<512x512xf32>, %arg4: index, %arg5: memref<512x512xf32>) attributes {scop.stmt} {
+    %0 = affine.load %arg0[symbol(%arg1), symbol(%arg2)] : memref<512x512xf32>
+    %1 = affine.load %arg5[symbol(%arg1), symbol(%arg4)] : memref<512x512xf32>
+    %2 = affine.load %arg3[symbol(%arg4), symbol(%arg2)] : memref<512x512xf32>
+    %3 = arith.mulf %1, %2 : f32
+    %4 = arith.addf %0, %3 : f32
+    affine.store %4, %arg0[symbol(%arg1), symbol(%arg2)] : memref<512x512xf32>
+    return
+  }
+  func.func private @matmul(%arg0: memref<512x512xf32>, %arg1: memref<512x512xf32>, %arg2: memref<512x512xf32>) {
+    affine.for %arg3 = 0 to 16 {
+      affine.for %arg4 = 0 to 16 {
+        affine.for %arg5 = 0 to 16 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg5) to #map1(%arg5) {
+              affine.for %arg8 = #map(%arg4) to #map1(%arg4) {
+                func.call @S0(%arg2, %arg6, %arg8, %arg1, %arg7, %arg0) : (memref<512x512xf32>, index, index, memref<512x512xf32>, index, memref<512x512xf32>) -> ()
+              }
+            }
+          }
+        }
+      }
+    }
+    return
+  }
+  func.func private @main() {
+    %alloc = memref.alloc() : memref<512x512xf32>
+    %alloc_0 = memref.alloc() : memref<512x512xf32>
+    %alloc_1 = memref.alloc() : memref<512x512xf32>
+    call @matmul(%alloc, %alloc_0, %alloc_1) : (memref<512x512xf32>, memref<512x512xf32>, memref<512x512xf32>) -> ()
+    memref.dealloc %alloc_1 : memref<512x512xf32>
+    memref.dealloc %alloc_0 : memref<512x512xf32>
+    memref.dealloc %alloc : memref<512x512xf32>
+    return
+  }
+}
+```
+
+Finally, nncv's lowering pipeline will lowering mlir to llvm ir. More examples can be found at [test](./tests/) directory.
 
 Some commands for checking up:
 
