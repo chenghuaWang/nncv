@@ -103,6 +103,8 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/PlatformCtx.cpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/MlirIo.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/MlirIo.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Utils/Exec.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/Exec.hpp
 
     # Runner
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Runner/InitJit.hpp

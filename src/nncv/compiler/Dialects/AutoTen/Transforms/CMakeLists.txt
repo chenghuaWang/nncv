@@ -3,6 +3,7 @@ add_mlir_library(AtenLangTransformsPasses
     Passes.cpp
     EliminateRetLoad.cpp
     EliminateRedundantStoreLoadForScf.cpp
+    RaiseMemerefLSInAffineToAffineLS.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SRC_DIR}/include/nncv/compiler/Dialects/AutoTen/Transforms

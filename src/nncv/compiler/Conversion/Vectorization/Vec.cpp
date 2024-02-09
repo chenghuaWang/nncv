@@ -164,6 +164,10 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         mlir::RewritePatternSet patterns(&getContext());
         mlir::linalg::populateConvolutionVectorizationPatterns(patterns);
         mlir::linalg::populatePadOpVectorizationPatterns(patterns);
+        mlir::linalg::ControlDropUnitDims option;
+        option.rankReductionStrategy =
+            mlir::linalg::ControlDropUnitDims::RankReductionStrategy::ReassociativeReshape;
+        mlir::linalg::populateFoldUnitExtentDimsPatterns(patterns, option);
         if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
           signalPassFailure();
         }
@@ -230,6 +234,9 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         (void)mlir::applyOpPatternsAndFold(ReductionOps, frozenSet,
                                            /*config=*/ApplyConfig);
       }
+
+      return;
+
       //===----------------------------------------------------------------------===//
       // 2.0 Unroll
       //===----------------------------------------------------------------------===//

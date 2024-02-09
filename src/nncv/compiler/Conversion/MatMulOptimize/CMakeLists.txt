@@ -3,6 +3,7 @@ add_mlir_conversion_library(MatMulOptimizeConversion
     MatMulOptDefault.cpp
     MatMulOptParallelVec.cpp
     MatMulOptVec.cpp
+    MatMul2NvMMA.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/compiler/Conversion/MatMulOptimize

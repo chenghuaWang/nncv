@@ -102,4 +102,9 @@ def EliminateRedundantLoadStoreForScfConditional: Pass<"nncv-aten-eliminate-redu
     }];
 }
 
+def RaiseMemerefLSInAffineToAffineLS : Pass<"nncv-aten-raise-memref-ls-to-affine-ls-if-in-affine", "func::FuncOp"> {
+    let summary = "Raise Memref Load/Store to Affine Load/Store if Memref in Affine scope.";
+    let constructor = "mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass();";
+}
+
 #endif //! NNCV_NNCV_ATEN_TRANSFORMS_PASSES

@@ -1,20 +1,39 @@
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
 #include "nncv/compiler/Utils/MlirIo.hpp"
+#include "nncv/compiler/Utils/Exec.hpp"
 
 namespace nncv::compiler::pipeline {
 void AtenBackendLoweringPipeline::run() {
   mlir::PassManager pm(m_Module.get()->getName());
 
   if (m_isNative && !m_isNVPTX) {
-    // TODO Affine scheduler
-    // 1. read scheduler from file.
-    // 2. provide a method that can gen a schedule file.
+    // Raise memref.load and memref.store to affine.load and affine.store
+    // if memref is in affine scope.
     {
+      pm.clear();
+      // pm.addNestedPass<mlir::func::FuncOp>();
+    }
 
+    // Affine Scheduler
+    {
+      utils::ExecObject exec("polymer-opt");
+      exec.pushArgs("-reg2mem");
+      exec.pushArgs("-extract-scop-stmt");
+      exec.pushArgs("-pluto-opt");
+      exec.pushArgs("cache.aten");
+      exec.pushArgs("-o");
+      exec.pushArgs("cache.mlir");
+
+      exec.runSyncWait();
+
+      if (!exec.isSuccess()) {
+        printf("[ Erro] Failed when doing polly, using original aten-ir\n");
+      }
     }
 
     // Lowering to all Llvm IR

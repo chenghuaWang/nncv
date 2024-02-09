@@ -94,7 +94,7 @@ class Conv2dTilePass : public impl::Conv2dTileBase<Conv2dTilePass> {
       if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) {
         auto tiled = tileAndReplaceConvOp(
             rewriter, op,
-            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 1, /*outputW*/ 8, /*kernelF*/ 0,
+            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 1, /*outputW*/ 8, /*kernelF*/ 4,
              /*kernelH*/ 1, /*kernelW*/ 0});
         if (succeeded(tiled)) {
           mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));

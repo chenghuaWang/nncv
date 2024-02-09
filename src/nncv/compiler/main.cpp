@@ -4,8 +4,6 @@
  * @brief Parse command line and do some actions.
  * @version 0.1
  * @date 2023-05-19
- * @details check https://www.llvm.org/docs/CommandLine.html#quick-start-guide for how to use LLVM's
- * CommandLine tools.
  *
  * @copyright Copyright (c) 2023
  *
@@ -139,7 +137,6 @@ int main(int argc, char* argv[]) {
   if (SuffixStr == "aten") {
     // compile aten-lang
     nncv::compiler::pipeline::FrontendPipeline fr(MlirContext, MlirModule);
-
     fr.setInputFilePath(InputFilename.getValue());
     fr.setShowCst(ShowCst.getValue());
     fr.setBuiltinMlir(OnlyShowBuiltInMlir.getValue());

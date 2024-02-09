@@ -13,6 +13,8 @@ std::unique_ptr<mlir::Pass> createEliminateTailReturnLoadPass();
 
 std::unique_ptr<mlir::Pass> createEliminateRedundantLoadStoreForScfConditionalPass();
 
+std::unique_ptr<mlir::Pass> createRaiseMemerefLSInAffineToAffineLSPass();
+
 void createAtenLangHighLevelOptimizePipeline(OpPassManager& pm);
 
 #define GEN_PASS_REGISTRATION
