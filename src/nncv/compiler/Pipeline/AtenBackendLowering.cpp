@@ -11,6 +11,7 @@
 namespace nncv::compiler::pipeline {
 void AtenBackendLoweringPipeline::run() {
   mlir::PassManager pm(m_Module.get()->getName());
+  bool isPollyOk = false;
 
   if (m_isNative && !m_isNVPTX) {
     // Raise memref.load and memref.store to affine.load and affine.store
@@ -43,13 +44,17 @@ void AtenBackendLoweringPipeline::run() {
 
       if (!exec.isSuccess()) {
         printf("[ Erro ] Failed when doing polly, using original aten-ir\n");
+      } else {
+        isPollyOk = true;
       }
     }
 
     // TODO read from ".cache.mlir" if success.
-    {}
-
-    exit(0);
+    {
+      if (isPollyOk) {
+        compiler::utils::ImportMlirModuleFromFile(m_Module, &m_Context, ".cache.mlir");
+      }
+    }
 
     // Lowering to all Llvm IR
     {

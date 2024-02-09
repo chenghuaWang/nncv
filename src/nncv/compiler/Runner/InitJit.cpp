@@ -6,6 +6,8 @@
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 
+#include "nncv/compiler/Utils/MlirIo.hpp"
+
 namespace nncv {
 namespace runner {
 
@@ -75,18 +77,7 @@ bool NncvJit::run(const std::string& entry_point) {
     mlir::MLIRContext MlirContext(registry);
 
     // Open File
-    std::string ErrorMessage;
-    auto __file = mlir::openInputFile(m_FilePath, &ErrorMessage);
-    if (!__file) {
-      printf("[ Erro ] %s\n", ErrorMessage.c_str());
-      return -1;
-    }
-    std::unique_ptr<llvm::MemoryBuffer> Buffer = std::move(__file);
-    llvm::SourceMgr SourceMgr;
-    SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
-    mlir::ParserConfig config(&MlirContext);
-    MlirContext.loadDialect<mlir::LLVM::LLVMDialect>();
-    m_Module = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
+    (void)::nncv::compiler::utils::ImportMlirModuleFromFile(m_Module, &MlirContext, m_FilePath);
 
     init();
 

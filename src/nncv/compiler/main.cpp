@@ -62,6 +62,7 @@
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
+#include "nncv/compiler/Utils/MlirIo.hpp"
 
 #include "nncv/compiler/Runner/InitJit.hpp"
 
@@ -171,17 +172,7 @@ int main(int argc, char* argv[]) {
     }
 
   } else if (SuffixStr == "nncv" || SuffixStr == "mlir") {
-    std::string ErrorMessage;
-    auto __file = mlir::openInputFile(CurFilePath, &ErrorMessage);
-    if (!__file) {
-      printf("[ Erro ] %s\n", ErrorMessage.c_str());
-      return -1;
-    }
-    std::unique_ptr<llvm::MemoryBuffer> Buffer = std::move(__file);
-    llvm::SourceMgr SourceMgr;
-    SourceMgr.AddNewSourceBuffer(std::move(Buffer), llvm::SMLoc());
-    mlir::ParserConfig config(&MlirContext);
-    MlirModule = mlir::parseSourceFile<mlir::ModuleOp>(SourceMgr, config);
+    (void)nncv::compiler::utils::ImportMlirModuleFromFile(MlirModule, &MlirContext, CurFilePath);
 
     ///< Below for NNCV
     // Start to lower all
