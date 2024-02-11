@@ -159,6 +159,7 @@ set(LinkedLibs
     MLIRLoopLikeInterfaceTestPasses
     MLIRMemRefTestPasses
     MLIRTilingInterfaceTestPasses
+    MLIRSCFToControlFlow
 
     # NNCV Libs
     # dialect itself

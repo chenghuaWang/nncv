@@ -28,7 +28,7 @@ namespace {
 
 llvm::SmallVector<scf::ForOp> toScfForOp(llvm::SmallVector<mlir::Operation*, 8>& ops) {
   llvm::SmallVector<scf::ForOp> res;
-  for (auto item : ops) res.emplace_back(mlir::cast<mlir::scf::ForOp>(item));
+  for (auto item : ops) res.push_back(mlir::cast<mlir::scf::ForOp>(item));
   return res;
 }
 
@@ -76,14 +76,16 @@ class Conv2dTilePass : public impl::Conv2dTileBase<Conv2dTilePass> {
       }
     });
 
-    // tile to one dims;
+    //===----------------------------------------------------------------------===//
+    // 1 Tile to Small size.
+    //===----------------------------------------------------------------------===//
     for (auto item : candidates) {
       auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
 
       if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp>(op)) {
         auto tiled = tileAndReplaceConvOp(
             rewriter, op,
-            {/*batch*/ 0, /*outputH*/ 1, /*outputW*/ 8, /*kernelC*/ 8, /*kernelH*/ 1,
+            {/*batch*/ 0, /*outputH*/ 8, /*outputW*/ 8, /*kernelC*/ 0, /*kernelH*/ 0,
              /*kernelW*/ 0, /*kernelF*/ 0});
         if (succeeded(tiled)) {
           mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
@@ -94,15 +96,65 @@ class Conv2dTilePass : public impl::Conv2dTileBase<Conv2dTilePass> {
       if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) {
         auto tiled = tileAndReplaceConvOp(
             rewriter, op,
-            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 1, /*outputW*/ 8, /*kernelF*/ 4,
-             /*kernelH*/ 1, /*kernelW*/ 0});
+            {/*batch*/ 0, /*kernelC*/ 0, /*outputH*/ 8, /*outputW*/ 8, /*kernelF*/ 0,
+             /*kernelH*/ 0, /*kernelW*/ 0});
         if (succeeded(tiled)) {
           mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
           continue;
         }
       }
 
-      printf("[ Warn ] The data layout of conv that nncv supported now is [nchwfchw/nhwchwcf]. %s "
+      printf("[ Warn ] The data layout of conv2d that nncv supported now is "
+             "[Conv2DNhwcHwcfOp/Conv2DNchwFchwOp]. %s "
+             " in this file will fail through to nested for loops.\n",
+             op->getName().getStringRef().str().c_str());
+    }
+
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 2 Tile from Small size to one dims. Also cut down channel.
+    //===----------------------------------------------------------------------===//
+    candidates.clear();
+    getOperation()->walk([&](mlir::linalg::LinalgOp op) {
+      if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp, mlir::linalg::Conv2DNchwFchwOp,
+                    mlir::linalg::Conv2DNhwcFhwcOp>(op)) {
+        candidates.emplace_back(op);
+      }
+    });
+    for (auto item : candidates) {
+      auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
+
+      if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp>(op)) {
+        auto tiled = tileAndReplaceConvOp(
+            rewriter, op,
+            {/*batch*/ 0, /*outputH*/ 1, /*outputW*/ 0, /*kernelC*/ 8, /*kernelH*/ 1,
+             /*kernelW*/ 0, /*kernelF*/ 0});
+        if (succeeded(tiled)) {
+          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
+          continue;
+        }
+      }
+
+      if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) {
+        auto tiled = tileAndReplaceConvOp(
+            rewriter, op,
+            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 0, /*outputW*/ 1, /*kernelF*/ 0,
+             /*kernelH*/ 1, /*kernelW*/ 1});
+        if (succeeded(tiled)) {
+          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
+          continue;
+        }
+      }
+
+      printf("[ Warn ] The data layout of conv2d that nncv supported now is "
+             "[Conv2DNhwcHwcfOp/Conv2DNchwFchwOp]. %s "
              " in this file will fail through to nested for loops.\n",
              op->getName().getStringRef().str().c_str());
     }
@@ -110,6 +162,44 @@ class Conv2dTilePass : public impl::Conv2dTileBase<Conv2dTilePass> {
     {
       mlir::RewritePatternSet patterns(&getContext());
       mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
+      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 3 Tile conv1d to reduce unroll code size
+    //===----------------------------------------------------------------------===//
+    candidates.clear();
+    getOperation()->walk([&](mlir::linalg::LinalgOp op) {
+      if (mlir::isa<mlir::linalg::Conv1DNcwFcwOp, mlir::linalg::Conv1DNwcWcfOp>(op)) {
+        candidates.emplace_back(op);
+      }
+    });
+    for (auto item : candidates) {
+      auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
+
+      if (mlir::isa<mlir::linalg::Conv1DNwcWcfOp>(op)) {
+        auto tiled =
+            tileAndReplaceConvOp(rewriter, op, {/*N*/ 0, /*w*/ 1, /*c*/ 0, /*W*/ 1, /*f*/ 0});
+        continue;
+      }
+
+      if (mlir::isa<mlir::linalg::Conv1DNcwFcwOp>(op)) {
+        auto tiled =
+            tileAndReplaceConvOp(rewriter, op, {/*N*/ 0, /*c*/ 0, /*w*/ 0, /*F*/ 0, /*w*/ 0});
+        continue;
+      }
+
+      printf("[ Warn ] The data layout of conv1d that nncv supported now is "
+             "[Conv1DNwcWcfOp/Conv1DNcwFcwOp]. %s "
+             " in this file will fail through to nested for loops.\n",
+             op->getName().getStringRef().str().c_str());
+    }
+
+    {
+      mlir::RewritePatternSet patterns(&getContext());
       mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
       if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
         signalPassFailure();

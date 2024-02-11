@@ -1,4 +1,5 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 
@@ -36,8 +37,63 @@ class MatMulOptimizationVec : public impl::MatMulOptimization_VecBase<MatMulOpti
 
   void runOnOperation() override {
     IRRewriter rewriter(&getContext());
-    if (m_enableNvGPU) {
-    } else {
+    if (m_enableNvGPU) /* Tile for Nv Tensor Core*/ {
+      llvm::SmallVector<mlir::linalg::MatmulOp> candidates;
+      getOperation()->walk([&](linalg::MatmulOp op) {
+        // This pass should work on tensor.
+        if (op.hasBufferSemantics()) return signalPassFailure();
+        candidates.emplace_back(op);
+      });
+
+      for (auto& _op : candidates) {
+        FailureOr<linalg::TiledLinalgOp> tiledOps;
+        mlir::linalg::MatmulOp op = _op;
+        ///<------------------------ Step 1.1. Tilling out loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(
+              ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileNvGpu.outerLevelLoops);
+
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPoint(op);
+
+          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
+
+          op = mlir::cast<mlir::linalg::MatmulOp>(tiledOps->op);
+        }
+
+        ///<------------------------ Step 1.2. Tilling inner loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(
+              ::nncv::compiler::utils::PlatformCtx::getInstance().MatMulTileNvGpu.innerLevelLoops);
+
+          OpBuilder::InsertionGuard guard0(rewriter);
+          rewriter.setInsertionPoint(op);
+
+          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
+
+          op = mlir::cast<mlir::linalg::MatmulOp>(tiledOps->op);
+        }
+
+        ///<------------------------ Step 1.3. Tilling register loop
+        {
+          linalg::LinalgTilingOptions tileOption;
+          tileOption.setTileSizes(::nncv::compiler::utils::PlatformCtx::getInstance()
+                                      .MatMulTileNvGpu.registerLevelLoops);
+
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPoint(op);
+
+          FailureOr<linalg::TiledLinalgOp> tiledOps =
+              linalg::tileLinalgOp(rewriter, op, tileOption);
+          rewriter.replaceOp(op, tiledOps->tensorResults);
+        }
+      }
+
+    } else /* Tile for X86 AVX2 */ {
       llvm::SmallVector<mlir::linalg::MatmulOp> candidates;
       getOperation()->walk([&](linalg::MatmulOp op) {
         // This pass should work on tensor.

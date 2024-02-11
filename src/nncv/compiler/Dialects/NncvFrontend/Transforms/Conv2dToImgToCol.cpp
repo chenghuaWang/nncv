@@ -20,7 +20,6 @@ class ConvertConv2DToImg2Col
 
   void runOnOperation() override {
     mlir::RewritePatternSet patterns(&getContext());
-    mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
     mlir::linalg::populateConvertConv2DToImg2ColPatterns(patterns);
     if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
       signalPassFailure();

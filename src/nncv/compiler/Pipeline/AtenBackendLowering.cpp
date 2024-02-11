@@ -1,5 +1,10 @@
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/Transforms/Passes.h"
+#include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
@@ -13,46 +18,57 @@ void AtenBackendLoweringPipeline::run() {
   mlir::PassManager pm(m_Module.get()->getName());
   bool isPollyOk = false;
 
+  {
+    pm.clear();
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createLoopInvariantCodeMotionPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createPipelineDataTransferPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineScalarReplacementPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass(true));
+    (void)pm.run(*m_Module);
+  }
+
   if (m_isNative && !m_isNVPTX) {
-    // Raise memref.load and memref.store to affine.load and affine.store
-    // if memref is in affine scope.
-    {
-      pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf(
-            "[ Erro ] Raise memref.load and memref.store to affine.load and affine.store failed\n");
-        exit(-1);
-      } else {
-        compiler::utils::SaveMlirModuleToFile(m_Module, ".cache.air");
+    if (m_usingPoly) {
+      // Raise memref.load and memref.store to affine.load and affine.store
+      // if memref is in affine scope.
+      {
+        pm.clear();
+        pm.addNestedPass<mlir::func::FuncOp>(
+            mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+        if (mlir::failed(pm.run(*m_Module))) {
+          printf("[ Erro ] Raise memref.load and memref.store to affine.load and affine.store "
+                 "failed\n");
+          exit(-1);
+        } else {
+          compiler::utils::SaveMlirModuleToFile(m_Module, ".cache.air");
+        }
       }
-    }
 
-    // Affine Scheduler
-    {
-      utils::ExecObject exec("polymer-opt");
-      exec.pushArgs("-reg2mem");
-      exec.pushArgs("-extract-scop-stmt");
-      exec.pushArgs("-pluto-opt");
-      exec.pushArgs(".cache.air");
-      exec.pushArgs("-o");
-      exec.pushArgs(".cache.mlir");
+      // Affine Scheduler
+      {
+        utils::ExecObject exec("polymer-opt");
+        exec.pushArgs("-reg2mem");
+        exec.pushArgs("-extract-scop-stmt");
+        exec.pushArgs("-pluto-opt");
+        exec.pushArgs(".cache.air");
+        exec.pushArgs("-o");
+        exec.pushArgs(".cache.mlir");
 
-      exec.setHideOutput(true);
-      exec.runSyncWait();
+        exec.setHideOutput(true);
+        exec.runSyncWait();
 
-      if (!exec.isSuccess()) {
-        printf("[ Erro ] Failed when doing polly, using original aten-ir\n");
-      } else {
-        isPollyOk = true;
+        if (!exec.isSuccess()) {
+          printf("[ Erro ] Failed when doing polly, using original aten-ir\n");
+        } else {
+          isPollyOk = true;
+        }
       }
-    }
 
-    // TODO read from ".cache.mlir" if success.
-    {
-      if (isPollyOk) {
-        compiler::utils::ImportMlirModuleFromFile(m_Module, &m_Context, ".cache.mlir");
+      {
+        if (isPollyOk) {
+          compiler::utils::ImportMlirModuleFromFile(m_Module, &m_Context, ".cache.mlir");
+        }
       }
     }
 
@@ -84,7 +100,78 @@ void AtenBackendLoweringPipeline::run() {
       }
     }
   } else if (m_isNVPTX && !m_isNative) {
-    // TODO for nvidia pipeline
+    if (m_usingPoly) { printf("[ Warn ] GPU target is not support poly yet\n"); }
+
+    // memref load/store to affine load and store
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+      (void)pm.run(*m_Module);
+    }
+
+    // schedule all to gpu
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineParallelizePass());
+      pm.addPass(mlir::createLowerAffinePass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createCSEPass());
+
+      // TODO
+      // register memref to nvdia mem
+
+      pm.addPass(mlir::createParallelLoopSpecializationPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopToGpuPass());
+      pm.addPass(mlir::createGpuLauchSinkIndexComputationsPass());
+      pm.addPass(mlir::createGpuKernelOutliningPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuAsyncRegionPass());
+      (void)pm.run(*m_Module);
+    }
+
+    // lowering GPU first
+    {
+      mlir::GpuNVVMAttachTargetOptions attachOptions;
+      attachOptions.chip = "sm_70";
+      attachOptions.features = "+ptx75";
+      pm.addPass(mlir::createGpuNVVMAttachTarget(attachOptions));
+    }
+
+    // lowering all first
+    // TODO
+
+    // // gpu module
+    // auto gpuToNVVMConfig = ConvertGpuOpsToNVVMOpsFixOptions();
+    // gpuToNVVMConfig.useBarePtrCallConv = true;
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(createConvertGpuOpsToNVVMOpsFix(gpuToNVVMConfig));
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::nvgpu::createOptimizeSharedMemoryPass());
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::NVVM::createOptimizeForTargetPass());
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createCanonicalizerPass());
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createCSEPass());
+    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createReconcileUnrealizedCastsPass());
+
+    // lowering memref, finalize memref
+    // TODO
+
+    // save
+    if (m_ShowLlvmIR) {
+      if (!m_OutputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+      } else {
+        m_Module->dump();
+      }
+      exit(0);
+    } else {
+      if (!m_DierctlyRun) {
+        if (!m_OutputFilePath.empty()) {
+          compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+        } else {
+          std::string filePath = "a.nvm";
+          compiler::utils::SaveMlirModuleToFile(m_Module, filePath);
+        }
+      }
+    }
   }
 }
 }  // namespace nncv::compiler::pipeline

@@ -121,8 +121,94 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
 
   void runOnOperation() override {
     IRRewriter rewriter(&getContext());
-    if (m_enableNvGPU) {
-    } else {
+    if (m_enableNvGPU) /*NV Tensor Core 16x16*/ {
+      //===----------------------------------------------------------------------===//
+      // 1 vectorize all matmul
+      //===----------------------------------------------------------------------===//
+      {
+        llvm::SmallVector<mlir::Operation*> candidates;
+        getOperation()->walk([&](linalg::MatmulOp op) {
+          // This pass should work on tensor.
+          if (op.hasBufferSemantics()) return WalkResult::skip();
+          candidates.push_back(op);
+          return WalkResult::advance();
+        });
+
+        for (mlir::Operation* op : candidates) {
+          if (auto linalgOp = mlir::dyn_cast<linalg::LinalgOp>(op)) {
+            llvm::SmallVector<int64_t> VectorSizes(3, 16);
+            llvm::SmallVector<bool> ScalableVecDims(3, false);
+            if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) {
+              printf("[ Warn ] %s Op can't be vectorized\n",
+                     op->getName().getStringRef().str().c_str());
+            }
+          }
+        }
+      }
+
+      //===----------------------------------------------------------------------===//
+      // 2 Canonicalize mask related ops before lower them
+      //===----------------------------------------------------------------------===//
+      {
+        RewritePatternSet maskCanonPatterns(&getContext());
+        vector::CreateMaskOp::getCanonicalizationPatterns(maskCanonPatterns, &getContext());
+        vector::ConstantMaskOp::getCanonicalizationPatterns(maskCanonPatterns, &getContext());
+        vector::MaskOp::getCanonicalizationPatterns(maskCanonPatterns, &getContext());
+        if (failed(
+                mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(maskCanonPatterns)))) {
+          return signalPassFailure();
+        }
+      }
+
+      //===----------------------------------------------------------------------===//
+      // 3 Reduction to Contract
+      //===----------------------------------------------------------------------===//
+      {
+        mlir::RewritePatternSet patterns(&getContext());
+        mlir::vector::populateVectorMaskLoweringPatternsForSideEffectingOps(patterns);
+        mlir::vector::populateVectorTransferPermutationMapLoweringPatterns(patterns);
+        mlir::vector::populateVectorReductionToContractPatterns(patterns);
+        if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+          signalPassFailure();
+        }
+      }
+
+      //===----------------------------------------------------------------------===//
+      // 4 Clean up IR before lowering
+      //===----------------------------------------------------------------------===//
+      {
+        mlir::RewritePatternSet patterns(&getContext());
+        mlir::vector::ContractionOp::getCanonicalizationPatterns(patterns, &getContext());
+        mlir::vector::TransposeOp::getCanonicalizationPatterns(patterns, &getContext());
+        if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+          signalPassFailure();
+        }
+      }
+
+      //===----------------------------------------------------------------------===//
+      // 5 Lower vector.multi_dimension early
+      //===----------------------------------------------------------------------===//
+      {
+        mlir::RewritePatternSet patterns(&getContext());
+        llvm::SmallVector<Operation*> ReductionOps;
+        getOperation()->walk([&](mlir::vector::MultiDimReductionOp reductionOp) {
+          if (llvm::any_of(reductionOp->getOperands(), [](Value operand) {
+                return operand.getDefiningOp<vector::TransposeOp>();
+              })) {
+            ReductionOps.push_back(reductionOp);
+          }
+          return WalkResult::advance();
+        });
+        mlir::vector::populateVectorMultiReductionLoweringPatterns(
+            patterns, vector::VectorMultiReductionLowering::InnerParallel);
+        mlir::FrozenRewritePatternSet frozenSet(std::move(patterns));
+        auto ApplyConfig = mlir::GreedyRewriteConfig();
+        ApplyConfig.strictMode = mlir::GreedyRewriteStrictness::ExistingOps;
+        (void)mlir::applyOpPatternsAndFold(ReductionOps, frozenSet,
+                                           /*config=*/ApplyConfig);
+      }
+    } else /*X86 AVX2 4/8 float32 is supported*/ {
+      // return;
       //===----------------------------------------------------------------------===//
       // 1.1 vectorize all linalg generic ops.
       //===----------------------------------------------------------------------===//
@@ -303,6 +389,8 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
           return signalPassFailure();
         }
       }
+
+      return;
 
       //===----------------------------------------------------------------------===//
       // 5 lower reduction-unrolled

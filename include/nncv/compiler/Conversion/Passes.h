@@ -10,6 +10,7 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
+#include "nncv/compiler/Conversion/MatMulOptimize/MatMul2NvMMA.hpp"
 
 #include "nncv/compiler/Conversion/AtenToMlir/AtenToMlir.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"

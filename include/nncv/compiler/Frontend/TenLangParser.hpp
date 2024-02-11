@@ -42,6 +42,8 @@ namespace frontend {
 void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc);
 void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
                         mlir::ValueRange& vr);
+mlir::Value buildClockCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
+                             mlir::ValueRange& vr);
 
 class VisitorParserReturn;
 

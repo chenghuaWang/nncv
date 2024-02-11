@@ -127,10 +127,80 @@ void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
   }
 
   // Integer in mlir
-  {}
+  {
+    auto UrankT = mlir::aten::IntType::get(builder.getContext(), 64, true);
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
 
-  // float in mlir
-  {}
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printI64", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // float32 in mlir
+  {
+    auto UrankT = builder.getF32Type();
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printF32", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // float64 in mlir
+  {
+    auto UrankT = builder.getF32Type();
+    llvm::SmallVector<mlir::Type> paraTypes;
+    paraTypes.emplace_back(UrankT);
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printF64", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // timing
+  {
+    llvm::SmallVector<mlir::Type> paraTypes;
+    auto funcTy = mlir::aten::FuncType::get(
+        builder.getContext(), paraTypes, mlir::aten::IntType::get(builder.getContext(), 64, true),
+        /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "_mlir_ciface_nanoTime", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
+
+  // new line
+  {
+    llvm::SmallVector<mlir::Type> paraTypes;
+    auto funcTy = mlir::aten::FuncType::get(builder.getContext(), paraTypes,
+                                            mlir::aten::VoidType::get(builder.getContext()),
+                                            /*varArg*/ false);
+
+    builder.setInsertionPointToEnd(module.getBody());
+    auto op = builder.create<mlir::aten::FuncOp>(loc, "printNewline", funcTy, _attrs, _ub);
+    op.setExtraAttrsAttr(extraEx);
+    mlir::SymbolTable::setSymbolVisibility(op, mlir::SymbolTable::Visibility::Private);
+    op.setPrivate();
+  }
 }
 
 void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
@@ -228,6 +298,55 @@ void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
       return;
     }
   }
+  if (mlir::isa<mlir::aten::IntType>(vT)) {
+    auto castedV = builder.create<mlir::aten::CastOp>(
+        loc, mlir::aten::IntType::get(builder.getContext(), 64, true),
+        mlir::aten::CastPredicateAttr::get(builder.getContext(),
+                                           mlir::aten::CastPredicate::integral),
+        vr[0]);
+    auto funcPtr = module.lookupSymbol("printI64");
+    if (!funcPtr) {
+      printf("[ Erro ] Function Symbol [printI64] not found. you should import \"io\"\n");
+      exit(-1);
+    }
+    auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+    auto args = mlir::ValueRange{castedV};
+    builder.create<mlir::aten::CallOp>(loc, funcOp, args);
+    return;
+  }
+  if (mlir::isa<mlir::Float32Type>(vT)) {
+    auto funcPtr = module.lookupSymbol("printF32");
+    if (!funcPtr) {
+      printf("[ Erro ] Function Symbol [printF32] not found. you should import \"io\"\n");
+      exit(-1);
+    }
+    auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+    builder.create<mlir::aten::CallOp>(loc, funcOp, vr);
+    return;
+  }
+  if (mlir::isa<mlir::Float64Type>(vT)) {
+    auto funcPtr = module.lookupSymbol("printF64");
+    if (!funcPtr) {
+      printf("[ Erro ] Function Symbol [printF64] not found. you should import \"io\"\n");
+      exit(-1);
+    }
+    auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+    builder.create<mlir::aten::CallOp>(loc, funcOp, vr);
+    return;
+  }
+}
+
+mlir::Value buildClockCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
+                             mlir::ValueRange& vr) {
+  auto funcPtr = module.lookupSymbol("_mlir_ciface_nanoTime");
+  if (!funcPtr) {
+    printf(
+        "[ Erro ] Function Symbol [_mlir_ciface_nanoTime] not found. you should import \"io\"\n");
+    exit(-1);
+  }
+  auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+  auto v = builder.create<mlir::aten::CallOp>(loc, funcOp, vr);
+  return v->getResult(0);
 }
 
 // Utilities
@@ -383,6 +502,10 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
       // build
       auto vr = mlir::ValueRange{args[0]};
       buildIoPrintCallOp(m_TheModule, m_OpBuilder, location, vr);
+    } else if (packageName == "io" && methodName == "clock") {
+      auto vr = mlir::ValueRange{};
+      auto v = buildClockCallOp(m_TheModule, m_OpBuilder, location, vr);
+      return VisitorParserReturn(v);
     }
 
     return VisitorParserReturn();

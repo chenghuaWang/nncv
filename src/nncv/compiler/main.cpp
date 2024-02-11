@@ -89,6 +89,7 @@ llvm::cl::opt<bool> WarpC("warp-c-interface", llvm::cl::desc("<warp c interface>
 llvm::cl::opt<std::string> ConfigFilePathOption("config-file-path",
                                                 llvm::cl::desc("<config file path>"),
                                                 llvm::cl::Optional);
+llvm::cl::opt<bool> WPoly("wpoly", llvm::cl::desc("<using polyhedral method>"), llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -149,6 +150,7 @@ int main(int argc, char* argv[]) {
     if (!OutputFilename.getValue().empty()) { ablp.setOutputFilePath(OutputFilename.getValue()); }
     ablp.setShowLlvmIR(OnlyShowLlvmIR.getValue());
     ablp.setDierectlyRun(RunDirectly.getValue());
+    ablp.setWPoly(WPoly.getValue());
     if (SetLowerTarget.getValue() == "NVPTX") {
       ablp.setGenNative(false);
       ablp.setGenNVPTX(true);

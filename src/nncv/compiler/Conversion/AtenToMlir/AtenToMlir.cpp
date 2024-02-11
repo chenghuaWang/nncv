@@ -794,6 +794,22 @@ class AtenCastOpLowering : public OpConversionPattern<aten::CastOp> {
         break;
       }
       case ::mlir::aten::CastPredicate::integral: {
+        auto toNewType = getTypeConverter()->convertType(op.getType());
+        if (toNewType.getIntOrFloatBitWidth()
+            == adaptor.getInput().getType().getIntOrFloatBitWidth()) {
+          rewriter.replaceOp(op, adaptor.getInput());
+          break;
+        }
+        if (toNewType.getIntOrFloatBitWidth()
+            > adaptor.getInput().getType().getIntOrFloatBitWidth()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::ExtSIOp>(op, toNewType, adaptor.getInput());
+          break;
+        }
+        if (toNewType.getIntOrFloatBitWidth()
+            < adaptor.getInput().getType().getIntOrFloatBitWidth()) {
+          rewriter.replaceOpWithNewOp<mlir::arith::TruncIOp>(op, toNewType, adaptor.getInput());
+          break;
+        }
         break;
       }
       case ::mlir::aten::CastPredicate::bool_to_mlir_i1: {

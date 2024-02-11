@@ -15,6 +15,9 @@ void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm) {
   // Conv2d1x1 to MatMul
   pm.addPass(mlir::nncv::createConvertConv2D1x1ToMatmulPass());
 
+  // image 2 col
+  // pm.addPass(mlir::nncv::createConvertConv2DToImg2ColPass());
+
   // Padding for MatMul and BatchMatMul.
   // pm.addPass(mlir::nncv::createPadLinalgOpsToIntegerMultiplePass());
 

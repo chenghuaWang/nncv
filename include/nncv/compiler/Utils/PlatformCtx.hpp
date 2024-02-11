@@ -28,6 +28,16 @@ struct MatMulTileSize_CPU {
   std::vector<int64_t> registerLevelLoops = {0, 0, 4};
 };
 
+/*
+The Tiling size is referenced from https://arxiv.org/abs/2108.13191
+The WMMA size is setted for Turing Arch of NVDIA GPU.
+*/
+struct MatMulTileSize_GPU {
+  std::vector<int64_t> outerLevelLoops = {128, 128, 64};
+  std::vector<int64_t> innerLevelLoops = {64, 32, 32};
+  std::vector<int64_t> registerLevelLoops = {16, 16, 16};
+};
+
 struct MatMulVec_CPU {
   std::vector<int64_t> vecSize = {4, 4, 4};
 };
@@ -80,6 +90,7 @@ struct PlatformCtx {
   /// MatMul Pass's Tiled Size
   MatMulTileSize_CPU MatMulTileCpu;
   MatMulVec_CPU MatMulVecCpu;
+  MatMulTileSize_GPU MatMulTileNvGpu;
   /// Linalg generic tile size
   LinalgGenericTileSize_CPU LinalgGenericTileCpu;
   LinalgGenericVec_CPU LinalgGenericVecCpu;

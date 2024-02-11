@@ -139,6 +139,18 @@ def MatMulOptimization_ForBatch : Pass<"optimize-batch-matmul-vec-method", "Modu
     ];
 }
 
+def MatMulOptimization_NvMMA : Pass<"optimize-matmul-to-nv-mma", "func::FuncOp"> {
+    let summary = "optimizing all mat mul operation using gpu.subgroup_mma.";
+    let constructor = "mlir::nncv::matmul_optimize::createMatMulOptimizationNvMMA()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 //===----------------------------------------------------------------------===//
 // Linalg Generic Tile
 //===----------------------------------------------------------------------===//
