@@ -35,6 +35,7 @@
 
 // FIXME
 #include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
+#include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
@@ -187,7 +188,6 @@ void DnnModelLowering::run() {
       } else {
         printf("[ Info ] Cast Away Tensor Leading One Dims. Success.\n");
       }
-      (void)pm.run(*m_Module);
     }
 
     //===----------------------------------------------------------------------===//

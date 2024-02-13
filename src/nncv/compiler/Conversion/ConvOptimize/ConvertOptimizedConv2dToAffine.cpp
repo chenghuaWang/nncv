@@ -28,9 +28,13 @@ namespace {
 
 class ConvOptimizePattern : public mlir::ConversionPattern {
  public:
-  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands,
+  explicit ConvOptimizePattern(MLIRContext* context)
+      : ConversionPattern(linalg::Conv2DNchwFchwOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> /*operands*/,
                                 ConversionPatternRewriter& rewriter) const override {
-    if (!mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) { return mlir::LogicalResult::failure(); }
+    printf("rrrrrr\n");
+    if (!mlir::cast<mlir::linalg::Conv2DNchwFchwOp>(op)) { return mlir::LogicalResult::failure(); }
 
     // calculate
     int64_t vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().CpuHasAVX2 ? 8 : 4;
@@ -147,9 +151,40 @@ class ConvOptimizePattern : public mlir::ConversionPattern {
   }
 };
 
+class PoolingSumOptimizePattern : public mlir::ConversionPattern {
+ public:
+  explicit PoolingSumOptimizePattern(MLIRContext* context)
+      : ConversionPattern(linalg::PoolingNchwSumOp::getOperationName(), 1, context) {}
+  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands,
+                                ConversionPatternRewriter& rewriter) const override {
+    if (!mlir::isa<mlir::linalg::PoolingNchwSumOp>(op)) { return mlir::LogicalResult::failure(); }
+
+    // TODO
+
+    return mlir::LogicalResult::success();
+  }
+};
+
+class PoolingMaxOptimizePattern : public mlir::ConversionPattern {
+ public:
+  explicit PoolingMaxOptimizePattern(MLIRContext* context)
+      : ConversionPattern(linalg::PoolingNchwMaxOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands,
+                                ConversionPatternRewriter& rewriter) const override {
+    if (!mlir::isa<mlir::linalg::PoolingNchwMaxOp>(op)) { return mlir::LogicalResult::failure(); }
+
+    // TODO
+
+    return mlir::LogicalResult::success();
+  }
+};
+
 class OptimizedConv2dToAffinePass
     : public impl::ConvertOptimizedConv2dToAffineBase<OptimizedConv2dToAffinePass> {
  public:
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(OptimizedConv2dToAffinePass)
+
   void getDependentDialects(mlir::DialectRegistry& registry) const override {
     registry.insert<linalg::LinalgDialect, scf::SCFDialect, affine::AffineDialect,
                     vector::VectorDialect, func::FuncDialect>();
@@ -160,14 +195,15 @@ class OptimizedConv2dToAffinePass
     ModuleOp module = getOperation();
 
     RewritePatternSet patterns(context);
-    patterns.add<ConvOptimizePattern>(context);
+    patterns.add<ConvOptimizePattern, PoolingSumOptimizePattern, PoolingMaxOptimizePattern>(
+        context);
 
     ConversionTarget target(*context);
     target.addLegalDialect<arith::ArithDialect, affine::AffineDialect, scf::SCFDialect,
                            func::FuncDialect, memref::MemRefDialect, vector::VectorDialect,
                            math::MathDialect, linalg::LinalgDialect, tensor::TensorDialect>();
     target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
-    target.addLegalOp<linalg::FillOp>();
+    target.addIllegalOp<linalg::Conv2DNchwFchwOp>();
 
     if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
       signalPassFailure();
@@ -177,5 +213,7 @@ class OptimizedConv2dToAffinePass
 
 }  // namespace
 
-std::unique_ptr<mlir::Pass> createConvertOptimizedConv2dToAffinePass() {}
+std::unique_ptr<mlir::Pass> createConvertOptimizedConv2dToAffinePass() {
+  return std::make_unique<OptimizedConv2dToAffinePass>();
+}
 }  // namespace mlir::nncv
