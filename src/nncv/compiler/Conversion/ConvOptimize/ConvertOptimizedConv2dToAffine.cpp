@@ -31,9 +31,8 @@ class ConvOptimizePattern : public mlir::ConversionPattern {
   explicit ConvOptimizePattern(MLIRContext* context)
       : ConversionPattern(linalg::Conv2DNchwFchwOp::getOperationName(), 1, context) {}
 
-  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> /*operands*/,
+  LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands,
                                 ConversionPatternRewriter& rewriter) const override {
-    printf("rrrrrr\n");
     if (!mlir::cast<mlir::linalg::Conv2DNchwFchwOp>(op)) { return mlir::LogicalResult::failure(); }
 
     // calculate
