@@ -15,8 +15,8 @@ def NncvGraph_Dialect : Dialect {
         NNCV Graph is a high-level representation of a deepl learning model.
     }];
     
-    let useDefaultAttributePrinterParser = 0;
     let useDefaultTypePrinterParser = 0;
+    let useDefaultAttributePrinterParser = 1;
 
     let dependentDialects = [
         "affine::AffineDialect",
@@ -29,21 +29,6 @@ def NncvGraph_Dialect : Dialect {
         "shape::ShapeDialect",
         "tensor::TensorDialect"
     ];
-
-    let extraClassDeclaration = [{
-        void registerAttributes();
-        void registerTypes();
-
-        ::mlir::Type parseType(::mlir::DialectAsmParser &parser) const override;
-        void printType(::mlir::Type type,
-                    ::mlir::DialectAsmPrinter &printer) const override;
-
-        ::mlir::Attribute parseAttribute(::mlir::DialectAsmParser &parser,
-                                        ::mlir::Type type) const override;
-
-        void printAttribute(::mlir::Attribute attr,
-                            ::mlir::DialectAsmPrinter &os) const override;
-    }];
 }
 
 def NncvGraph_Dim : TypeAlias<Index>;

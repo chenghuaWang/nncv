@@ -9,8 +9,6 @@
  *
  */
 
-#include "mlir/Debug/Counter.h"
-#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -28,6 +26,8 @@
 #define _SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING
 #endif
 
+#include "mlir/Debug/Counter.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "llvm/ADT/ScopeExit.h"
@@ -57,10 +57,10 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/InitAllPasses.h"
 
 #include "nncv/compiler/Dialects/AutoTen/IR/AtenDialect.hpp"
 #include "nncv/compiler/Pipeline/Frontend.hpp"
-#include "nncv/compiler/Conversion/Passes.h"
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
@@ -104,10 +104,16 @@ void LoadMLIRDialects(mlir::MLIRContext& context) {
   mlir::registerLLVMDialectTranslation(context);
 }
 
+void parseCLIOptions(int argc, char* argv[]) {
+  mlir::MlirOptMainConfig config = mlir::MlirOptMainConfig::createFromCLOptions();
+  llvm::cl::ParseCommandLineOptions(argc, argv);
+}
+
 int main(int argc, char* argv[]) {
   // init dialect
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
+  mlir::registerAllPasses();
   mlir::MlirOptMainConfig::registerCLOptions(registry);
 
   // ---------------------------------------------------------------------
@@ -118,10 +124,9 @@ int main(int argc, char* argv[]) {
   mlir::registerPassManagerCLOptions();
 
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
-  llvm::cl::ParseCommandLineOptions(argc, argv);
-
   mlir::registerDefaultTimingManagerCLOptions();
   mlir::tracing::DebugCounter::registerCLOptions();
+  parseCLIOptions(argc, argv);
 
   // detecting platform
   nncv::compiler::utils::PlatformCtxInit(GetPlatformInfoOnly.getValue());

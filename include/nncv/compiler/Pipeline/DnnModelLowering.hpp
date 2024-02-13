@@ -20,6 +20,15 @@
 namespace nncv {
 namespace pipeline {
 
+/**
+ * @brief This pass should be performed after all tiling and vectorization is done for normal linalg
+ * ops, such as matmul and conv2d(except conv2d_nchw_fchw, this format of conv will be optimized
+ * manually)
+ *
+ * @param pm
+ */
+void populateOneBufferizationPassPipeline(mlir::PassManager& pm);
+
 class DnnModelLowering {
  public:
   DnnModelLowering(mlir::MLIRContext& context, mlir::OwningOpRef<mlir::ModuleOp>& module)

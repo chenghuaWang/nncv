@@ -15,7 +15,7 @@ class NncvGraph_Op<string mnemonic, list<Trait> traits = []> : Op<NncvGraph_Dial
 class NncvGraph_PureOp<string mnemonic, list<Trait> traits = []> : NncvGraph_Op<mnemonic, !listconcat(traits, [Pure])>;
 
 
-def NncvGraph_WorkOp : NncvGraph_PureOp<"work" , [
+def NncvGraph_WorkerOp : NncvGraph_PureOp<"worker" , [
     NncvGraph_ShapeAwareOpInterface,
     AttrSizedOperandSegments
 ]> {
@@ -38,7 +38,7 @@ def NncvGraph_WorkOp : NncvGraph_PureOp<"work" , [
     }];
 }
 
-def NncvGraph_WorkGroupOp : NncvGraph_Op<"work_group", [
+def NncvGraph_WorkerGroupOp : NncvGraph_Op<"worker_group", [
     NncvGraph_ShapeAwareOpInterface,
     IsolatedFromAbove,
 ]> {

@@ -53,6 +53,12 @@
 namespace nncv {
 namespace pipeline {
 
+void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
+  pm.addPass(mlir::bufferization::createOneShotBufferizePass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createCSEPass());
+}
+
 void DnnModelLowering::run() {
   mlir::PassManager pm(m_Module.get()->getName());
   if (m_GenNVPTX) {

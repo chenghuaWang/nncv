@@ -94,7 +94,9 @@ void AtenBackendLoweringPipeline::run() {
       }
       {
         pm.clear();
-        pm.addPass(mlir::createConvertSCFToOpenMPPass());
+        mlir::ConvertSCFToOpenMPPassOptions options;
+        options.numThreads = 16;
+        pm.addPass(mlir::createConvertSCFToOpenMPPass(options));
         pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
         pm.addPass(mlir::memref::createExpandStridedMetadataPass());
         pm.addPass(mlir::arith::createArithExpandOpsPass());
