@@ -160,6 +160,9 @@ set(LinkedLibs
     MLIRMemRefTestPasses
     MLIRTilingInterfaceTestPasses
     MLIRSCFToControlFlow
+    MLIRDebug
+    MLIROptLib
+    MLIROpenMPToLLVM
 
     # NNCV Libs
     # dialect itself

@@ -9,6 +9,8 @@
  *
  */
 
+#include "mlir/Debug/Counter.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -90,6 +92,7 @@ llvm::cl::opt<std::string> ConfigFilePathOption("config-file-path",
                                                 llvm::cl::desc("<config file path>"),
                                                 llvm::cl::Optional);
 llvm::cl::opt<bool> WPoly("wpoly", llvm::cl::desc("<using polyhedral method>"), llvm::cl::Optional);
+llvm::cl::opt<bool> WOmp("womp", llvm::cl::desc("<using open mp>"), llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -102,6 +105,11 @@ void LoadMLIRDialects(mlir::MLIRContext& context) {
 }
 
 int main(int argc, char* argv[]) {
+  // init dialect
+  mlir::DialectRegistry registry;
+  mlir::registerAllDialects(registry);
+  mlir::MlirOptMainConfig::registerCLOptions(registry);
+
   // ---------------------------------------------------------------------
   //  Preparation for cli.
   // ---------------------------------------------------------------------
@@ -112,6 +120,9 @@ int main(int argc, char* argv[]) {
   llvm::cl::SetVersionPrinter([](llvm::raw_ostream& OS) { OS << VERSION_STR; });
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
+  mlir::registerDefaultTimingManagerCLOptions();
+  mlir::tracing::DebugCounter::registerCLOptions();
+
   // detecting platform
   nncv::compiler::utils::PlatformCtxInit(GetPlatformInfoOnly.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().init();
@@ -119,10 +130,6 @@ int main(int argc, char* argv[]) {
       ConfigFilePathOption.getValue());
   nncv::compiler::utils::PlatformCtx::getInstance().InitFromConfigFile();
   if (GetPlatformInfoOnly.getValue() == true) { exit(0); }
-
-  // init dialect
-  mlir::DialectRegistry registry;
-  mlir::registerAllDialects(registry);
 
   // init MLIR
   mlir::MLIRContext MlirContext(registry);
@@ -151,6 +158,7 @@ int main(int argc, char* argv[]) {
     ablp.setShowLlvmIR(OnlyShowLlvmIR.getValue());
     ablp.setDierectlyRun(RunDirectly.getValue());
     ablp.setWPoly(WPoly.getValue());
+    ablp.setWOmp(WOmp.getValue());
     if (SetLowerTarget.getValue() == "NVPTX") {
       ablp.setGenNative(false);
       ablp.setGenNVPTX(true);

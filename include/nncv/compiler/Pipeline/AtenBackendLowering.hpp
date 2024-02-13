@@ -22,6 +22,7 @@ class AtenBackendLoweringPipeline {
   inline void setGenNative(bool flag) { m_isNative = flag; }
   inline void setDierectlyRun(bool flag) { m_DierctlyRun = flag; }
   inline void setWPoly(bool flag) { m_usingPoly = flag; }
+  inline void setWOmp(bool flag) { m_usingOmp = flag; }
 
   void run();
 
@@ -36,6 +37,7 @@ class AtenBackendLoweringPipeline {
   bool m_isNVPTX = false;
   bool m_DierctlyRun = false;
   bool m_usingPoly = false;
+  bool m_usingOmp = false;
 };
 
 }  // namespace pipeline

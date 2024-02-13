@@ -1,9 +1,20 @@
 #include "nncv/compiler/Pipeline/AtenBackendLowering.hpp"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
+#include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -72,16 +83,48 @@ void AtenBackendLoweringPipeline::run() {
       }
     }
 
-    // Lowering to all Llvm IR
-    {
-      pm.clear();
-      pm.addPass(mlir::nncv::createConvertAtenMlirToLlvmPass());
-      pm.addPass(mlir::createCSEPass());
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] When doing aten-lang's mlir to llvm conversion\n");
-        exit(-1);
+    if (m_usingOmp) {
+      {
+        pm.clear();
+        pm.addNestedPass<mlir::func::FuncOp>(
+            mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineParallelizePass());
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+        (void)pm.run(*m_Module);
+      }
+      {
+        pm.clear();
+        pm.addPass(mlir::createConvertSCFToOpenMPPass());
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
+        pm.addPass(mlir::memref::createExpandStridedMetadataPass());
+        pm.addPass(mlir::arith::createArithExpandOpsPass());
+        pm.addPass(mlir::createArithToLLVMConversionPass());
+        pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+        pm.addPass(mlir::createConvertSCFToCFPass());
+        pm.addPass(mlir::createConvertOpenMPToLLVMPass());
+        pm.addPass(mlir::createArithToLLVMConversionPass());
+        pm.addPass(mlir::createConvertFuncToLLVMPass());
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addPass(mlir::createCSEPass());
+        pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+        if (mlir::failed(pm.run(*m_Module))) {
+          printf("[ Erro ] When doing aten-lang's mlir to llvm conversion\n");
+          exit(-1);
+        }
+      }
+    } else {
+      // Lowering to all Llvm IR
+      {
+        pm.clear();
+        pm.addPass(mlir::nncv::createConvertAtenMlirToLlvmPass());
+        pm.addPass(mlir::createCSEPass());
+        if (mlir::failed(pm.run(*m_Module))) {
+          printf("[ Erro ] When doing aten-lang's mlir to llvm conversion\n");
+          exit(-1);
+        }
       }
     }
+
     if (m_ShowLlvmIR) {
       if (!m_OutputFilePath.empty()) {
         compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);

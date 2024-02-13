@@ -349,6 +349,17 @@ mlir::Value buildClockCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, m
   return v->getResult(0);
 }
 
+void buildIoPrintNewLineOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc) {
+  mlir::ValueRange vr;
+  auto funcPtr = module.lookupSymbol("printNewline");
+  if (!funcPtr) {
+    printf("[ Erro ] Function Symbol [printNewline] not found. you should import \"io\"\n");
+    exit(-1);
+  }
+  auto funcOp = mlir::cast<mlir::aten::FuncOp>(funcPtr);
+  builder.create<mlir::aten::CallOp>(loc, funcOp, vr);
+}
+
 // Utilities
 llvm::SmallVector<mlir::Value, 4> AutoTen2MlirVisitor::castAtenArithToMlirArith(
     llvm::SmallVector<mlir::Value, 4>& valueArry) {
@@ -506,6 +517,8 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
       auto vr = mlir::ValueRange{};
       auto v = buildClockCallOp(m_TheModule, m_OpBuilder, location, vr);
       return VisitorParserReturn(v);
+    } else if (packageName == "io" && methodName == "newLine") {
+      buildIoPrintNewLineOp(m_TheModule, m_OpBuilder, location);
     }
 
     return VisitorParserReturn();

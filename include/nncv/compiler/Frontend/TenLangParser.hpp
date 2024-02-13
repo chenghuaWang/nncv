@@ -44,6 +44,7 @@ void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::
                         mlir::ValueRange& vr);
 mlir::Value buildClockCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
                              mlir::ValueRange& vr);
+void buildIoPrintNewLineOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc);
 
 class VisitorParserReturn;
 

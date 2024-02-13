@@ -6,10 +6,10 @@
 
 import "io";
 
-func matmul(lhs Tensor<512, 512, float32>, rhs Tensor<512, 512, float32>, dst Tensor<512, 512, float32>) {
-    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/512; /*step*/ 1) {
-        pfor (j := 0; 512; 1) {
-            pfor (k := 0; 512; 1) {
+func matmul(lhs Tensor<2048, 2048, float32>, rhs Tensor<2048, 2048, float32>, dst Tensor<2048, 2048, float32>) {
+    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/2048; /*step*/ 1) {
+        pfor (j := 0; 2048; 1) {
+            pfor (k := 0; 2048; 1) {
                 dst[i, j] = dst[i, j] + lhs[i, k] * rhs[k, j]; // do 
             };
         };
@@ -17,11 +17,12 @@ func matmul(lhs Tensor<512, 512, float32>, rhs Tensor<512, 512, float32>, dst Te
 };
 
 func main() -> void {
-    var lhs Tensor<512, 512, float32>;
-    var rhs Tensor<512, 512, float32>;
-    var dst Tensor<512, 512, float32>;
+    var lhs Tensor<2048, 2048, float32>;
+    var rhs Tensor<2048, 2048, float32>;
+    var dst Tensor<2048, 2048, float32>;
     start := io.clock();
     matmul(lhs, rhs, dst);
     end := io.clock();
     io.print(end - start);
+    io.newLine();
 };

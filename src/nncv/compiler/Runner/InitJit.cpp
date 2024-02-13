@@ -6,6 +6,7 @@
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "nncv/compiler/Utils/MlirIo.hpp"
 
 namespace nncv {
@@ -32,6 +33,7 @@ bool NncvJit::run(const std::string& entry_point) {
     // translation from MLIR to LLVM.
     mlir::registerBuiltinDialectTranslation(*(*m_DirectlyRunModule)->getContext());
     mlir::registerLLVMDialectTranslation(*(*m_DirectlyRunModule)->getContext());
+    mlir::registerOpenMPDialectTranslation(*(*m_DirectlyRunModule)->getContext());
 
     // set optimize pipline.
     auto optPipeline = mlir::makeOptimizingTransformer(/*optimized level*/ 3, /*size levl*/ 0,
@@ -43,8 +45,8 @@ bool NncvJit::run(const std::string& entry_point) {
 
     llvm::ArrayRef<llvm::StringRef> libPath = {
         "libmlir_c_runner_utils.so.18git", "libmlir_cuda_runtime.so.18git",
-        "libmlir_runner_utils.so.18git", "libmlir_async_runtime.so.18git",
-        "libmlir_float16_utils.so.18git"};
+        "libmlir_runner_utils.so.18git",   "libmlir_async_runtime.so.18git",
+        "libmlir_float16_utils.so.18git",  "libomp.so"};
     engineOptions.sharedLibPaths = libPath;
 
     // create Engine on this Module.
@@ -91,8 +93,8 @@ bool NncvJit::run(const std::string& entry_point) {
 
     llvm::ArrayRef<llvm::StringRef> libPath = {
         "libmlir_c_runner_utils.so.18git", "libmlir_cuda_runtime.so.18git",
-        "libmlir_runner_utils.so.18git", "libmlir_async_runtime.so.18git",
-        "libmlir_float16_utils.so.18git"};
+        "libmlir_runner_utils.so.18git",   "libmlir_async_runtime.so.18git",
+        "libmlir_float16_utils.so.18git",  "libomp.so"};
     engineOptions.sharedLibPaths = libPath;
 
     // create Engine on this Module.

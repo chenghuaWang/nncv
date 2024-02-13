@@ -21,6 +21,7 @@
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/IR/BuiltinDialect.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 namespace mlir::nncv {
 #define GEN_PASS_DEF_CONVERTATENMLIRTOLLVM
@@ -65,7 +66,8 @@ class ConvertAtenMlirToLlvmPass
 
     // apply
     auto module = getOperation();
-    if (failed(applyFullConversion(module, target, std::move(patterns)))) signalPassFailure();
+    if (failed(mlir::applyPartialConversion(module, target, std::move(patterns))))
+      signalPassFailure();
   }
 };
 
