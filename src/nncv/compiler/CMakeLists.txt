@@ -93,6 +93,8 @@ add_llvm_executable(nncv-c
     # Optimizer
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Optimizer/MemSolver.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Optimizer/MemSolver.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Optimizer/TileSolver.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Optimizer/TileSolver.cpp
 
     # Utils
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Utils/CliFormatOutput.hpp

@@ -321,8 +321,6 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
                                            /*config=*/ApplyConfig);
       }
 
-      return;
-
       //===----------------------------------------------------------------------===//
       // 2.0 Unroll
       //===----------------------------------------------------------------------===//
@@ -389,8 +387,6 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
           return signalPassFailure();
         }
       }
-
-      return;
 
       //===----------------------------------------------------------------------===//
       // 5 lower reduction-unrolled

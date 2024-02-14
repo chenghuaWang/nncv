@@ -37,8 +37,8 @@ class ConvOptimizePattern : public mlir::ConversionPattern {
 
     // calculate
     int64_t vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().CpuHasAVX2 ? 8 : 4;
-    int64_t kernelM = ::nncv::compiler::utils::PlatformCtx::getInstance().CpuHasAVX2 ? 8 : 4;
-    int64_t kernelN = 4;
+    int64_t kernelM = 2;
+    int64_t kernelN = 2;
 
     // get location
     auto loc = op->getLoc();
@@ -73,7 +73,7 @@ class ConvOptimizePattern : public mlir::ConversionPattern {
     Value buffer = rewriter.create<memref::AllocOp>(loc, bufferTy);
 
     // clang-format off
-        // Step 1: Create outer most loops.
+    // Step 1: Create outer most loops.
     affine::buildAffineLoopNest(rewriter, loc, c0, outN, 1, [&](OpBuilder &, Location loc, ValueRange ivRange) {
       Value ivA = ivRange.front();
       affine::buildAffineLoopNest(rewriter, loc, c0, outC, 1, [&](OpBuilder &, Location loc, ValueRange ivRange) {
@@ -171,10 +171,68 @@ class PoolingMaxOptimizePattern : public mlir::ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands,
                                 ConversionPatternRewriter& rewriter) const override {
+    return mlir::LogicalResult::failure();
     if (!mlir::isa<mlir::linalg::PoolingNchwMaxOp>(op)) { return mlir::LogicalResult::failure(); }
 
-    // TODO
+    // calculate
+    int64_t vecSize = ::nncv::compiler::utils::PlatformCtx::getInstance().CpuHasAVX2 ? 8 : 4;
 
+    // get location
+    auto loc = op->getLoc();
+
+    // get all values
+    Value input = op->getOperand(0);
+    Value filter = op->getOperand(1);
+    Value output = op->getOperand(2);
+
+    // Dims
+    Value outN = rewriter.create<memref::DimOp>(loc, output, 0);
+    Value outC = rewriter.create<memref::DimOp>(loc, output, 1);
+    Value outH = rewriter.create<memref::DimOp>(loc, output, 2);
+    Value outW = rewriter.create<memref::DimOp>(loc, output, 3);
+    Value inC = rewriter.create<memref::DimOp>(loc, input, 1);
+    Value kernelH = rewriter.create<memref::DimOp>(loc, filter, 0);
+    Value kernelW = rewriter.create<memref::DimOp>(loc, filter, 1);
+
+    ShapedType inputTy = input.getType().cast<ShapedType>();
+    Type elemTy = inputTy.getElementType();
+    VectorType vecTy = VectorType::get(vecSize, elemTy);
+
+    // memref<1xvector<vecsize x elemTy>>
+    MemRefType bufferTy = MemRefType::get(1, vecTy);
+    Value buffer = rewriter.create<memref::AllocOp>(loc, bufferTy);
+
+    // init constant
+    const Value c0 = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(0));
+    const Value cf0 = rewriter.create<arith::ConstantOp>(loc, rewriter.getF32FloatAttr(0.));
+
+    // clang-format off
+    // loop on output batch, batch size should be 1
+    affine::buildAffineLoopNest(rewriter, loc, c0, outN, 1, [&](OpBuilder &, Location loc, ValueRange ivRange) {
+      Value ivBatch = ivRange.front();
+      // loop on output channel
+      affine::buildAffineLoopNest(rewriter, loc, c0, outC, 1, [&](OpBuilder &, Location loc, ValueRange ivRange) {
+        Value ivOutChannel = ivRange.front();
+        // loop on output Width
+        affine::buildAffineLoopNest(rewriter, loc, c0, outW, 1, [&](OpBuilder &, Location loc, ValueRange ivRange) {
+          Value ivOutW = ivRange.front();
+          // loop on output channel Hight
+          affine::buildAffineLoopNest(rewriter, loc, c0, outH, 1, [&](OpBuilder &builder, Location loc, ValueRange ivRange) {
+            Value ivOutH = ivRange.front();
+            // get tmp
+            Value tmp = builder.create<vector::SplatOp>(loc, vecTy, cf0);
+            builder.create<memref::StoreOp>(loc, tmp, buffer, c0);
+            // Now doing pooling max logic.
+            // The pooling's outpuc channle size is same as input channel size;
+            // TODO
+          });
+        });
+      });
+    });
+    // clang-format-on
+
+    rewriter.create<memref::DeallocOp>(loc, buffer);
+    rewriter.eraseOp(op);
     return mlir::LogicalResult::success();
   }
 };

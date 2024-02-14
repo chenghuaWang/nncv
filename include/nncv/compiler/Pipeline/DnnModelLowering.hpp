@@ -20,6 +20,11 @@
 namespace nncv {
 namespace pipeline {
 
+void runPmWithExit(mlir::PassManager& pm, mlir::OwningOpRef<mlir::ModuleOp>& module,
+                   const std::string& str);
+
+void runPmSilent(mlir::PassManager& pm, mlir::OwningOpRef<mlir::ModuleOp>& module);
+
 /**
  * @brief This pass should be performed after all tiling and vectorization is done for normal linalg
  * ops, such as matmul and conv2d(except conv2d_nchw_fchw, this format of conv will be optimized
@@ -28,6 +33,20 @@ namespace pipeline {
  * @param pm
  */
 void populateOneBufferizationPassPipeline(mlir::PassManager& pm);
+
+void populateInputOptimizationPassPipeline(mlir::PassManager& pm);
+
+void populateTensorOptimizationPassPipeline(mlir::PassManager& pm);
+
+void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm);
+
+void populateTileAllPassPipeline(mlir::PassManager& pm, bool lowerConv = false, bool gpy = false);
+
+void populateVectorizationPassPipeline(mlir::PassManager& pm, bool gpu = false);
+
+void populateConv2dToAffineVecManuallyPassPipeline(mlir::PassManager& pm);
+
+void populateLoopFusionAndNormalizationPassPipeline(mlir::PassManager& pm);
 
 class DnnModelLowering {
  public:

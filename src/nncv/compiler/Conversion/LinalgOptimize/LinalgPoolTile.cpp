@@ -41,7 +41,7 @@ FailureOr<mlir::linalg::TiledLinalgOp> tileAndReplacePoolOp(IRRewriter& rewriter
   for (size_t i = 0; i < sizes.size(); ++i) {
     auto cur = opLoops[i];
     auto want = sizes[i];
-    if (cur <= want) sizes[i] = 0;
+    if (cur <= want) sizes[i] = 1;
   }
 
   // do tiling
@@ -99,7 +99,7 @@ class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTi
       if (mlir::isa<mlir::linalg::PoolingNchwMaxOp, mlir::linalg::PoolingNchwSumOp>(op)) {
         auto tiled = tileAndReplacePoolOp(
             rewriter, op,
-            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 1, /*outputW*/ 8, /*kernelH*/ 1,
+            {/*batch*/ 0, /*kernelC*/ 1, /*outputH*/ 1, /*outputW*/ 32, /*kernelH*/ 1,
              /*kernelW*/ 0});
         if (succeeded(tiled)) {
           mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
@@ -114,8 +114,8 @@ class LinalgPoolingTilePass : public impl::LinalgPoolingTileBase<LinalgPoolingTi
 
     {
       mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
       mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
-      // mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
       if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
         signalPassFailure();
       }
