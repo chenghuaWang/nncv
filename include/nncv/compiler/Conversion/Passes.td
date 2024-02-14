@@ -212,4 +212,19 @@ def Vectorization : Pass<"vectorization", "func::FuncOp"> {
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// Register All linalg Ops that can be tiled and vectorized.
+//===----------------------------------------------------------------------===//
+def RegisterLinalgOps : Pass<"register-linalg-ops", "func::FuncOp"> {
+    let summary = "register all linalg ops to generate a .json config file for tiling and vectorization.";
+    let constructor = "mlir::nncv::createRegisterLinalgOpsPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES
