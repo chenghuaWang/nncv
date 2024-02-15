@@ -41,6 +41,7 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/RegisterLinalgOps.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMul2NvMMA.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
@@ -98,6 +99,7 @@ void populateInputOptimizationPassPipeline(mlir::PassManager& pm) {
   mlir::nncv::createNncvFrontendToNormalPipeline(pm);
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterLinalgOpsPass());
 }
 
 void populateTensorOptimizationPassPipeline(mlir::PassManager& pm) {
