@@ -270,12 +270,10 @@ void DnnModelLowering::run() {
       m_Module->dump();
     }
     return;
-  }
-  if (m_GenHostWoParallel) {
+  } else if (m_GenHostWoParallel) {
     mlir::nncv::createNncvFrontendToNormalPipeline(pm);
     return;
-  }
-  if (m_GenHostWParallel) {
+  } else if (m_GenHostWParallel) {
     //===----------------------------------------------------------------------===//
     // 1 Finalize all input
     //===----------------------------------------------------------------------===//
@@ -377,6 +375,14 @@ void DnnModelLowering::run() {
       nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
     } else {
       m_Module->dump();
+    }
+    return;
+  } else if (m_GenConfigFileOnly) {
+    pm.clear();
+    populateInputOptimizationPassPipeline(pm);
+    runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
+    if (!::nncv::compiler::utils::SaveTileOpsConfigFile(m_ConfigFilePath)) {
+      printf("[ Erro ] Failed when saving config file.\n");
     }
     return;
   }

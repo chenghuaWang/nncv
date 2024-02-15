@@ -20,6 +20,7 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/RegisterLinalgOps.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/OneShotTiling.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

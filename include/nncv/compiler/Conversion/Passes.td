@@ -227,4 +227,19 @@ def RegisterLinalgOps : Pass<"register-linalg-ops", "func::FuncOp"> {
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// One shot Vectorization.
+//===----------------------------------------------------------------------===//
+def OneShotTiling : Pass<"oneshot-tiling", "func::FuncOp"> {
+    let summary = "One shot tiling.";
+    let constructor = "mlir::nncv::createOneShotTilingPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect"
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES

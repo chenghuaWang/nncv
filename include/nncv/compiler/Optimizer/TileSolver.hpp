@@ -39,6 +39,9 @@ struct __cmp_tile_ops_node {
 };
 
 struct TileOptions {
+  // loops
+  std::vector<int64_t> loops;
+
   // tile
   std::vector<std::vector<int64_t>> tileSizes;
 
@@ -65,7 +68,7 @@ class TileSolver {
 
   // a iteration function
   // the operation is sorted by uuid, so the iteration sequence is match the network.
-  // TODO
+  inline std::map<TileOpsNode, TileOptions, __cmp_tile_ops_node>& getDict() { return m_Dict; }
 
  private:
   // Tiles

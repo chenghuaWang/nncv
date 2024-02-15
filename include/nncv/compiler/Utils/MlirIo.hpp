@@ -15,6 +15,9 @@ bool SaveMlirModuleToFile(mlir::OwningOpRef<mlir::ModuleOp>& m, const std::strin
 bool ImportMlirModuleFromFile(mlir::OwningOpRef<mlir::ModuleOp>& m, mlir::MLIRContext* ctx,
                               const std::string& filep);
 
+bool SaveTileOpsConfigFile(const std::string& filep);
+bool ReadTileOpsConfigFile(const std::string& filep);
+
 }  // namespace utils
 }  // namespace compiler
 }  // namespace nncv

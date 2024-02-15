@@ -3,6 +3,7 @@ add_mlir_conversion_library(NncvLinalgOptimizeConversion
     CastAwayTensorLeadingOneDim.cpp
     LinalgPoolTile.cpp
     RegisterLinalgOps.cpp
+    OneShotTiling.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Conversion/LinalgOptimize

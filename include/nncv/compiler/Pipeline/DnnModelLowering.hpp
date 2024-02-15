@@ -59,12 +59,23 @@ class DnnModelLowering {
   inline void setGenHostWParallel() { m_GenHostWParallel = true; }
   inline void setUsingNncvIR() { m_UsingNncvIR = true; }
   inline void setOutputFilePath(const std::string& _CurPath) { m_OutputFilePath = _CurPath; }
+  inline void setGenConfigFileOnly(bool flag) {
+    m_GenConfigFileOnly = flag;
+    if (flag) {
+      m_GenNVPTX = false;
+      m_GenHostWoParallel = false;
+      m_GenHostWParallel = false;
+    }
+  }
+  inline void setGenConfigFilePath(const std::string& _CurPath) { m_ConfigFilePath = _CurPath; }
 
  private:
   bool m_GenNVPTX = false;
   bool m_GenHostWoParallel = false;
   bool m_GenHostWParallel = false;
   bool m_UsingNncvIR = false;
+  bool m_GenConfigFileOnly = false;
+  std::string m_ConfigFilePath;
   mlir::MLIRContext& m_Context;
   mlir::OwningOpRef<mlir::ModuleOp>& m_Module;
   std::string m_OutputFilePath;

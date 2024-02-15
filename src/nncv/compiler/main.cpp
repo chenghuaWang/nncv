@@ -93,6 +93,9 @@ llvm::cl::opt<std::string> ConfigFilePathOption("config-file-path",
                                                 llvm::cl::Optional);
 llvm::cl::opt<bool> WPoly("wpoly", llvm::cl::desc("<using polyhedral method>"), llvm::cl::Optional);
 llvm::cl::opt<bool> WOmp("womp", llvm::cl::desc("<using open mp>"), llvm::cl::Optional);
+llvm::cl::opt<std::string> GenConfigFileOnly("gen-config-file-only",
+                                             llvm::cl::desc("<Just gen a config file for model>"),
+                                             llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -191,7 +194,7 @@ int main(int argc, char* argv[]) {
 
     ///< Below for NNCV
     // Start to lower all
-    if (SetLowerTarget.empty()) { return 0; }
+    if (SetLowerTarget.empty() && GenConfigFileOnly.empty()) { return 0; }
 
     mlir::PassManager pm(MlirModule.get()->getName());
 
@@ -208,6 +211,12 @@ int main(int argc, char* argv[]) {
     }
     if (!OutputFilename.getValue().empty()) {
       dnnModelLowerPipeline.setOutputFilePath(OutputFilename.getValue());
+    }
+    if (!GenConfigFileOnly.getValue().empty()) {
+      dnnModelLowerPipeline.setGenConfigFileOnly(true);
+      dnnModelLowerPipeline.setGenConfigFilePath(GenConfigFileOnly.getValue());
+    } else {
+      dnnModelLowerPipeline.setGenConfigFileOnly(false);
     }
     dnnModelLowerPipeline.run();
   } else if (SuffixStr == "nvm") {
