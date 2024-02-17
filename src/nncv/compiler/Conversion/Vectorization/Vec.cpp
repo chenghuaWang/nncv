@@ -53,28 +53,18 @@ std::pair<llvm::SmallVector<int64_t>, llvm::SmallVector<bool>> buildVectorizatio
       llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
       return std::make_pair(vecSize, scaleDims);
     } else if (genericOp.getNumParallelLoops() == 2) {
-      std::vector<int64_t> _vecSize = {1, 4};
+      std::vector<int64_t> _vecSize = {1, 8};
       llvm::SmallVector<int64_t> vecSize;
       for (auto item : _vecSize) vecSize.emplace_back(item);
       llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
       return std::make_pair(vecSize, scaleDims);
     } else if (genericOp.getNumParallelLoops() == 1) {
-      std::vector<int64_t> _vecSize = {4};
+      std::vector<int64_t> _vecSize = {8};
       llvm::SmallVector<int64_t> vecSize;
       for (auto item : _vecSize) vecSize.emplace_back(item);
       llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
       return std::make_pair(vecSize, scaleDims);
     }
-  }
-  if (mlir::isa<mlir::linalg::PoolingNhwcMaxOp, mlir::linalg::PoolingNhwcMinOp,
-                mlir::linalg::PoolingNhwcSumOp, mlir::linalg::PoolingNhwcMaxUnsignedOp,
-                mlir::linalg::PoolingNhwcMinUnsignedOp, mlir::linalg::PoolingNchwMaxOp,
-                mlir::linalg::PoolingNchwSumOp>(op)) {
-    std::vector<int64_t> _vecSize = {1, 3, 2, 2};
-    llvm::SmallVector<int64_t> vecSize;
-    for (auto item : _vecSize) vecSize.emplace_back(item);
-    llvm::SmallVector<bool> scaleDims(vecSize.size(), false);
-    return std::make_pair(vecSize, scaleDims);
   }
   llvm::SmallVector<int64_t> vecRes;
   llvm::SmallVector<bool> scaleRes;
@@ -334,8 +324,10 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
       // }
       {
         mlir::RewritePatternSet patterns(&getContext());
-        auto options = mlir::vector::VectorTransformsOptions().setVectorTransformsOptions(
-            mlir::vector::VectorContractLowering::OuterProduct);
+        auto options =
+            mlir::vector::VectorTransformsOptions()
+                .setVectorTransformsOptions(mlir::vector::VectorContractLowering::OuterProduct)
+                .setVectorTransposeLowering(mlir::vector::VectorTransposeLowering::Shuffle1D);
         mlir::vector::populateVectorContractLoweringPatterns(patterns, options);
         mlir::vector::TransposeOp::getCanonicalizationPatterns(patterns, &getContext());
         if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
@@ -410,12 +402,19 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         auto options =
             mlir::vector::VectorTransformsOptions()
                 .setVectorTransformsOptions(mlir::vector::VectorContractLowering::OuterProduct)
-                .setVectorTransposeLowering(mlir::vector::VectorTransposeLowering::EltWise);
+                .setVectorTransposeLowering(mlir::vector::VectorTransposeLowering::Shuffle1D);
         mlir::vector::populateVectorBroadcastLoweringPatterns(patterns);
         mlir::vector::populateVectorContractLoweringPatterns(patterns, options);
         mlir::vector::populateVectorMultiReductionLoweringPatterns(
             patterns, vector::VectorMultiReductionLowering::InnerParallel);
         mlir::vector::populateVectorTransposeLoweringPatterns(patterns, options);
+
+        // avx2 shuffle
+        auto avx2LoweringOptions = x86vector::avx2::LoweringOptions().setTransposeOptions(
+            x86vector::avx2::TransposeLoweringOptions().lower4x8xf32(true).lower8x8xf32(true));
+        x86vector::avx2::populateSpecializedTransposeLoweringPatterns(patterns, avx2LoweringOptions,
+                                                                      /*benefit=*/10);
+
         if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
           return signalPassFailure();
         }

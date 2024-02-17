@@ -341,13 +341,6 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Decompose Conv2d like op failed");
     }
 
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
-
     //===----------------------------------------------------------------------===//
     // 6 Vectorization on X86 with AVX2
     //===----------------------------------------------------------------------===//
@@ -356,6 +349,13 @@ void DnnModelLowering::run() {
       populateVectorizationPassPipeline(pm, /*use gpu*/ false);
       runPmWithExit(pm, m_Module, "Middle Level Vectorization");
     }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
 
     //===----------------------------------------------------------------------===//
     // 7 Bufferization all
