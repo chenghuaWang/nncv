@@ -4,6 +4,7 @@ add_mlir_conversion_library(NncvLinalgOptimizeConversion
     LinalgPoolTile.cpp
     RegisterLinalgOps.cpp
     OneShotTiling.cpp
+    DecomposeTransGen.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Conversion/LinalgOptimize
@@ -17,4 +18,5 @@ add_mlir_conversion_library(NncvLinalgOptimizeConversion
     LINK_LIBS PUBLIC
     MLIRArithDialect
     NNCVLinalgExtDialect
+    
 )

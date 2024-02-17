@@ -242,4 +242,20 @@ def OneShotTiling : Pass<"oneshot-tiling", "func::FuncOp"> {
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// Decompose All
+//===----------------------------------------------------------------------===//
+def DecomposeTransformGen : Pass<"gen-decompose-transform", "func::FuncOp"> {
+    let summary = "decompose all";
+    let constructor = "mlir::nncv::createDcomposeTransformGenPass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect",
+        "transform::TransformDialect",
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES

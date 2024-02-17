@@ -10,6 +10,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -26,35 +27,114 @@ namespace mlir::nncv {
 namespace mlir::nncv {
 namespace {
 
-llvm::SmallVector<scf::ForOp> toScfForOp(llvm::SmallVector<mlir::Operation*, 8>& ops) {
+int64_t get2sPowOrSelf(int64_t i) {
+  // set candidates
+  int64_t candidates[] = {8, 16, 32, 64};
+
+  // try
+  if (i < 8) return i;
+
+  int64_t ret = i;
+  for (size_t idx = 0; idx < 4; idx++) {
+    if (i != candidates[idx] && i >= 2 * candidates[idx]) { ret = candidates[idx]; }
+  }
+  return ret;
+}
+
+bool isDynamic(const std::vector<int64_t>& shape) {
+  for (auto item : shape) {
+    if (item < 0) return true;
+  }
+  return false;
+}
+
+SmallVector<SmallVector<int64_t>> solveTileSizesConv2d(mlir::Operation* op) {
+  SmallVector<SmallVector<int64_t>> res;
+  auto _op = mlir::cast<mlir::linalg::LinalgOp>(op);
+  if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(_op)) {
+    auto input = op->getOperand(0);
+    auto filter = op->getOperand(1);
+    auto output = op->getOperand(2);
+
+    auto inputShape = mlir::cast<mlir::TensorType>(input.getType()).getShape();
+    auto filterShape = mlir::cast<mlir::TensorType>(filter.getType()).getShape();
+    auto outputShape = mlir::cast<mlir::TensorType>(output.getType()).getShape();
+
+    int64_t N = inputShape[0];
+    int64_t outC = outputShape[1];
+    int64_t outH = outputShape[2];
+    int64_t outW = outputShape[3];
+    int64_t inC = inputShape[1];  // Also F
+    int64_t kernelH = filterShape[2];
+    int64_t kernelW = filterShape[3];
+
+    if (isDynamic({N, outC, outH, outW, inC, kernelH, kernelW})) { return res; }
+
+    // !!! Start solving tiling size. Using some built in logic.
+    // For example:
+    // %7 = linalg.conv_2d_nchw_fchw {dilations = dense<1> : vector<2xi64>, strides = dense<1> :
+    // vector<2xi64>} ins(%3, %4 : tensor<1x128x30x30xf32>, tensor<128x128x3x3xf32>) outs(%6 :
+    // tensor<1x128x28x28xf32>) -> tensor<1x128x28x28xf32>
+    //
+    // the inputs shape is <1x128x30x30>
+    // the kernel shape is <128x128x3x3>
+    // the output shape is <1x128x28x28>
+    //
+    // The recommend tiling size is:
+    // 1. [0, 64, 28, 4, 0, 0, 0]
+    // 2. [1, 4, 1, 4, 0, 0, 0]
+    // 3. [0, 0, 0, 0, 8, 1, 1]
+    // 4. [0, 0, 0, 0, 0, 0, 0] (remain)
+    SmallVector<int64_t> loops = {N, outC, outH, outW, inC, kernelH, kernelW};
+    auto loopsNum = loops.size();
+
+    // solve first level tiling
+    {
+      res.emplace_back(SmallVector<int64_t>(loopsNum, 0));
+      res[0][1] = get2sPowOrSelf(outC);
+      res[0][2] = outH;
+      res[0][3] = 8;
+    }
+
+    // solve second level tiling
+    { res.emplace_back(SmallVector<int64_t>{1, 8, 1, 8, 0, 0, 0}); }
+
+    // solve third level tiling
+    { res.emplace_back(SmallVector<int64_t>{0, 0, 0, 0, 8, 1, 1}); }
+
+    // solve fourth level tiling
+    { res.emplace_back(SmallVector<int64_t>(loopsNum, 0)); }
+
+    return res;
+  }
+
+  return res;
+}
+
+[[maybe_unused]] llvm::SmallVector<scf::ForOp> toScfForOp(
+    llvm::SmallVector<mlir::Operation*, 8>& ops) {
   llvm::SmallVector<scf::ForOp> res;
   for (auto item : ops) res.push_back(mlir::cast<mlir::scf::ForOp>(item));
   return res;
 }
 
-FailureOr<linalg::TiledLinalgOp> tileAndReplaceConvOp(IRRewriter& rewriter, mlir::Operation* op,
-                                                      llvm::SmallVector<int64_t> sizes) {
+FailureOr<mlir::scf::SCFTilingResult> tileAndReplaceConvOp(IRRewriter& rewriter,
+                                                           mlir::Operation* op,
+                                                           llvm::SmallVector<int64_t> sizes) {
   // process a new sizes;
   auto linalgOp = mlir::cast<mlir::linalg::LinalgOp>(op);
   auto opLoops = linalgOp.getStaticLoopRanges();
   assert(opLoops.size() == sizes.size()
          && "[assert] The size of static loops from linalg op should match tiled sizes' length.\n");
-  for (size_t i = 0; i < sizes.size(); ++i) {
-    auto cur = opLoops[i];
-    auto want = sizes[i];
-    if (cur <= want) sizes[i] = 0;
-  }
 
   // do tiling
-  linalg::LinalgTilingOptions tileOption;
-  tileOption.setTileSizes(sizes);
+  scf::SCFTilingOptions tileOption;
+  llvm::SmallVector<OpFoldResult> _sizes;
+  for (auto idx : sizes) _sizes.push_back(rewriter.getIndexAttr(idx));
+  tileOption.setTileSizes(_sizes);
 
-  OpBuilder::InsertionGuard guard(rewriter);
-  rewriter.setInsertionPoint(op);
-
-  auto tiledOps =
-      linalg::tileLinalgOp(rewriter, mlir::cast<mlir::linalg::LinalgOp>(op), tileOption);
-  rewriter.replaceOp(op, tiledOps->tensorResults);
+  auto tiledOps = scf::tileUsingSCFForOp(rewriter, dyn_cast<TilingInterface>(op), tileOption);
+  rewriter.replaceOp(op, tiledOps->replacements);
   return tiledOps;
 }
 
@@ -82,118 +162,18 @@ class Conv2dTilePass : public impl::Conv2dTileBase<Conv2dTilePass> {
     for (auto item : candidates) {
       auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
 
-      if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp>(op)) {
-        auto tiled = tileAndReplaceConvOp(
-            rewriter, op,
-            {/*batch*/ 0, /*outputH*/ 8, /*outputW*/ 8, /*kernelC*/ 0, /*kernelH*/ 0,
-             /*kernelW*/ 0, /*kernelF*/ 0});
-        if (succeeded(tiled)) {
-          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
-          continue;
-        }
-      }
-
       if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) {
-        auto tiled = tileAndReplaceConvOp(
-            rewriter, op,
-            {/*batch*/ 0, /*kernelC*/ 0, /*outputH*/ 8, /*outputW*/ 8, /*kernelF*/ 0,
-             /*kernelH*/ 0, /*kernelW*/ 0});
-        if (succeeded(tiled)) {
-          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
-          continue;
-        }
+        auto tileSizes = solveTileSizesConv2d(op);
+
+        auto tiled = tileAndReplaceConvOp(rewriter, op, tileSizes[0]);
+        tiled = tileAndReplaceConvOp(rewriter, tiled->tiledOps[0], tileSizes[1]);
+        tiled = tileAndReplaceConvOp(rewriter, tiled->tiledOps[0], tileSizes[2]);
+        tiled = tileAndReplaceConvOp(rewriter, tiled->tiledOps[0], tileSizes[3]);
+        continue;
       }
 
       printf("[ Warn ] The data layout of conv2d that nncv supported now is "
              "[Conv2DNhwcHwcfOp/Conv2DNchwFchwOp]. %s "
-             " in this file will fail through to nested for loops.\n",
-             op->getName().getStringRef().str().c_str());
-    }
-
-    {
-      mlir::RewritePatternSet patterns(&getContext());
-      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
-      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-        signalPassFailure();
-      }
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 2 Tile from Small size to one dims. Also cut down channel.
-    //===----------------------------------------------------------------------===//
-    candidates.clear();
-    getOperation()->walk([&](mlir::linalg::LinalgOp op) {
-      if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp, mlir::linalg::Conv2DNchwFchwOp,
-                    mlir::linalg::Conv2DNhwcFhwcOp>(op)) {
-        candidates.emplace_back(op);
-      }
-    });
-    for (auto item : candidates) {
-      auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
-
-      if (mlir::isa<mlir::linalg::Conv2DNhwcHwcfOp>(op)) {
-        auto tiled = tileAndReplaceConvOp(
-            rewriter, op,
-            {/*batch*/ 0, /*outputH*/ 1, /*outputW*/ 0, /*kernelC*/ 8, /*kernelH*/ 1,
-             /*kernelW*/ 0, /*kernelF*/ 0});
-        if (succeeded(tiled)) {
-          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
-          continue;
-        }
-      }
-
-      if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp>(op)) {
-        auto tiled = tileAndReplaceConvOp(
-            rewriter, op,
-            {/*batch*/ 0, /*kernelC*/ 8, /*outputH*/ 0, /*outputW*/ 1, /*kernelF*/ 0,
-             /*kernelH*/ 1, /*kernelW*/ 1});
-        if (succeeded(tiled)) {
-          mlir::linalg::peelLoops(rewriter, toScfForOp(tiled->loops));
-          continue;
-        }
-      }
-
-      printf("[ Warn ] The data layout of conv2d that nncv supported now is "
-             "[Conv2DNhwcHwcfOp/Conv2DNchwFchwOp]. %s "
-             " in this file will fail through to nested for loops.\n",
-             op->getName().getStringRef().str().c_str());
-    }
-
-    {
-      mlir::RewritePatternSet patterns(&getContext());
-      mlir::linalg::populateDecomposeConvolutionPatterns(patterns);
-      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
-      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-        signalPassFailure();
-      }
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 3 Tile conv1d to reduce unroll code size
-    //===----------------------------------------------------------------------===//
-    candidates.clear();
-    getOperation()->walk([&](mlir::linalg::LinalgOp op) {
-      if (mlir::isa<mlir::linalg::Conv1DNcwFcwOp, mlir::linalg::Conv1DNwcWcfOp>(op)) {
-        candidates.emplace_back(op);
-      }
-    });
-    for (auto item : candidates) {
-      auto op = mlir::cast<mlir::linalg::LinalgOp>(item);
-
-      if (mlir::isa<mlir::linalg::Conv1DNwcWcfOp>(op)) {
-        auto tiled =
-            tileAndReplaceConvOp(rewriter, op, {/*N*/ 0, /*w*/ 1, /*c*/ 0, /*W*/ 1, /*f*/ 0});
-        continue;
-      }
-
-      if (mlir::isa<mlir::linalg::Conv1DNcwFcwOp>(op)) {
-        auto tiled =
-            tileAndReplaceConvOp(rewriter, op, {/*N*/ 0, /*c*/ 0, /*w*/ 0, /*F*/ 0, /*w*/ 0});
-        continue;
-      }
-
-      printf("[ Warn ] The data layout of conv1d that nncv supported now is "
-             "[Conv1DNwcWcfOp/Conv1DNcwFcwOp]. %s "
              " in this file will fail through to nested for loops.\n",
              op->getName().getStringRef().str().c_str());
     }

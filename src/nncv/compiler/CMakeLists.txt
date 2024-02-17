@@ -165,6 +165,9 @@ set(LinkedLibs
     MLIRDebug
     MLIROptLib
     MLIROpenMPToLLVM
+    MLIRTransformDialect
+    MLIRTransformDialectTransforms
+    MLIRLinalgTransformOps
 
     # NNCV Libs
     # dialect itself

@@ -57,6 +57,9 @@ void TileSolver::dump() {
 
 std::vector<std::vector<int64_t>> TileSolver::solveTileSizesMatMul(mlir::Operation* op) {
   std::vector<std::vector<int64_t>> res;
+  // res.push_back({8, 32, 0});
+  // res.push_back({4, 4, 0});
+  // res.push_back({0, 0, 4});
   return res;
 }
 
@@ -206,7 +209,7 @@ int64_t TileSolver::get2sPowOrSelf(int64_t i) {
 
   int64_t ret = i;
   for (size_t idx = 0; idx < 4; idx++) {
-    if (i != candidates[idx] && i > 2 * candidates[idx]) { ret = candidates[idx]; }
+    if (i != candidates[idx] && i >= 2 * candidates[idx]) { ret = candidates[idx]; }
   }
   return ret;
 }

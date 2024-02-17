@@ -38,9 +38,11 @@ void populateInputOptimizationPassPipeline(mlir::PassManager& pm);
 
 void populateTensorOptimizationPassPipeline(mlir::PassManager& pm);
 
-void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm);
+void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm, bool winograd = false,
+                                           bool img2col = false);
 
-void populateTileAllPassPipeline(mlir::PassManager& pm, bool lowerConv = false, bool gpy = false);
+void populateTileAllPassPipeline(mlir::PassManager& pm, bool oneshot = true, bool lowerConv = false,
+                                 bool gpy = false);
 
 void populateVectorizationPassPipeline(mlir::PassManager& pm, bool gpu = false);
 

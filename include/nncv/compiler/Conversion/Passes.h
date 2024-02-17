@@ -21,6 +21,7 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/RegisterLinalgOps.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/OneShotTiling.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

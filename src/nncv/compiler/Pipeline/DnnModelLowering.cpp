@@ -12,6 +12,7 @@
 
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/MLProgram/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -34,13 +35,14 @@
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/VectorToGPU/VectorToGPU.h"
 
-// FIXME
 #include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/CastAwayTensorLeadingOneDim.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgGenericTile.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/OneShotTiling.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/RegisterLinalgOps.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/BatchMatMulOptVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMul2NvMMA.hpp"
@@ -107,14 +109,32 @@ void populateTensorOptimizationPassPipeline(mlir::PassManager& pm) {
   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createEmptyTensorEliminationPass());
 }
 
-void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm) {
-  pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
-  pm.addNestedPass<mlir::func::FuncOp>(
-      mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm, bool winograd, bool img2col) {
+  if (winograd) {
+    pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    return;
+  }
+  if (img2col) {
+    pm.addPass(mlir::nncv::createConvertConv2DToImg2ColPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    return;
+  }
 }
 
-void populateTileAllPassPipeline(mlir::PassManager& pm, bool lowerConv, bool gpu) {
+void populateTileAllPassPipeline(mlir::PassManager& pm, bool oneshot, bool lowerConv, bool gpu) {
+  if (oneshot) {
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createOneShotTilingPass());
+    pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ gpu));
+    pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ gpu));
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    return;
+  }
   // matmul
   pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ gpu));
   pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
@@ -306,12 +326,30 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateTileAllPassPipeline(pm, /*lower conv*/ false, /*use gpu*/ false);
+      populateTileAllPassPipeline(pm, /*oneshot*/ false, /*lower conv*/ true, /*use gpu*/ false);
       runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad]");
     }
 
     //===----------------------------------------------------------------------===//
-    // 5 Vectorization on X86 with AVX2
+    // 5 Decompose All Conv2d And doing some optimization
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module, "Decompose Conv2d like op failed");
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+
+    //===----------------------------------------------------------------------===//
+    // 6 Vectorization on X86 with AVX2
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -320,7 +358,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 6 Bufferization all
+    // 7 Bufferization all
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -329,7 +367,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 7 Conv2d Optimization using manual method.
+    // 8 Conv2d Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -338,7 +376,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 8 Lowering Affine to SCF. And do some fusion
+    // 9 Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -356,7 +394,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9 Lowering all one by one.
+    // 10 Lowering all one by one.
     //===----------------------------------------------------------------------===//
     // TODO
     {

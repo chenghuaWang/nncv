@@ -111,7 +111,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
           ///<------------------------ Step 1.1. Tilling out loop
           {
             linalg::LinalgTilingOptions tileOption;
-            tileOption.setTileSizes({1, 4});
+            tileOption.setTileSizes({1, 8});
 
             OpBuilder::InsertionGuard guard(rewriter);
             rewriter.setInsertionPoint(op);
@@ -124,7 +124,7 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
           ///<------------------------ Step 1.1. Tilling out loop
           {
             linalg::LinalgTilingOptions tileOption;
-            tileOption.setTileSizes({4});
+            tileOption.setTileSizes({8});
 
             OpBuilder::InsertionGuard guard(rewriter);
             rewriter.setInsertionPoint(op);

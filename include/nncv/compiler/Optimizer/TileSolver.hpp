@@ -69,6 +69,7 @@ class TileSolver {
   // a iteration function
   // the operation is sorted by uuid, so the iteration sequence is match the network.
   inline std::map<TileOpsNode, TileOptions, __cmp_tile_ops_node>& getDict() { return m_Dict; }
+  inline std::map<mlir::Operation*, TileOpsNode>& getLinkToDict() { return __m_link_to_dict; }
 
  private:
   // Tiles

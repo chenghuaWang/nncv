@@ -1,16 +1,21 @@
 #include "nncv/compiler/TransformCommon/Common.hpp"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgMatchOps.h"
+#include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
+#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/Dialect/Transform/IR/TransformTypes.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/Transform/LoopExtension/LoopExtensionOps.h"
 
 namespace mlir {
 namespace nncv {
 
-void createTransformRegion(mlir::FunctionOpInterface entry, TransformBuilderFunc func) {
+transform::TransformOpInterface createTransformRegion(mlir::FunctionOpInterface entry,
+                                                      TransformBuilderFunc func) {
   auto ctx = entry.getContext();
   auto loc = entry.getLoc();
   mlir::OpBuilder builder(ctx);
@@ -35,13 +40,21 @@ void createTransformRegion(mlir::FunctionOpInterface entry, TransformBuilderFunc
         func(ib, variantH);
         b.create<transform::YieldOp>(loc);
       });
-  (void)TransformSequence;
+  return TransformSequence;
 }
 
 void transformHoistingSubsetFunc(mlir::ImplicitLocOpBuilder& builder, mlir::Value funcOp) {
   // Value Loops =
   //     builder.create<mlir::transform::MatchOp>(funcOp, mlir::scf::ForOp::getOperationName());
   // builder.create<mlir::transform::HoistLoopInvariantSubsetsOp>(Loops);
+}
+
+void createTransformDecomposeLinalg(mlir::ImplicitLocOpBuilder& builder, mlir::Value v) {
+  auto AnyOpType = mlir::transform::AnyOpType::get(builder.getContext());
+  ArrayRef<StringRef> opNames = {"linalg.conv_2d_nchw_fchw", "linalg.pooling_nchw_sum",
+                                 "linalg.pooling_nchw_max"};
+  auto matched = builder.create<transform::MatchOp>(v, opNames);
+  builder.create<transform::DecomposeOp>(AnyOpType, matched);
 }
 
 }  // namespace nncv
