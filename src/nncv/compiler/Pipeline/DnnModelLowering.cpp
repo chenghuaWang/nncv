@@ -10,7 +10,11 @@
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 
+#include "mlir/Conversion/MathToLibm/MathToLibm.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/MLProgram/Transforms/Passes.h"
@@ -34,6 +38,8 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/VectorToGPU/VectorToGPU.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 
 #include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
@@ -290,10 +296,41 @@ void DnnModelLowering::run() {
       m_Module->dump();
     }
     return;
-  } else if (m_GenHostWoParallel) {
-    mlir::nncv::createNncvFrontendToNormalPipeline(pm);
-    return;
   } else if (m_GenHostWParallel) {
+    //===----------------------------------------------------------------------===//
+    // 1 Finalize all input
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateInputOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 2 Doing some tensor eliminate
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateTensorOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Cast Away Tensor Leading One Dims");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 3 Using winograd method before lowering MatMul
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateWinogradOrImg2ColPassPipeline(pm);
+      runPmSilent(pm, m_Module);
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+  } else if (m_GenHostWoParallel) {
     //===----------------------------------------------------------------------===//
     // 1 Finalize all input
     //===----------------------------------------------------------------------===//
@@ -350,13 +387,6 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Middle Level Vectorization");
     }
 
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
-
     //===----------------------------------------------------------------------===//
     // 7 Bufferization all
     //===----------------------------------------------------------------------===//
@@ -382,14 +412,6 @@ void DnnModelLowering::run() {
       pm.clear();
       populateLoopFusionAndNormalizationPassPipeline(pm);
       populateAffineToSCFPassPipeline(pm);
-
-      // TODO
-      // mlir::ConvertVectorToLLVMPassOptions option;
-      // option.x86Vector = true;
-      // pm.addPass(mlir::createConvertVectorToLLVMPass(option));
-      // pm.addPass(mlir::createArithToLLVMConversionPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Affine Lowering to SCF and Loop fusion/normalization");
     }
 
@@ -399,14 +421,33 @@ void DnnModelLowering::run() {
     // TODO
     {
       pm.clear();
+      // 1. erease all linalg
+      pm.addPass(mlir::createConvertLinalgToLoopsPass());
+      // // 2. math based
+      // pm.addPass(mlir::createConvertMathToLLVMPass());
+      // pm.addPass(mlir::createConvertMathToLibmPass());
+      // pm.addPass(mlir::createArithToLLVMConversionPass());
+      // // 3. vector to x86
       // mlir::ConvertVectorToLLVMPassOptions options;
       // options.x86Vector = true;
-      // pm.addPass(mlir::createArithToLLVMConversionPass());
       // pm.addPass(mlir::createConvertVectorToLLVMPass(options));
+      // pm.addPass(mlir::createConvertVectorToSCFPass());
+      // // 4. erease ml_program.global
+      // pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
       // pm.addPass(mlir::ml_program::createMLProgramPipelineGlobalsPass());
       // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      (void)pm.run(*m_Module);
+      // // 5. scf to cf
+      // pm.addPass(mlir::createConvertSCFToCFPass());
+      // pm.addPass(mlir::createArithToLLVMConversionPass());
+      // // 6. func. This pass will lowering cf and arith to llvm
+      // pm.addPass(mlir::createConvertFuncToLLVMPass());
+      // // 7. clean all
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      // run
+      runPmWithExit(pm, m_Module, "Lowering all to llvm and libs call");
     }
 
     if (!m_OutputFilePath.empty()) {
