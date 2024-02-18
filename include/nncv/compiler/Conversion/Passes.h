@@ -23,6 +23,8 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/OneShotTiling.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
 
+#include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
+
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"

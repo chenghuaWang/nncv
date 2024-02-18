@@ -56,6 +56,7 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptDefault.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptParallelVec.hpp"
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
+#include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
 #include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 
@@ -419,7 +420,6 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     // 10 Lowering all one by one.
     //===----------------------------------------------------------------------===//
-    // TODO
     {
       pm.clear();
       pm.addPass(mlir::createConvertLinalgToLoopsPass());
@@ -442,6 +442,7 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      pm.addPass(mlir::nncv::createNestedTransformErasePass());
       // run
       runPmWithExit(pm, m_Module, "Lowering all to llvm and libs call");
     }

@@ -239,7 +239,8 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
       {
         mlir::RewritePatternSet patterns(&getContext());
         mlir::linalg::populateConvolutionVectorizationPatterns(patterns);
-        mlir::linalg::populatePadOpVectorizationPatterns(patterns);
+        // FIXME
+        // mlir::linalg::populatePadOpVectorizationPatterns(patterns);
         mlir::linalg::ControlDropUnitDims option;
         option.rankReductionStrategy =
             mlir::linalg::ControlDropUnitDims::RankReductionStrategy::ReassociativeReshape;
@@ -410,10 +411,12 @@ class VectorizationPass : public impl::VectorizationBase<VectorizationPass> {
         mlir::vector::populateVectorTransposeLoweringPatterns(patterns, options);
 
         // avx2 shuffle
-        auto avx2LoweringOptions = x86vector::avx2::LoweringOptions().setTransposeOptions(
-            x86vector::avx2::TransposeLoweringOptions().lower4x8xf32(true).lower8x8xf32(true));
-        x86vector::avx2::populateSpecializedTransposeLoweringPatterns(patterns, avx2LoweringOptions,
-                                                                      /*benefit=*/10);
+        // FIXME error: couldn't allocate output register for constraint 'x'
+        // auto avx2LoweringOptions = x86vector::avx2::LoweringOptions().setTransposeOptions(
+        //     x86vector::avx2::TransposeLoweringOptions().lower4x8xf32(true).lower8x8xf32(true));
+        // x86vector::avx2::populateSpecializedTransposeLoweringPatterns(patterns,
+        // avx2LoweringOptions,
+        //                                                               /*benefit=*/10);
 
         if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
           return signalPassFailure();

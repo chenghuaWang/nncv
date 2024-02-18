@@ -258,4 +258,20 @@ def DecomposeTransformGen : Pass<"gen-decompose-transform", "func::FuncOp"> {
     ];
 }
 
+//===----------------------------------------------------------------------===//
+// nested transform erase pass
+//===----------------------------------------------------------------------===//
+def NestedTransformErase : Pass<"erase-nested-transform-scope", "mlir::ModuleOp"> {
+    let summary = "erase all nested transform scopes";
+    let constructor = "mlir::nncv::createNestedTransformErasePass()";
+    let dependentDialects = [
+        "arith::ArithDialect",
+        "affine::AffineDialect",
+        "math::MathDialect",
+        "tensor::TensorDialect",
+        "linalg::LinalgDialect",
+        "transform::TransformDialect",
+    ];
+}
+
 #endif //! ATEN_CONVERSION_PASSES
