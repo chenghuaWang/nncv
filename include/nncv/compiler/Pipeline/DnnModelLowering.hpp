@@ -70,6 +70,7 @@ class DnnModelLowering {
     }
   }
   inline void setGenConfigFilePath(const std::string& _CurPath) { m_ConfigFilePath = _CurPath; }
+  inline void setWarpC(bool flag = true) { m_WaprC = flag; }
 
  private:
   bool m_GenNVPTX = false;
@@ -77,6 +78,7 @@ class DnnModelLowering {
   bool m_GenHostWParallel = false;
   bool m_UsingNncvIR = false;
   bool m_GenConfigFileOnly = false;
+  bool m_WaprC = false;
   std::string m_ConfigFilePath;
   mlir::MLIRContext& m_Context;
   mlir::OwningOpRef<mlir::ModuleOp>& m_Module;

@@ -202,6 +202,7 @@ int main(int argc, char* argv[]) {
     //  Middle end. Register Some Pass for optimize and lowering.
     // ---------------------------------------------------------------------
     nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(MlirContext, MlirModule);
+    dnnModelLowerPipeline.setWarpC(WarpC.getValue());
     if (SetLowerTarget.getValue() == "HostWParallel") {
       dnnModelLowerPipeline.setGenHostWParallel();
     } else if (SetLowerTarget.getValue() == "HostWoParallel") {
