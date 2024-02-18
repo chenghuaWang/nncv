@@ -1,5 +1,6 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/LinalgPoolTile.hpp"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
+#include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "nncv/compiler/Utils/PlatformCtx.hpp"
 

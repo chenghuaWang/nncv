@@ -12,6 +12,7 @@
 
 #include "mlir/Conversion/MathToLibm/MathToLibm.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Conversion/TensorToLinalg/TensorToLinalgPass.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
@@ -390,7 +391,16 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 7 Bufferization all
+    // 7 Convert Tensor To linalg
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::createConvertTensorToLinalgPass());
+      runPmWithExit(pm, m_Module, "Convert Tensor To Linalg");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 8 Bufferization all
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -399,7 +409,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 8 Conv2d Optimization using manual method.
+    // 9 Conv2d Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -408,7 +418,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9 Lowering Affine to SCF. And do some fusion
+    // 10 Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -418,7 +428,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 10 Lowering all one by one.
+    // 11 Lowering all one by one.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();

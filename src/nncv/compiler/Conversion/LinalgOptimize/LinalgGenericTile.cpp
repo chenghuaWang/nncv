@@ -135,29 +135,6 @@ class LinalgGenericTilePass : public impl::LinalgGenericTileBase<LinalgGenericTi
           }
         }
       }
-      llvm::SmallVector<mlir::Operation*> fillCandidates;
-      getOperation()->walk([&](mlir::linalg::FillOp op) {
-        if (op.hasBufferSemantics()) return signalPassFailure();
-        fillCandidates.emplace_back(op);
-      });
-
-      for (auto _op : fillCandidates) {
-        FailureOr<linalg::TiledLinalgOp> tiledOps;
-        mlir::linalg::FillOp op = llvm::dyn_cast<linalg::FillOp>(_op);
-
-        ///<------------------------ Step 1.1. Tilling out loop
-        {
-          linalg::LinalgTilingOptions tileOption;
-          tileOption.setTileSizes({1, 1, 8, 8});
-
-          OpBuilder::InsertionGuard guard(rewriter);
-          rewriter.setInsertionPoint(op);
-          tiledOps = linalg::tileLinalgOp(rewriter, op, tileOption);
-          rewriter.replaceOp(op, tiledOps->tensorResults);
-
-          op = mlir::cast<mlir::linalg::FillOp>(tiledOps->op);
-        }
-      }
     }
     {
       mlir::RewritePatternSet patterns(&getContext());
