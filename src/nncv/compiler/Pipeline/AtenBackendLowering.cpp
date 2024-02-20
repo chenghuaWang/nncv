@@ -61,7 +61,11 @@ void AtenBackendLoweringPipeline::run() {
         utils::ExecObject exec("polymer-opt");
         exec.pushArgs("-reg2mem");
         exec.pushArgs("-extract-scop-stmt");
-        exec.pushArgs("-pluto-opt");
+        if (m_usingOmp) {
+          exec.pushArgs("-pluto-opt=parallelize gen-parallel");
+        } else {
+          exec.pushArgs("-pluto-opt");
+        }
         exec.pushArgs(".cache.air");
         exec.pushArgs("-o");
         exec.pushArgs(".cache.mlir");
@@ -88,7 +92,6 @@ void AtenBackendLoweringPipeline::run() {
         pm.clear();
         pm.addNestedPass<mlir::func::FuncOp>(
             mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
-        pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineParallelizePass());
         pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
         (void)pm.run(*m_Module);
       }
