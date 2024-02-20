@@ -3,8 +3,23 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 
 **:exclamation::exclamation::exclamation:This is a personal project for practicing purpose:exclamation::exclamation::exclamation:** 
 
-
 ## compiler
+
+### CPU Target
+
+Currently, nncv supports a very simple lowering pipeline. It basicly uses tiling and vectorization on linalg.ops. However, the vectorization pass is full of bugs, and has performance issues. I'm trying to figure it out, but it takes time.
+
+If you wnat to compile cpu target. U can use commands below to generate a object file:
+
+```sh
+nncv-c -warp-c-interface -target HostWoParallel main.mlir -o optimized.mlir
+mlir-translate -mlir-to-llvmir optimized.mlir -o main.ll
+llc -filetype=object main.ll -o libmain.o
+```
+
+### NV GPU Target
+
+
 
 ## nncv's lang
 

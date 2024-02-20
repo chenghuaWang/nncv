@@ -297,6 +297,21 @@ def OptimizeTensorInsertExtractSlices
       "mlir::nncv::createOptimizeTensorInsertExtractSlicesPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Modern tile using scf forall
+//===----------------------------------------------------------------------===//
+def ModernTile : InterfacePass<"modern-one-shot-tile-all",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "One shot till all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createModernOneShotTileAllPass()";
+}
 
+def ModernVec : InterfacePass<"modern-vec-all",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "One shot vec all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createModernVectorizationAllPass()";
+}
 
 #endif //! ATEN_CONVERSION_PASSES
