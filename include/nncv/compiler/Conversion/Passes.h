@@ -24,10 +24,17 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
 
 #include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
+#include "nncv/compiler/Conversion/Vectorization/VectorizePad.hpp"
+#include "nncv/compiler/Conversion/Vectorization/OptimizeInsertExtractSlices.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"
 }  // namespace mlir
+
+namespace mlir::nncv {
+void populateVectorTransferTensorSliceTransforms(mlir::RewritePatternSet& patterns,
+                                                 mlir::PatternBenefit benefit = 1);
+}
 
 #endif  //! NNCV_ATEN_CONVERSION_PASSES_H

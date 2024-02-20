@@ -89,6 +89,7 @@ void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
 
   // delocation
   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+  pm.addPass(mlir::createBufferizationToMemRefPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
@@ -134,31 +135,36 @@ void populateWinogradOrImg2ColPassPipeline(mlir::PassManager& pm, bool winograd,
 }
 
 void populateTileAllPassPipeline(mlir::PassManager& pm, bool oneshot, bool lowerConv, bool gpu) {
-  if (oneshot) {
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createOneShotTilingPass());
+  if (gpu) {
+  } else {
+    if (oneshot) {
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createOneShotTilingPass());
+      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ gpu));
+      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ gpu));
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      return;
+    }
+    // matmul
     pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ gpu));
     pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+    pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+    // conv2d
+    if (lowerConv) {
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createConv2dTilePass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createLinalgPoolingTilePass(/*use nv gpu*/ gpu));
+    }
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ gpu));
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-    return;
   }
-  // matmul
-  pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ gpu));
-  pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-  // conv2d
-  if (lowerConv) {
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createConv2dTilePass());
-    pm.addNestedPass<mlir::func::FuncOp>(
-        mlir::nncv::createLinalgPoolingTilePass(/*use nv gpu*/ gpu));
-  }
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLinalgGenericTilePass(/*use nv gpu*/ gpu));
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 }
 
 void populateVectorizationPassPipeline(mlir::PassManager& pm, bool gpu) {
@@ -213,32 +219,17 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      mlir::nncv::createNncvFrontendToNormalPipeline(pm);
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] Frontend Normalize Pass Pipeline. Failed\n");
-        exit(-1);
-      } else {
-        printf("[ Info ] Frontend Normalize Pass Pipeline. Success.\n");
-      }
+      populateInputOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
     }
 
     //===----------------------------------------------------------------------===//
-    // 2 Doing some tensor elimination
+    // 2 Doing some tensor eliminate
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createEmptyTensorEliminationPass());
-      pm.addPass(mlir::createCanonicalizerPass());
-      pm.addPass(mlir::createCSEPass());
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] Cast Away Tensor Leading One Dims. Failed\n");
-        exit(-1);
-      } else {
-        printf("[ Info ] Cast Away Tensor Leading One Dims. Success.\n");
-      }
-      (void)pm.run(*m_Module);
+      populateTensorOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Cast Away Tensor Leading One Dims");
     }
 
     //===----------------------------------------------------------------------===//
@@ -246,52 +237,22 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      // winograd or img2col here.
-      // pm.addPass(mlir::nncv::createOptimizeConv2dUsingWinogradPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(
-      //     mlir::nncv::linalg_ext::createTileAndDecomposeWinogradTransformPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      (void)pm.run(*m_Module);
+      populateWinogradOrImg2ColPassPipeline(pm);
+      runPmSilent(pm, m_Module);
     }
 
     //===----------------------------------------------------------------------===//
-    // 4 Tile MatMul
+    // 4 High level tile
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationVecPass(/*use nv gpu*/ true));
-      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationForBatchPass());
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::createLinalgOpCastAwayTensorLeadingOneDimPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] High Level Tiling [Matmul]. Failed\n");
-        exit(-1);
-      } else {
-        printf("[ Info ] High Level Tiling [Matmul]. Success.\n");
-      }
+      populateTileAllPassPipeline(pm, /*oneshot*/ false, /*lower conv*/ true, /*use gpu*/ true);
+      runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad]");
     }
 
-    // Tile All
-    // TODO
-
     //===----------------------------------------------------------------------===//
-    // 7 Vectorization on NVIDIA
+    // 5 Decompose All
     //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::createVectorizationPass(/*use nv gpu*/ true));
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      if (mlir::failed(pm.run(*m_Module))) {
-        printf("[ Erro ] Middle Level Vectorization. Failed\n");
-        exit(-1);
-      } else {
-        printf("[ Info ] Middle Level Vectorization. Success.\n");
-      }
-    }
 
     if (!m_OutputFilePath.empty()) {
       nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
@@ -378,7 +339,7 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      runPmWithExit(pm, m_Module, "Decompose Conv2d like op failed");
+      runPmWithExit(pm, m_Module, "Decompose Conv2d like op");
     }
 
     //===----------------------------------------------------------------------===//
@@ -386,7 +347,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateVectorizationPassPipeline(pm, /*use gpu*/ false);
+      // populateVectorizationPassPipeline(pm, /*use gpu*/ false);
       runPmWithExit(pm, m_Module, "Middle Level Vectorization");
     }
 
@@ -409,11 +370,12 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9 Conv2d Optimization using manual method.
+    // 9 linalg Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
       populateConv2dToAffineVecManuallyPassPipeline(pm);
+      // pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
       runPmWithExit(pm, m_Module, "Convert Conv2d To Affine+Vector using manual method");
     }
 
@@ -439,7 +401,10 @@ void DnnModelLowering::run() {
         pm.addNestedPass<mlir::func::FuncOp>(mlir::LLVM::createRequestCWrappersPass());
       }
       pm.addPass(mlir::memref::createExpandStridedMetadataPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
+      mlir::VectorTransferToSCFOptions vectorTransferOptions;
+      vectorTransferOptions.enableFullUnroll(true);
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::createConvertVectorToSCFPass(vectorTransferOptions));
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
       pm.addPass(mlir::createConvertVectorToLLVMPass());
@@ -447,7 +412,9 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       pm.addPass(mlir::createConvertMathToLLVMPass());
       pm.addPass(mlir::createConvertMathToLibmPass());
-      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+      mlir::FinalizeMemRefToLLVMConversionPassOptions memrefLoweringOptions;
+      memrefLoweringOptions.useAlignedAlloc = true;
+      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass(memrefLoweringOptions));
       pm.addPass(mlir::createConvertFuncToLLVMPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());

@@ -247,7 +247,7 @@ def OneShotTiling : Pass<"oneshot-tiling", "func::FuncOp"> {
 //===----------------------------------------------------------------------===//
 def DecomposeTransformGen : Pass<"gen-decompose-transform", "func::FuncOp"> {
     let summary = "decompose all";
-    let constructor = "mlir::nncv::createDcomposeTransformGenPass()";
+    let constructor = "mlir::nncv::createDecomposeTransformGenPass()";
     let dependentDialects = [
         "arith::ArithDialect",
         "affine::AffineDialect",
@@ -273,5 +273,30 @@ def NestedTransformErase : Pass<"erase-nested-transform-scope", "mlir::ModuleOp"
         "transform::TransformDialect",
     ];
 }
+
+//===----------------------------------------------------------------------===//
+// Vectorize Tensor Pad
+//===----------------------------------------------------------------------===//
+def TensorToVectorVectorizePad :
+    InterfacePass<"vectorize-tensor-pad", "mlir::FunctionOpInterface"> {
+  let summary = "Vectorize a very specific form of tensor.pad with "
+                "control flows";
+  let constructor =
+      "mlir::nncv::createVectorizePadPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// Optimize Tensor insert
+//===----------------------------------------------------------------------===//
+def OptimizeTensorInsertExtractSlices
+    : InterfacePass<"optimize-tensor-insert-extract-slices",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "Optimize tensor.insert_slice/tensor.extract_slice operations "
+                "(e.g. hoist and fold)";
+  let constructor =
+      "mlir::nncv::createOptimizeTensorInsertExtractSlicesPass()";
+}
+
+
 
 #endif //! ATEN_CONVERSION_PASSES
