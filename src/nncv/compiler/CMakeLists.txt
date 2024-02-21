@@ -184,6 +184,7 @@ set(LinkedLibs
     NncvVectorizationConversion
     NncvLinalgOptimizeConversion
     NncvTransformsConversion
+    NncvCodeGenLlvmCpuConversion
 )
 
 if (nncv_compiler_use_antlr)
