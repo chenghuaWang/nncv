@@ -29,6 +29,12 @@ nncv provides a small programming language called aten-lang(The aten for nncv is
 nncv-c -run example.aten
 ```
 
+If you want to enable multi thread support and eanble polymer, use:
+
+```sh
+nncv-c -womp -wpoly -run example.aten
+```
+
 The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
 
 ```aten

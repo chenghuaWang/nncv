@@ -1,4 +1,4 @@
-#include "nncv/compiler/Conversion/CodeGen/ModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"

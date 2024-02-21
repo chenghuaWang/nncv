@@ -2,7 +2,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
-#include "nncv/compiler/Conversion/CodeGen/ModernTile.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernTile.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
 
 namespace mlir::nncv::codegen_llvm_cpu {

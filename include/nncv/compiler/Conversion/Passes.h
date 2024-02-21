@@ -27,8 +27,8 @@
 #include "nncv/compiler/Conversion/Vectorization/VectorizePad.hpp"
 #include "nncv/compiler/Conversion/Vectorization/OptimizeInsertExtractSlices.hpp"
 
-#include "nncv/compiler/Conversion/CodeGen/ModernTile.hpp"
-#include "nncv/compiler/Conversion/CodeGen/ModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernTile.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

@@ -1,4 +1,4 @@
-#include "nncv/compiler/Conversion/CodeGen/ModernTile.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernTile.hpp"
 #include "llvm/Support/ErrorHandling.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
@@ -41,7 +41,10 @@ namespace mlir::nncv {
 namespace mlir::nncv {
 namespace {
 
-struct ModernGenericTileOptions {};
+struct ModernGenericTileOptions {
+  SmallVector<SmallVector<int64_t>> tileSizes;
+  SmallVector<bool> canForall;
+};
 
 struct ModernConv2dInterfaceTileOptions {
   SmallVector<SmallVector<int64_t>> tileSizes;
