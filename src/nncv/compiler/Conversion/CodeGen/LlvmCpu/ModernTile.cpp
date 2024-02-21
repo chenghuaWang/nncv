@@ -219,12 +219,12 @@ ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* 
   return res;
 }
 
-// AVX2, Vector size = 8. Static.
+// AVX2, Vector size = 8. Static. But set Matmul Vec=4
 ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
   ModernMatMulTileOptions ret;
   ret.tileSizes.push_back({8, 32, 0});
-  ret.tileSizes.push_back({0, 8, 8});
-  ret.tileSizes.push_back({0, 0, 8});
+  ret.tileSizes.push_back({4, 4, 0});
+  ret.tileSizes.push_back({0, 0, 4});
   ret.canForall = {true, true, true};
   return ret;
 }
@@ -283,7 +283,7 @@ bool tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
 
 void emitTileFailedError(bool isOk, mlir::Operation* op) {
   if (!isOk) {
-    printf("[ Erro ] When tiling %s op, failed.\n", op->getName().getStringRef().str().c_str());
+    printf("[ Warn ] When tiling %s op, failed.\n", op->getName().getStringRef().str().c_str());
   }
 }
 
@@ -297,18 +297,34 @@ void emitTileFailedError(bool isOk, mlir::Operation* op) {
 class ModernTilePass final : public impl::ModernTileBase<ModernTilePass> {
   void runOnOperation() override {
     IRRewriter rewriter(&getContext());
+    SmallVector<mlir::Operation*> matMulCandidates;
+    SmallVector<mlir::Operation*> conv2dInterfaceCandidates;
+    SmallVector<mlir::Operation*> genericCandidates;
     getOperation().walk([&](mlir::linalg::LinalgOp op) {
       if (mlir::isa<mlir::linalg::MatmulOp>(op)) {
-        emitTileFailedError(tileMatMulUseScf(rewriter, op, /*forall*/ true), op);
+        matMulCandidates.push_back(op);
+        return;
       }
       if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp, mlir::linalg::PoolingNchwMaxOp,
                     mlir::linalg::PoolingNchwSumOp>(op)) {
-        emitTileFailedError(tileConv2dInterfaceUseScf(rewriter, op, /*forall*/ false), op);
+        conv2dInterfaceCandidates.push_back(op);
+        return;
       }
       if (mlir::isa<mlir::linalg::GenericOp>(op)) {
-        emitTileFailedError(tileGenericUseScf(op, /*forall*/ true), op);
+        genericCandidates.push_back(op);
+        return;
       }
     });
+
+    for (auto op : matMulCandidates) {
+      emitTileFailedError(tileMatMulUseScf(rewriter, op, /*forall*/ true), op);
+    }
+    for (auto op : conv2dInterfaceCandidates) {
+      emitTileFailedError(tileConv2dInterfaceUseScf(rewriter, op, /*forall*/ false), op);
+    }
+    for (auto op : genericCandidates) {
+      emitTileFailedError(tileGenericUseScf(op, /*forall*/ true), op);
+    }
 
     // canoncialization tiling
     {

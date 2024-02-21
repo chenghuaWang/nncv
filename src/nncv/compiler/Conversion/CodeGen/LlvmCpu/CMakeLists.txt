@@ -3,6 +3,7 @@ add_mlir_conversion_library(NncvCodeGenLlvmCpuConversion
     ModernTile.cpp
     Passes.cpp
     PrepareModernVec.cpp
+    PeelAfterTile.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/compiler/Conversion/CodeGen/LlvmCpu

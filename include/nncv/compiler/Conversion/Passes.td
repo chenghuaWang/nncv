@@ -307,11 +307,31 @@ def ModernTile : InterfacePass<"modern-one-shot-tile-all",
       "mlir::nncv::createModernOneShotTileAllPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Modern vec Passes
+//===----------------------------------------------------------------------===//
+def PrepareModernVec : InterfacePass<"prepare-modern-vec-all",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "prepare One shot vec all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createPrepareModernVecPass()";
+}
+
 def ModernVec : InterfacePass<"modern-vec-all",
                     "mlir::FunctionOpInterface"> {
   let summary = "One shot vec all ops in a modern way";
   let constructor =
       "mlir::nncv::createModernVectorizationAllPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// Peel Passes
+//===----------------------------------------------------------------------===//
+def PeelAfterTile : InterfacePass<"peel-after-tile",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "peel all linalg.op";
+  let constructor =
+      "mlir::nncv::createPeelAfterTilePass()";
 }
 
 #endif //! ATEN_CONVERSION_PASSES

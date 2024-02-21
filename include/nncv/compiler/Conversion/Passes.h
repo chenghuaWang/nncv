@@ -29,6 +29,8 @@
 
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernTile.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PrepareModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PeelAfterTile.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION
