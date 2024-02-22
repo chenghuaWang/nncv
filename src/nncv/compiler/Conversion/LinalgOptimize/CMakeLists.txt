@@ -18,5 +18,7 @@ add_mlir_conversion_library(NncvLinalgOptimizeConversion
     LINK_LIBS PUBLIC
     MLIRArithDialect
     NNCVLinalgExtDialect
-    
+    MLIRLinalgDialect
+    MLIRLinalgTransforms
+    MLIRLinalgUtils
 )

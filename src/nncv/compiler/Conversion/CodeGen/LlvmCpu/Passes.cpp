@@ -11,8 +11,6 @@ namespace mlir::nncv::codegen_llvm_cpu {
 // 2. do some decompose on conv interface op.
 void addTilePassPipeline(mlir::PassManager& pm) {
   pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernOneShotTileAllPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
 }
 
 }  // namespace mlir::nncv::codegen_llvm_cpu

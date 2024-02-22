@@ -39,6 +39,15 @@ class DecomposeTransformGenPass
     bool ifFuncHasLinalgOp = false;
     getOperation().walk([&](mlir::linalg::LinalgOp op) { ifFuncHasLinalgOp = true; });
 
+    // canoncialization tiling
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
     if (ifFuncHasLinalgOp) {
       // create module transform
       auto transOp =
@@ -50,15 +59,15 @@ class DecomposeTransformGenPass
       if (res.failed()) signalPassFailure();
 
       // Clean All IR
-      {
-        mlir::RewritePatternSet patterns(&getContext());
-        mlir::tensor::populateMergeConsecutiveInsertExtractSlicePatterns(patterns);
-        tensor::InsertSliceOp::getCanonicalizationPatterns(patterns, &getContext());
-        tensor::ExtractSliceOp::getCanonicalizationPatterns(patterns, &getContext());
-        if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-          signalPassFailure();
-        }
-      }
+      // {
+      //   mlir::RewritePatternSet patterns(&getContext());
+      //   mlir::tensor::populateMergeConsecutiveInsertExtractSlicePatterns(patterns);
+      //   tensor::InsertSliceOp::getCanonicalizationPatterns(patterns, &getContext());
+      //   tensor::ExtractSliceOp::getCanonicalizationPatterns(patterns, &getContext());
+      //   if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+      //     signalPassFailure();
+      //   }
+      // }
     }
   }
 };

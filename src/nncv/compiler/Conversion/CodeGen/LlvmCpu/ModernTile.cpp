@@ -64,7 +64,10 @@ ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* 
     std::vector<int64_t> candidates = {1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1};
     int64_t ret = 1;
     for (auto item : candidates) {
-      if (item < a && a % item == 0) { ret = item; }
+      if (item < a && a % item == 0) {
+        ret = item;
+        break;
+      }
     }
     return ret;
   };
@@ -225,7 +228,7 @@ ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
   ret.tileSizes.push_back({8, 32, 0});
   ret.tileSizes.push_back({4, 4, 0});
   ret.tileSizes.push_back({0, 0, 4});
-  ret.canForall = {true, true, true};
+  ret.canForall = {true, true, false};
   return ret;
 }
 
@@ -246,7 +249,7 @@ bool tileConv2dInterfaceUseScf(IRRewriter& rewriter, mlir::Operation* op, bool f
       sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[i][kk]));
     }
     options.setTileSizes(sizes);
-    auto tileInterface = mlir::cast<mlir::TilingInterface>(curOp);
+    auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
     auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
     if (failed(result)) return false;
     rewriter.replaceOp(curOp, result.value().replacements);
@@ -268,14 +271,18 @@ bool tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
       sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[i][kk]));
     }
     options.setTileSizes(sizes);
-    auto tileInterface = mlir::cast<mlir::TilingInterface>(curOp);
-    if (forall) {
-      auto result = mlir::scf::tileUsingSCFForallOp(rewriter, tileInterface, options);
+    auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
+    if (moptions.canForall[i]) {
+      // TODO using scf.forall.
+      auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
       if (failed(result)) return false;
-      rewriter.replaceOp(curOp, result.value().replacements);
-      curOp = result.value().tiledOps[0];
+      rewriter.replaceOp(curOp, result->replacements);
+      curOp = result->tiledOps[0];
     } else {
-      llvm_unreachable("Matmul tiling with scf.for is not impl yet.");
+      auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
+      if (failed(result)) return false;
+      rewriter.replaceOp(curOp, result->replacements);
+      curOp = result->tiledOps[0];
     }
   }
   return true;
@@ -324,15 +331,6 @@ class ModernTilePass final : public impl::ModernTileBase<ModernTilePass> {
     }
     for (auto op : genericCandidates) {
       emitTileFailedError(tileGenericUseScf(op, /*forall*/ true), op);
-    }
-
-    // canoncialization tiling
-    {
-      mlir::RewritePatternSet patterns(&getContext());
-      mlir::linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
-      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
-        signalPassFailure();
-      }
     }
   }
 };

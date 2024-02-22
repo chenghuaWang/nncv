@@ -42,4 +42,8 @@ void populateVectorTransferTensorSliceTransforms(mlir::RewritePatternSet& patter
                                                  mlir::PatternBenefit benefit = 1);
 }
 
+namespace mlir::nncv::codegen_llvm_cpu {
+void addTilePassPipeline(mlir::PassManager& pm);
+}  // namespace mlir::nncv::codegen_llvm_cpu
+
 #endif  //! NNCV_ATEN_CONVERSION_PASSES_H

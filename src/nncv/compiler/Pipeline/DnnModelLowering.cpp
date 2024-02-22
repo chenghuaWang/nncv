@@ -43,6 +43,8 @@
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PrepareModernVec.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
@@ -60,6 +62,7 @@
 #include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
 #include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
+#include "nncv/compiler/Conversion/Passes.h"
 
 #include "nncv/compiler/Dialects/NncvFrontend/Transforms/Passes.hpp"
 #include "nncv/compiler/Utils/MlirIo.hpp"
@@ -77,9 +80,10 @@ void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
   // bufferization
   mlir::bufferization::OneShotBufferizationOptions OneShotOptions;
   OneShotOptions.bufferizeFunctionBoundaries = true;
+  OneShotOptions.allowReturnAllocsFromLoops = true;
+  OneShotOptions.setFunctionBoundaryTypeConversion(
+      mlir::bufferization::LayoutMapOption::IdentityLayoutMap);
   pm.addPass(mlir::bufferization::createOneShotBufferizePass(OneShotOptions));
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createCSEPass());
 
   // optimize bufferization
   pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferHoistingPass());
@@ -94,13 +98,7 @@ void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
 
-  // optimize memref
-  pm.addPass(mlir::memref::createExpandStridedMetadataPass());
-  pm.addPass(mlir::memref::createExpandOpsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createCSEPass());
-
-  // memref result type.
+  // // memref result type.
   pm.addPass(mlir::memref::createResolveRankedShapeTypeResultDimsPass());
   pm.addPass(mlir::memref::createResolveShapedTypeResultDimsPass());
   pm.addPass(mlir::createCanonicalizerPass());
@@ -246,7 +244,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateTileAllPassPipeline(pm, /*oneshot*/ false, /*lower conv*/ true, /*use gpu*/ true);
+      mlir::nncv::codegen_llvm_cpu::addTilePassPipeline(pm);
       runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad]");
     }
 
@@ -300,6 +298,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
+      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
       populateInputOptimizationPassPipeline(pm);
       runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
     }
@@ -323,36 +322,30 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 4 High level tile
+    // 4 High level tile And Decompose
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateTileAllPassPipeline(pm, /*oneshot*/ false, /*lower conv*/ true, /*use gpu*/ false);
-      runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad]");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 5 Decompose All Conv2d And doing some optimization
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
+      mlir::nncv::codegen_llvm_cpu::addTilePassPipeline(pm);
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      runPmWithExit(pm, m_Module, "Decompose Conv2d like op");
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
+      runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
     }
 
     //===----------------------------------------------------------------------===//
-    // 6 Vectorization on X86 with AVX2
+    // 5. Prepare vec
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      // populateVectorizationPassPipeline(pm, /*use gpu*/ false);
-      runPmWithExit(pm, m_Module, "Middle Level Vectorization");
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createPrepareModernVecPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // TODO hoist
+
+      runPmWithExit(pm, m_Module, "Prepare Modern Vectorization");
     }
 
     //===----------------------------------------------------------------------===//
-    // 7 Convert Tensor To linalg
+    // 6. Convert Tensor To linalg
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -361,7 +354,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 8 Bufferization all
+    // 7. Bufferization all
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -370,12 +363,22 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
+    // 8. Finalize Vectorization
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernVectorizationAllPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      runPmWithExit(pm, m_Module, "Finalize Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
     // 9 linalg Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
       populateConv2dToAffineVecManuallyPassPipeline(pm);
-      // pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
+      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
       runPmWithExit(pm, m_Module, "Convert Conv2d To Affine+Vector using manual method");
     }
 
@@ -401,10 +404,7 @@ void DnnModelLowering::run() {
         pm.addNestedPass<mlir::func::FuncOp>(mlir::LLVM::createRequestCWrappersPass());
       }
       pm.addPass(mlir::memref::createExpandStridedMetadataPass());
-      mlir::VectorTransferToSCFOptions vectorTransferOptions;
-      vectorTransferOptions.enableFullUnroll(true);
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::createConvertVectorToSCFPass(vectorTransferOptions));
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
       pm.addPass(mlir::createConvertVectorToLLVMPass());
@@ -412,9 +412,7 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       pm.addPass(mlir::createConvertMathToLLVMPass());
       pm.addPass(mlir::createConvertMathToLibmPass());
-      mlir::FinalizeMemRefToLLVMConversionPassOptions memrefLoweringOptions;
-      memrefLoweringOptions.useAlignedAlloc = true;
-      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass(memrefLoweringOptions));
+      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
       pm.addPass(mlir::createConvertFuncToLLVMPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());

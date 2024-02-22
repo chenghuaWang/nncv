@@ -80,6 +80,7 @@ class PrepareModernVecPass final : public impl::PrepareModernVecBase<PrepareMode
 
     // populate Conv vec.
     // clang-format off
+    // This method should run after:
     // %tiled = transform.structured.decompose %tiled_conv2 : (!transform.any_op) -> !transform.any_op
     // clang-format on
     {
@@ -108,7 +109,8 @@ class PrepareModernVecPass final : public impl::PrepareModernVecBase<PrepareMode
     {
       mlir::RewritePatternSet patterns(&getContext());
       // transform.apply_patterns.tensor.fold_tensor_subset_ops_into_vector_transfers
-      mlir::tensor::populateFoldTensorSubsetIntoVectorTransferPatterns(patterns);
+      // TODO this is for conv only.
+      // mlir::tensor::populateFoldTensorSubsetIntoVectorTransferPatterns(patterns);
 
       // transform.apply_patterns.vector.lower_masked_transfers
       mlir::vector::populateVectorMaskLoweringPatternsForSideEffectingOps(patterns);
