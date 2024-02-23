@@ -56,7 +56,70 @@ struct ModernMatMulTileOptions {
   SmallVector<bool> canForall;
 };
 
-ModernGenericTileOptions getGenericTileOptions(mlir::Operation* op) {}
+bool isGenericStyleMatMul(mlir::Operation* op) {
+  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+  auto iterTypes = linalgOp.getIteratorTypesArray();
+  if (iterTypes.size() != 3) return false;
+  for (size_t i = 0; i < iterTypes.size() - 1; ++i) {
+    if (iterTypes[i] != utils::IteratorType::parallel) { return false; }
+  }
+  if (iterTypes[iterTypes.size() - 1] != utils::IteratorType::reduction) return false;
+  return true;
+}
+
+bool isGenericAllParallel(mlir::Operation* op) {
+  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+  auto iterTypes = linalgOp.getIteratorTypesArray();
+  for (auto item : iterTypes) {
+    if (item == utils::IteratorType::reduction) return false;
+  }
+  return true;
+}
+
+ModernGenericTileOptions getGenericTileOptions(mlir::Operation* op) {
+  ModernGenericTileOptions ret;
+  // check if is MatMul
+  if (isGenericStyleMatMul(op)) {
+    ret.tileSizes.push_back({8, 32, 0});
+    ret.tileSizes.push_back({4, 4, 0});
+    ret.tileSizes.push_back({0, 0, 4});
+    ret.canForall = {true, true, false};
+    return ret;
+  }
+
+  // other types generic
+  // mark forall to true if parallel.
+  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+  auto iterTypes = linalgOp.getIteratorTypesArray();
+  for (auto item : iterTypes) {
+    if (item == utils::IteratorType::parallel)
+      ret.canForall.push_back(true);
+    else
+      ret.canForall.push_back(false);
+  }
+
+  // if all parallel, check the parallel dims
+  if (isGenericAllParallel(op)) {
+    // iter types 4 is for normall generic op which has batch, channel, h, w. But remember that,
+    // there has a pass will eliminatate batch=1 tensor, so size()==4 actually for batch!=1.
+    // However, I will not make batch level parallel, due to this kind of full parallels op is
+    // element-wise, iterate through all batch is ok and has no performance drop.
+    //
+    // In brief, I will just tile the innor most parallel, because every element will just be
+    // visited only once, the vector size is set to 8 for AVX2.
+    if (iterTypes.size() == 4) { ret.tileSizes.push_back({1, 1, 1, 8}); }
+    // same as size() for 3, 2, 1
+    if (iterTypes.size() == 3) { ret.tileSizes.push_back({1, 1, 8}); }
+    if (iterTypes.size() == 2) { ret.tileSizes.push_back({1, 8}); }
+    if (iterTypes.size() == 1) { ret.tileSizes.push_back({8}); }
+  }
+
+  // if has reduction inside parallel, see ['parallel', 'reduction', 'parallel']. It is not supposed
+  // to happen. Before tiling, there has a pass interchange the reduction loop to the innermost for
+  // loops.
+
+  return ret;
+}
 
 ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* op) {
   // A method enum all sizes for selecting a output batch size.
@@ -232,7 +295,33 @@ ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
   return ret;
 }
 
-bool tileGenericUseScf(mlir::Operation* op, bool forall) {}
+bool tileGenericUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
+  auto moptions = getGenericTileOptions(op);
+  auto curOp = op;
+  for (int i = 0; i < moptions.tileSizes.size(); ++i) {
+    mlir::scf::SCFTilingOptions options;
+    SmallVector<mlir::OpFoldResult> sizes;
+    for (size_t kk = 0; kk < moptions.tileSizes[i].size(); ++kk) {
+      sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[i][kk]));
+    }
+    options.setTileSizes(sizes);
+    auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
+    if (moptions.canForall[i]) {
+      rewriter.setInsertionPoint(curOp);
+      auto result = mlir::linalg::tileToForallOpUsingTileSizes(rewriter, tileInterface, sizes,
+                                                               /*mapping*/ std::nullopt);
+      if (failed(result)) return false;
+      rewriter.replaceOp(curOp, result->tileOp->getResults());
+      curOp = result->tiledOp;
+    } else {
+      auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
+      if (failed(result)) return false;
+      rewriter.replaceOp(curOp, result->replacements);
+      curOp = result->tiledOps[0];
+    }
+  }
+  return true;
+}
 
 // Conv2d tile is seperated to pool and conv2d, and will invlove decompose method. But remember that
 // the decompose method is just another pass, this tiling method is just for tiling. I will try
@@ -273,11 +362,12 @@ bool tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
     options.setTileSizes(sizes);
     auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
     if (moptions.canForall[i]) {
-      // TODO using scf.forall.
-      auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
+      rewriter.setInsertionPoint(curOp);
+      auto result = mlir::linalg::tileToForallOpUsingTileSizes(rewriter, tileInterface, sizes,
+                                                               /*mapping*/ std::nullopt);
       if (failed(result)) return false;
-      rewriter.replaceOp(curOp, result->replacements);
-      curOp = result->tiledOps[0];
+      rewriter.replaceOp(curOp, result->tileOp->getResults());
+      curOp = result->tiledOp;
     } else {
       auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
       if (failed(result)) return false;
@@ -330,7 +420,7 @@ class ModernTilePass final : public impl::ModernTileBase<ModernTilePass> {
       emitTileFailedError(tileConv2dInterfaceUseScf(rewriter, op, /*forall*/ false), op);
     }
     for (auto op : genericCandidates) {
-      emitTileFailedError(tileGenericUseScf(op, /*forall*/ true), op);
+      emitTileFailedError(tileGenericUseScf(rewriter, op, /*forall*/ true), op);
     }
   }
 };

@@ -39,6 +39,15 @@ namespace {
 
 class ModernVectorizationAllPass final : public impl::ModernVecBase<ModernVectorizationAllPass> {
   void runOnOperation() override {
+    // clean up ir first
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
     // transform.apply_patterns to %f {
     //   transform.apply_patterns.vector.lower_contraction lowering_strategy = "outerproduct"
     // } : !transform.any_op

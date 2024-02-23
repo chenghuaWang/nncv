@@ -48,7 +48,44 @@ bool vectorizeMatMul(IRRewriter& rewriter, mlir::Operation* op) {
 }
 
 bool vectorizeGeneric(IRRewriter& rewriter, mlir::Operation* op) {
-  // TODO
+  // utils function
+  auto isGenericStyleMatMul = [](mlir::Operation* op) -> bool {
+    auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+    auto iterTypes = linalgOp.getIteratorTypesArray();
+    if (iterTypes.size() != 3) return false;
+    for (size_t i = 0; i < iterTypes.size() - 1; ++i) {
+      if (iterTypes[i] != utils::IteratorType::parallel) { return false; }
+    }
+    if (iterTypes[iterTypes.size() - 1] != utils::IteratorType::reduction) return false;
+    return true;
+  };
+
+  auto isGenericAllParallel = [](mlir::Operation* op) -> bool {
+    auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+    auto iterTypes = linalgOp.getIteratorTypesArray();
+    for (auto item : iterTypes) {
+      if (item == utils::IteratorType::reduction) return false;
+    }
+    return true;
+  };
+
+  if (isGenericStyleMatMul(op)) {
+    llvm::SmallVector<int64_t> VectorSizes = {/*parallel*/ 4, /*parallel*/ 4, /*reduction*/ 1};
+    llvm::SmallVector<bool> ScalableVecDims{/*parallel*/ false, /*parallel*/ false,
+                                            /*reduction*/ false};
+    if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) { return false; }
+    return true;
+  } else if (isGenericAllParallel(op)) {
+    auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+    auto iterTypes = linalgOp.getIteratorTypesArray();
+    llvm::SmallVector<int64_t> VectorSizes(iterTypes.size(), 1);
+    llvm::SmallVector<bool> ScalableVecDims(iterTypes.size(), false);
+    VectorSizes[iterTypes.size() - 1] = 8;
+    if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) { return false; }
+    return true;
+  } else {
+    return false;
+  }
   return true;
 }
 
@@ -96,6 +133,7 @@ class PrepareModernVecPass final : public impl::PrepareModernVecBase<PrepareMode
     // clang-format off
     // transform.apply_patterns to %func03 {
     //   transform.apply_patterns.canonicalization
+    // for conv only.
     //   transform.apply_patterns.tensor.fold_tensor_subset_ops_into_vector_transfers
     //   transform.apply_patterns.vector.lower_masked_transfers
     //   transform.apply_patterns.vector.transfer_permutation_patterns

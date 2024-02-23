@@ -344,6 +344,13 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Prepare Modern Vectorization");
     }
 
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+
     //===----------------------------------------------------------------------===//
     // 6. Convert Tensor To linalg
     //===----------------------------------------------------------------------===//
