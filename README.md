@@ -3,9 +3,21 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 
 **:exclamation::exclamation::exclamation:This is a personal project for practicing purpose:exclamation::exclamation::exclamation:** 
 
-## compiler
+- [1. Compiler](#1-compiler)
+  - [1.1 CPU Target](#11-cpu-target)
+  - [1.2 NV GPU Target](#12-nv-gpu-target)
+- [2. Nncv's Lang](#2-nncvs-lang)
+  - [2.1 Examples](#21-examples)
+    - [2.1.1 Quick Pow](#211-quick-pow)
+    - [2.1.2 Quick Sort](#212-quick-sort)
+    - [2.1.3 Call External Libraries](#213-call-external-libraries)
+  - [2.2 Parallel For Loops](#22-parallel-for-loops-in-nncvs-lang)
+- [Cite](#cite)
 
-### CPU Target
+
+## 1. Compiler
+
+### 1.1. CPU Target
 
 Currently, nncv supports a very simple lowering pipeline. It basicly uses tiling and vectorization on linalg.ops. And this vectorization method currently only supports CPUs with the AVX2 feature.
 
@@ -91,11 +103,11 @@ clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_util
 clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_utils -lmlir_c_runner_utils -lm -lomp && ./a.out
 ```
 
-### NV GPU Target
+### 1.2 NV GPU Target
 
 
 
-## nncv's lang
+## 2. Nncv's Lang
 
 nncv provides a small programming language called aten-lang(The aten for nncv is different from the aten for torch. :joy: ). It use antlr as its frontend(lexer/parser), mlir/llvm as its backend. nncv defined a `aten dialect` as its high-level IR, and use mlir's downstream dialects as its low-level IR. You can use the command below to run an aten file.
 
@@ -108,6 +120,106 @@ If you want to enable multi thread support and eanble polymer, use:
 ```sh
 nncv-c -womp -wpoly -run example.aten
 ```
+
+### 2.1 Examples
+
+#### 2.1.1 Quick Pow
+
+<details>
+<summary>[Quick Pow in nncv's lang(click to expand)]</summary>
+
+```aten
+@package = "main";
+
+import "io";
+
+func QuickPow(a int32, n int32) -> int32 {
+  res := 0;
+  if (n == 0) {
+    res = 1;
+  } else if (n%2 == 1) {
+    res = QuickPow(a, n-1) * a;
+  } else {
+    temp := QuickPow(a, n/2);
+    res = temp * temp;
+  };
+  return res;
+};
+
+func main() {
+  res := QuickPow(2, 10);
+  io.print(res);
+};
+```
+</details>
+
+#### 2.1.2 Quick Sort
+
+<details>
+<summary>[Quick Sort in nncv's lang(click to expand)]</summary>
+
+```aten
+@package = "main";
+
+import "io";
+
+func _partion(A Tensor<6, int32>, low int32, high int32) -> int32 {
+    low_t := low; high_t := high; pivot := A[low_t];
+    while(low_t < high_t) {
+        while(low_t < high_t && A[high_t] >= pivot) {high_t--;};
+        A[low_t] = A[high_t];
+        while(low_t < high_t && A[low_t] <= pivot) {low_t++;};
+        A[high_t] = A[low_t];
+    };
+    A[low_t] = pivot;
+    return low_t;
+};
+
+func QuickSort(A Tensor<6, int32>, low int32, high int32) {
+    if (low < high) {
+        pivotPos := _partion(A, low, high);
+        QuickSort(A, low, pivotPos-1);
+        QuickSort(A, pivotPos+1, high);
+    };
+};
+
+func main() {
+    var array Tensor<6, int32>;
+    for(i:=0; i < 6; i++) {
+        array[i] = 6 - i;
+    };
+    io.print(array);
+    QuickSort(array, 0, 5);
+    io.print(array);
+};
+```
+
+</details>
+
+#### 2.1.3 Call External Libraries
+
+<details>
+<summary>[Call External Libraries in nncv's lang(click to expand)]</summary>
+
+```aten
+@package = "main";
+
+func _lib_nncv_do_something(Tensor<1, 1, float32>);
+
+pub func add(a int32, b int32) -> int32 {
+    return a + b;
+};
+
+func main() {
+    res := add(8, 8);
+    var t Tensor<1, 1, float32>;
+    _lib_nncv_do_something(t);
+};
+```
+
+</details>
+
+### 2.2 Parallel For Loops
 
 The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
 
@@ -255,7 +367,7 @@ nncv-c -llvm-ir example.mlir -o example.nvm
 nncv-c -vm example.nvm
 ```
 
-## highly optimized kernel
+## Cite
 
 ```
 @software{
