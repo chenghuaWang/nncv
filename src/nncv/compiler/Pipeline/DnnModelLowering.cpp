@@ -407,20 +407,19 @@ void DnnModelLowering::run() {
       }
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
-      // The SCF to CF Pass is error
+      pm.addPass(mlir::createConvertVectorToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createConvertMathToLLVMPass());
+      pm.addPass(mlir::createConvertMathToLibmPass());
+      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
-      // pm.addPass(mlir::createConvertVectorToLLVMPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      // pm.addPass(mlir::createConvertMathToLLVMPass());
-      // pm.addPass(mlir::createConvertMathToLibmPass());
-      // pm.addPass(mlir::createConvertOpenMPToLLVMPass());
-      // pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-      // pm.addPass(mlir::createConvertFuncToLLVMPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
-      // pm.addPass(mlir::createReconcileUnrealizedCastsPass());
-      // pm.addPass(mlir::nncv::createNestedTransformErasePass());
+      pm.addPass(mlir::createConvertOpenMPToLLVMPass());
+      pm.addPass(mlir::createConvertFuncToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      pm.addPass(mlir::nncv::createNestedTransformErasePass());
       // run
       runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
     }
