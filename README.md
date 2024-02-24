@@ -7,14 +7,88 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 
 ### CPU Target
 
-Currently, nncv supports a very simple lowering pipeline. It basicly uses tiling and vectorization on linalg.ops. However, the vectorization pass is full of bugs, and has performance issues. I'm trying to figure it out, but it takes time.
+Currently, nncv supports a very simple lowering pipeline. It basicly uses tiling and vectorization on linalg.ops. And this vectorization method currently only supports CPUs with the AVX2 feature.
 
-If you wnat to compile cpu target. U can use commands below to generate a object file:
+If you want to compile a DL model to cpu target(without parallel). You can use commands below to generate a object file:
 
 ```sh
-nncv-c -warp-c-interface -target HostWoParallel main.mlir -o optimized.mlir
-mlir-translate -mlir-to-llvmir optimized.mlir -o main.ll
-llc -filetype=object main.ll -o libmain.o
+nncv-c -warp-c-interface -target HostWoParallel res18.mlir -o optimizedRes18.mlir
+mlir-translate -mlir-to-llvmir optimizedRes18.mlir -o res18.ll
+llc -filetype=object res18.ll -o libres18.o
+```
+
+> If you want to enable multi-threads on cpu target, use `HostWParallel` option instead:
+>
+> `nncv-c -warp-c-interface -target HostWParallel res18.mlir -o optimizedRes18.mlir`
+
+At this point, you can write a simple piece of code to call the forward function inside libres18.o. Here I give a simple C++ implementation.
+
+```c++
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <chrono>
+using namespace std::chrono;
+
+#define B 1
+#define C 3
+#define H 256
+#define W 256
+
+template <typename T, size_t N> struct MemRefDescriptor {
+  T *allocated;
+  T *aligned;
+  intptr_t offset;
+  intptr_t sizes[N];
+  intptr_t strides[N];
+};
+
+extern "C" {
+void _mlir_ciface_forward(MemRefDescriptor<float, 2>* dst, MemRefDescriptor<float, 4>* src);
+}
+
+int main(){
+  float *_dst_data_ptr = (float*)malloc(sizeof(float) * (long long)1 * 1000);
+  float *_src_data_ptr = (float*)malloc(sizeof(float) * (long long)B * C * H * W);
+
+  MemRefDescriptor<float, 2> dst = {
+    _dst_data_ptr,    // allocated
+    _dst_data_ptr,    // aligned
+    0,    // offset
+    {1, 1000}, // sizes[N]
+    {1000, 1},  // strides[N]
+  };
+
+  MemRefDescriptor<float, 4> src = {
+    _src_data_ptr,    // allocated
+    _src_data_ptr,    // aligned
+    0,    // offset
+    {B, C, H, W}, // sizes[N]
+    {C * H * W, H * W, H, 1},  // strides[N]
+  };
+
+  auto startTime = system_clock::now();
+  _mlir_ciface_forward(&dst, &src);
+  auto endTime = system_clock::now();
+
+  auto tt = duration_cast<milliseconds>(endTime - startTime);
+
+  std::cout << "Time: " << tt.count() << "ms" << std::endl;
+
+  free(_dst_data_ptr);
+  free(_src_data_ptr);
+
+  return 0;
+}
+```
+
+An executable file can be generated using the following compilation instructions
+
+```sh
+clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_utils -lmlir_c_runner_utils -lm && ./a.out
+# if using openmp
+clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_utils -lmlir_c_runner_utils -lm -lomp && ./a.out
 ```
 
 ### NV GPU Target
