@@ -31,6 +31,7 @@
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PrepareModernVec.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PeelAfterTile.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmCpu/LoweringScfForAllToParallel.hpp"
 
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernTileGpu.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernVecGpu.hpp"

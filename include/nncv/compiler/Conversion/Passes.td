@@ -361,4 +361,16 @@ def ModernVecGpu : InterfacePass<"modern-vec-all-for-gpu",
       "mlir::nncv::createModernVectorizationAllGpuPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Partial lowering scf.forall to scf.parallel
+//
+// This pass should run before convert-scf-to-cf
+//===----------------------------------------------------------------------===//
+def LoweringScfForAllToParallel : InterfacePass<"lower-scf-forall-to-parallel",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "lowering scf.forall op to scf.parallel op";
+  let constructor =
+      "mlir::nncv::createLoweringScfForAllToParallelPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES
