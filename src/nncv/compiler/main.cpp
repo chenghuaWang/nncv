@@ -97,6 +97,7 @@ llvm::cl::opt<bool> WOmp("womp", llvm::cl::desc("<using open mp>"), llvm::cl::Op
 llvm::cl::opt<std::string> GenConfigFileOnly("gen-config-file-only",
                                              llvm::cl::desc("<Just gen a config file for model>"),
                                              llvm::cl::Optional);
+llvm::cl::opt<int64_t> NumThreads("num-threads", llvm::cl::desc("<threads>"), llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -205,6 +206,7 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------------------------------
     nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(MlirContext, MlirModule);
     dnnModelLowerPipeline.setWarpC(WarpC.getValue());
+    dnnModelLowerPipeline.setNumThreads(NumThreads.getValue() == 0 ? 4 : NumThreads.getValue());
     if (SetLowerTarget.getValue() == "HostWParallel") {
       dnnModelLowerPipeline.setGenHostWParallel();
     } else if (SetLowerTarget.getValue() == "HostWoParallel") {

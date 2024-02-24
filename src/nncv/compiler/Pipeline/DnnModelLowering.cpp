@@ -402,7 +402,8 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::memref::createExpandStridedMetadataPass());
       {
         mlir::ConvertSCFToOpenMPPassOptions options;
-        options.numThreads = 4;
+        printf("[ Warn ] Set num thread to %ld\n", m_NumThreads);
+        options.numThreads = m_NumThreads;
         pm.addPass(mlir::createConvertSCFToOpenMPPass(options));
       }
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
