@@ -334,4 +334,31 @@ def PeelAfterTile : InterfacePass<"peel-after-tile",
       "mlir::nncv::createPeelAfterTilePass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Modern tile using scf forall
+//===----------------------------------------------------------------------===//
+def ModernTileGpu : InterfacePass<"modern-one-shot-tile-all-for-gpu",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "One shot till all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createModernOneShotTileAllGpuPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// Modern vec Passes
+//===----------------------------------------------------------------------===//
+def PrepareModernVecGpu : InterfacePass<"prepare-modern-vec-all-for-gpu",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "prepare One shot vec all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createPrepareModernVecGpuPass()";
+}
+
+def ModernVecGpu : InterfacePass<"modern-vec-all-for-gpu",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "One shot vec all ops in a modern way";
+  let constructor =
+      "mlir::nncv::createModernVectorizationAllGpuPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

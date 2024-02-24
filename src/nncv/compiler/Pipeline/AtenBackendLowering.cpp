@@ -148,59 +148,60 @@ void AtenBackendLoweringPipeline::run() {
       }
     }
   } else if (m_isNVPTX && !m_isNative) {
-    if (m_usingPoly) { printf("[ Warn ] GPU target is not support poly yet\n"); }
+    if (m_usingPoly) {
+      printf("[ Warn ] When lowering to gpu target, functions will be inlined by default\n");
+      // Raise memref.load and memref.store to affine.load and affine.store
+      // if memref is in affine scope.
+      {
+        pm.clear();
+        pm.addNestedPass<mlir::func::FuncOp>(
+            mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+        if (mlir::failed(pm.run(*m_Module))) {
+          printf("[ Erro ] Raise memref.load and memref.store to affine.load and affine.store "
+                 "failed\n");
+          exit(-1);
+        } else {
+          compiler::utils::SaveMlirModuleToFile(m_Module, ".cache.air");
+        }
+      }
 
-    // memref load/store to affine load and store
+      // Affine Scheduler
+      {
+        utils::ExecObject exec("polymer-opt");
+        exec.pushArgs("-reg2mem");
+        exec.pushArgs("-extract-scop-stmt");
+        if (m_usingOmp) {
+          exec.pushArgs("-pluto-opt=parallelize gen-parallel");
+        } else {
+          exec.pushArgs("-pluto-opt");
+        }
+        exec.pushArgs(".cache.air");
+        exec.pushArgs("-o");
+        exec.pushArgs(".cache.mlir");
+
+        exec.setHideOutput(true);
+        exec.runSyncWait();
+
+        if (!exec.isSuccess()) {
+          printf("[ Erro ] Failed when doing polly, using original aten-ir\n");
+        } else {
+          isPollyOk = true;
+        }
+      }
+
+      {
+        if (isPollyOk) {
+          compiler::utils::ImportMlirModuleFromFile(m_Module, &m_Context, ".cache.mlir");
+        }
+      }
+    }
+
+    // outline map to block and threads
     {
       pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createAffineForToGPUPass());
       (void)pm.run(*m_Module);
     }
-
-    // schedule all to gpu
-    {
-      pm.clear();
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineParallelizePass());
-      pm.addPass(mlir::createLowerAffinePass());
-      pm.addPass(mlir::createCanonicalizerPass());
-      pm.addPass(mlir::createCSEPass());
-
-      // TODO
-      // register memref to nvdia mem
-
-      pm.addPass(mlir::createParallelLoopSpecializationPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopToGpuPass());
-      pm.addPass(mlir::createGpuLauchSinkIndexComputationsPass());
-      pm.addPass(mlir::createGpuKernelOutliningPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuAsyncRegionPass());
-      (void)pm.run(*m_Module);
-    }
-
-    // lowering GPU first
-    {
-      mlir::GpuNVVMAttachTargetOptions attachOptions;
-      attachOptions.chip = "sm_70";
-      attachOptions.features = "+ptx75";
-      pm.addPass(mlir::createGpuNVVMAttachTarget(attachOptions));
-    }
-
-    // lowering all first
-    // TODO
-
-    // // gpu module
-    // auto gpuToNVVMConfig = ConvertGpuOpsToNVVMOpsFixOptions();
-    // gpuToNVVMConfig.useBarePtrCallConv = true;
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(createConvertGpuOpsToNVVMOpsFix(gpuToNVVMConfig));
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::nvgpu::createOptimizeSharedMemoryPass());
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::NVVM::createOptimizeForTargetPass());
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createCanonicalizerPass());
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createCSEPass());
-    // pm.addNestedPass<mlir::gpu::GPUModuleOp>(mlir::createReconcileUnrealizedCastsPass());
-
-    // lowering memref, finalize memref
-    // TODO
 
     // save
     if (m_ShowLlvmIR) {

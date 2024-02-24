@@ -9,6 +9,7 @@
  *
  */
 
+#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #ifdef _WIN32
 #define VERSION_STR                                         \
   "NNCV Compiler(build for amd64, windows, using clang15);" \
@@ -116,6 +117,7 @@ int main(int argc, char* argv[]) {
   // init dialect
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
+  mlir::func::registerInlinerExtension(registry);
   mlir::registerAllPasses();
   mlir::MlirOptMainConfig::registerCLOptions(registry);
 

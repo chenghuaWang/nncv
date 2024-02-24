@@ -32,6 +32,10 @@
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PrepareModernVec.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PeelAfterTile.hpp"
 
+#include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernTileGpu.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernVecGpu.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmGpu/PrepareModernVecGpu.hpp"
+
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"

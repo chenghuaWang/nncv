@@ -217,87 +217,6 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateInputOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 2 Doing some tensor eliminate
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      populateTensorOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Cast Away Tensor Leading One Dims");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 3 Using winograd method before lowering MatMul
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      populateWinogradOrImg2ColPassPipeline(pm);
-      runPmSilent(pm, m_Module);
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 4 High level tile
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      mlir::nncv::codegen_llvm_cpu::addTilePassPipeline(pm);
-      runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad]");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 5 Decompose All
-    //===----------------------------------------------------------------------===//
-
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
-  } else if (m_GenHostWParallel) {
-    //===----------------------------------------------------------------------===//
-    // 1 Finalize all input
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      populateInputOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 2 Doing some tensor eliminate
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      populateTensorOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Cast Away Tensor Leading One Dims");
-    }
-
-    //===----------------------------------------------------------------------===//
-    // 3 Using winograd method before lowering MatMul
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
-      populateWinogradOrImg2ColPassPipeline(pm);
-      runPmSilent(pm, m_Module);
-    }
-
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
-  } else if (m_GenHostWoParallel) {
-    //===----------------------------------------------------------------------===//
-    // 1 Finalize all input
-    //===----------------------------------------------------------------------===//
-    {
-      pm.clear();
       pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
       populateInputOptimizationPassPipeline(pm);
       runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
@@ -322,6 +241,65 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
+    // 4 High level tile And Decompose For GPU !!!
+    //===----------------------------------------------------------------------===//
+
+    //===----------------------------------------------------------------------===//
+    // 5. Prepare vec For GPU !!!
+    //===----------------------------------------------------------------------===//
+
+    //===----------------------------------------------------------------------===//
+    // 6. Bufferization all
+    //===----------------------------------------------------------------------===//
+
+    //===----------------------------------------------------------------------===//
+    // 8. Finalize Vectorization For GPU !!!
+    //===----------------------------------------------------------------------===//
+
+    //===----------------------------------------------------------------------===//
+    // 9. Lowering Affine to SCF. And do some fusion
+    //===----------------------------------------------------------------------===//
+
+    //===----------------------------------------------------------------------===//
+    // 10. Lowering all one by one
+    //===----------------------------------------------------------------------===//
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+  } else if (m_GenHostWParallel) {
+    //===----------------------------------------------------------------------===//
+    // 1 Finalize all input
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
+      populateInputOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 2 Doing some tensor eliminate
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateTensorOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-2: Cast Away Tensor Leading One Dims");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 3 Using winograd method before lowering MatMul
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateWinogradOrImg2ColPassPipeline(pm);
+      runPmSilent(pm, m_Module);
+    }
+
+    //===----------------------------------------------------------------------===//
     // 4 High level tile And Decompose
     //===----------------------------------------------------------------------===//
     {
@@ -329,7 +307,9 @@ void DnnModelLowering::run() {
       mlir::nncv::codegen_llvm_cpu::addTilePassPipeline(pm);
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
-      runPmWithExit(pm, m_Module, "High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-3: High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
     }
 
     //===----------------------------------------------------------------------===//
@@ -341,15 +321,8 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       // TODO hoist
 
-      runPmWithExit(pm, m_Module, "Prepare Modern Vectorization");
+      runPmWithExit(pm, m_Module, "Pass Pipeline-4: Prepare Modern Vectorization");
     }
-
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
 
     //===----------------------------------------------------------------------===//
     // 6. Convert Tensor To linalg
@@ -357,7 +330,7 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addPass(mlir::createConvertTensorToLinalgPass());
-      runPmWithExit(pm, m_Module, "Convert Tensor To Linalg");
+      runPmWithExit(pm, m_Module, "Pass Pipeline-5: Convert Tensor To Linalg");
     }
 
     //===----------------------------------------------------------------------===//
@@ -366,7 +339,9 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       populateOneBufferizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Bufferization all to memref and do memref based optimization");
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-6: Bufferization all to memref and do memref based optimization");
     }
 
     //===----------------------------------------------------------------------===//
@@ -376,31 +351,40 @@ void DnnModelLowering::run() {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernVectorizationAllPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      runPmWithExit(pm, m_Module, "Finalize Modern Vectorization");
+      runPmWithExit(pm, m_Module, "Pass Pipeline-7: Finalize Modern Vectorization");
     }
 
     //===----------------------------------------------------------------------===//
-    // 9 linalg Optimization using manual method.
+    // 9. distribute scf.forall to parallel for gpu target.
+    //===----------------------------------------------------------------------===//
+    {
+        // TODO impl a scf.forall to scf.parallel pass
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 10. linalg Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
       populateConv2dToAffineVecManuallyPassPipeline(pm);
       pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
-      runPmWithExit(pm, m_Module, "Convert Conv2d To Affine+Vector using manual method");
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-8: Convert Conv2d To Affine+Vector using manual method");
     }
 
     //===----------------------------------------------------------------------===//
-    // 10 Lowering Affine to SCF. And do some fusion
+    // 11. Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
       populateLoopFusionAndNormalizationPassPipeline(pm);
       populateAffineToSCFPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Affine Lowering to SCF and Loop fusion/normalization");
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
     }
 
     //===----------------------------------------------------------------------===//
-    // 11 Lowering all one by one.
+    // 12. Lowering all one by one.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -426,7 +410,149 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createReconcileUnrealizedCastsPass());
       pm.addPass(mlir::nncv::createNestedTransformErasePass());
       // run
-      runPmWithExit(pm, m_Module, "Lowering all to llvm and libs call");
+      runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+  } else if (m_GenHostWoParallel) {
+    //===----------------------------------------------------------------------===//
+    // 1 Finalize all input
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
+      populateInputOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 2 Doing some tensor eliminate
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateTensorOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-2: Cast Away Tensor Leading One Dims");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 3 Using winograd method before lowering MatMul
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateWinogradOrImg2ColPassPipeline(pm);
+      runPmSilent(pm, m_Module);
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 4 High level tile And Decompose
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      mlir::nncv::codegen_llvm_cpu::addTilePassPipeline(pm);
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-3: High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 5. Prepare vec
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createPrepareModernVecPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // TODO hoist
+
+      runPmWithExit(pm, m_Module, "Pass Pipeline-4: Prepare Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 6. Convert Tensor To linalg
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::createConvertTensorToLinalgPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-5: Convert Tensor To Linalg");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 7. Bufferization all
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateOneBufferizationPassPipeline(pm);
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-6: Bufferization all to memref and do memref based optimization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 8. Finalize Vectorization
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernVectorizationAllPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-7: Finalize Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 9. linalg Optimization using manual method.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateConv2dToAffineVecManuallyPassPipeline(pm);
+      pm.addPass(mlir::nncv::matmul_optimize::createMatMulOptimizationDefaultPass());
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-8: Convert Conv2d To Affine+Vector using manual method");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 10. Lowering Affine to SCF. And do some fusion
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateLoopFusionAndNormalizationPassPipeline(pm);
+      populateAffineToSCFPassPipeline(pm);
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 11. Lowering all one by one.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::createConvertLinalgToLoopsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      if (m_WaprC) {
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::LLVM::createRequestCWrappersPass());
+      }
+      pm.addPass(mlir::memref::createExpandStridedMetadataPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
+      pm.addPass(mlir::createConvertVectorToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createConvertMathToLLVMPass());
+      pm.addPass(mlir::createConvertMathToLibmPass());
+      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+      pm.addPass(mlir::createConvertFuncToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      pm.addPass(mlir::nncv::createNestedTransformErasePass());
+      // run
+      runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
     }
 
     if (!m_OutputFilePath.empty()) {

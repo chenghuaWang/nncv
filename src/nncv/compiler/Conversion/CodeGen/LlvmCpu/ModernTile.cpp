@@ -298,7 +298,7 @@ ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
 bool tileGenericUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
   auto moptions = getGenericTileOptions(op);
   auto curOp = op;
-  for (int i = 0; i < moptions.tileSizes.size(); ++i) {
+  for (size_t i = 0; i < moptions.tileSizes.size(); ++i) {
     mlir::scf::SCFTilingOptions options;
     SmallVector<mlir::OpFoldResult> sizes;
     for (size_t kk = 0; kk < moptions.tileSizes[i].size(); ++kk) {
