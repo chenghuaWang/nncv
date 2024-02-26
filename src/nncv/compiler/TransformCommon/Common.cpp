@@ -10,6 +10,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/Transform/LoopExtension/LoopExtensionOps.h"
+#include "mlir/Dialect/GPU/TransformOps/GPUTransformOps.h"
 
 namespace mlir {
 namespace nncv {
@@ -55,6 +56,45 @@ void createTransformDecomposeLinalg(mlir::ImplicitLocOpBuilder& builder, mlir::V
                                  "linalg.pooling_nchw_max"};
   auto matched = builder.create<transform::MatchOp>(v, opNames);
   builder.create<transform::DecomposeOp>(AnyOpType, matched);
+}
+
+void _createTransformMapToGpuBlock(mlir::ImplicitLocOpBuilder& builder, mlir::Value v,
+                                   int64_t blockX, int64_t blockY, int64_t blockZ,
+                                   bool genGpuLaunch) {
+  auto AnyOpType = mlir::transform::AnyOpType::get(builder.getContext());
+  auto gridDims = builder.getDenseI64ArrayAttr({blockX, blockY, blockZ});
+  builder.create<mlir::transform::MapForallToBlocks>(AnyOpType, v, gridDims, genGpuLaunch);
+}
+
+transform::TransformOpInterface createRegionTransformMapToGpuBlock(mlir::FunctionOpInterface entry,
+                                                                   int64_t blockX, int64_t blockY,
+                                                                   int64_t blockZ,
+                                                                   bool genGpuLaunch) {
+  auto ctx = entry.getContext();
+  auto loc = entry.getLoc();
+  mlir::OpBuilder builder(ctx);
+
+  builder.setInsertionPointAfter(entry);
+
+  auto TransformModule = builder.create<mlir::ModuleOp>(loc);
+  TransformModule->setAttr(mlir::transform::TransformDialect::kWithNamedSequenceAttrName,
+                           builder.getUnitAttr());
+  Region& TransformModuleRegion = TransformModule.getBodyRegion();
+  builder.setInsertionPointToStart(&TransformModuleRegion.front());
+
+  auto AnyOpType = mlir::transform::AnyOpType::get(builder.getContext());
+  auto TransformSequence = builder.create<mlir::transform::NamedSequenceOp>(
+      loc,
+      /*symName=*/
+      std::string(transform::TransformDialect::kTransformEntryPointSymbolName.str()),
+      /*rootType*/ AnyOpType,
+      /*resultTypes=*/TypeRange{},
+      /*bodyBuilder=*/[&](OpBuilder& b, Location loc, Value variantH) {
+        ImplicitLocOpBuilder ib(loc, b);
+        _createTransformMapToGpuBlock(ib, variantH, blockX, blockY, blockZ, genGpuLaunch);
+        b.create<transform::YieldOp>(loc);
+      });
+  return TransformSequence;
 }
 
 }  // namespace nncv

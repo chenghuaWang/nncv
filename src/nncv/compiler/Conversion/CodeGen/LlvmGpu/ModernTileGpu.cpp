@@ -14,6 +14,8 @@
 //
 //
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernTileGpu.hpp"
+#include "mlir/Dialect/GPU/TransformOps/GPUTransformOps.h"
+#include "nncv/compiler/TransformCommon/Common.hpp"
 #include "llvm/Support/ErrorHandling.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
@@ -28,6 +30,7 @@
 #include "mlir/IR/Visitors.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/TilingInterface.h"
+#include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 #include "mlir/Transforms/Passes.h"
@@ -60,9 +63,9 @@ struct Simt {
   SmallVector<int64_t> blockDims;
   SmallVector<int64_t> threadDims;
   SmallVector<int64_t> loopsInThreadDims;
-  SmallVector<mlir::Operation*> blockLevelLoops = {nullptr};
-  SmallVector<mlir::Operation*> threadLevelLoops = {nullptr};
-  SmallVector<mlir::Operation*> loopsInEachThreads = {nullptr};
+  SmallVector<mlir::Operation*> blockLevelLoops;
+  SmallVector<mlir::Operation*> threadLevelLoops;
+  SmallVector<mlir::Operation*> loopsInEachThreads;
 };
 
 struct ModernMatMulTileOptions {
@@ -72,13 +75,13 @@ struct ModernMatMulTileOptions {
 
 // Blocks level [128, 128, 0]
 // Threads level [16, 16, 0]
-// register level [0, 0, 4]
+// register level [0, 0, 16]
 // Note: the register level should be modified if use Tensor Core's Gemm intr.
 ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
   ModernMatMulTileOptions ret;
   ret.tileSizes.push_back({128, 128, 0});
   ret.tileSizes.push_back({16, 16, 0});
-  ret.tileSizes.push_back({0, 0, 4});
+  ret.tileSizes.push_back({0, 0, 16});
   ret.canForall = {true, true, false};
   return ret;
 }
@@ -86,31 +89,87 @@ ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
 // MatMul tiling will invlove vector.mask, be careful when lowering vector.mask. All three level
 // tiling can be made parallel.
 // ! Matmul's for loops will not be peeled.
-bool tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
+FailureOr<Simt> tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool forall) {
   auto moptions = getMatMulTileOptions(op);
   auto curOp = op;
-  for (int i = 0; i < 3; ++i) {
+
+  Simt simt;
+
+  // Tile at Block level, block level can be made as parallel. Using scf.forall.
+  {
     mlir::scf::SCFTilingOptions options;
     SmallVector<mlir::OpFoldResult> sizes;
-    for (size_t kk = 0; kk < moptions.tileSizes[i].size(); ++kk) {
-      sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[i][kk]));
+    for (size_t kk = 0; kk < moptions.tileSizes[0].size(); ++kk) {
+      sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[0][kk]));
     }
     options.setTileSizes(sizes);
     auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
-    if (moptions.canForall[i]) {
-      rewriter.setInsertionPoint(curOp);
-      auto result = mlir::linalg::tileToForallOpUsingTileSizes(rewriter, tileInterface, sizes,
-                                                               /*mapping*/ std::nullopt);
-      if (failed(result)) return false;
-      rewriter.replaceOp(curOp, result->tileOp->getResults());
-      curOp = result->tiledOp;
-    } else {
-      auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
-      if (failed(result)) return false;
-      rewriter.replaceOp(curOp, result->replacements);
-      curOp = result->tiledOps[0];
-    }
+    rewriter.setInsertionPoint(curOp);
+    auto result = mlir::linalg::tileToForallOpUsingTileSizes(rewriter, tileInterface, sizes,
+                                                             /*mapping*/ std::nullopt);
+    if (failed(result)) return failure();
+    rewriter.replaceOp(curOp, result->tileOp->getResults());
+    curOp = result->tiledOp;
+
+    // set simt
+    simt.blockDims = moptions.tileSizes[0];
+    simt.blockLevelLoops.push_back(/*scf.froall tiling result*/ result->tileOp);
   }
+
+  // Tile at Trhead level, thread level can be made as parallel. Using scf.forall.
+  {
+    mlir::scf::SCFTilingOptions options;
+    SmallVector<mlir::OpFoldResult> sizes;
+    for (size_t kk = 0; kk < moptions.tileSizes[1].size(); ++kk) {
+      sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[1][kk]));
+    }
+    options.setTileSizes(sizes);
+    auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
+    rewriter.setInsertionPoint(curOp);
+    auto result = mlir::linalg::tileToForallOpUsingTileSizes(rewriter, tileInterface, sizes,
+                                                             /*mapping*/ std::nullopt);
+    if (failed(result)) return failure();
+    rewriter.replaceOp(curOp, result->tileOp->getResults());
+    curOp = result->tiledOp;
+
+    // set simt
+    simt.threadDims = moptions.tileSizes[1];
+    simt.threadLevelLoops.push_back(/*scf.froall tiling result*/ result->tileOp);
+  }
+
+  // Tile at inner loops level, Using scf.for.
+  {
+    mlir::scf::SCFTilingOptions options;
+    SmallVector<mlir::OpFoldResult> sizes;
+    for (size_t kk = 0; kk < moptions.tileSizes[2].size(); ++kk) {
+      sizes.push_back(rewriter.getIndexAttr(moptions.tileSizes[2][kk]));
+    }
+    options.setTileSizes(sizes);
+    auto tileInterface = mlir::dyn_cast<mlir::TilingInterface>(curOp);
+    rewriter.setInsertionPoint(curOp);
+    auto result = mlir::scf::tileUsingSCFForOp(rewriter, tileInterface, options);
+    if (failed(result)) return failure();
+    rewriter.replaceOp(curOp, result->replacements);
+
+    // set simt
+    simt.loopsInThreadDims = moptions.tileSizes[2];
+    simt.loopsInEachThreads.append(/*scf.froall tiling result*/ result->loops);
+  }
+
+  return simt;
+}
+
+bool mapScfForallToBlock(IRRewriter& rewriter, Simt& simt, mlir::FunctionOpInterface entry) {
+  // 1. create transform dialect
+  auto topLevelForallOp = mlir::cast<mlir::scf::ForallOp>(simt.blockLevelLoops[0]);
+  auto transOp = nncv::createRegionTransformMapToGpuBlock(entry, simt.blockDims[0],
+                                                          simt.blockDims[1], simt.blockDims[2],
+                                                          /*gen GPU Launch*/ true);
+
+  // 2. do mapping
+  auto res = mlir::transform::applyTransforms(
+      topLevelForallOp, transOp, {}, mlir::transform::TransformOptions(), /*enforce top*/ false);
+  if (res.failed()) return false;
   return true;
 }
 
@@ -121,7 +180,40 @@ void emitTileFailedError(bool isOk, mlir::Operation* op) {
 }
 
 class ModernTileGpuPass final : public impl::ModernTileGpuBase<ModernTileGpuPass> {
-  void runOnOperation() override {}
+  void getDependentDialects(mlir::DialectRegistry& registry) const override {
+    registry.insert<mlir::BuiltinDialect, mlir::func::FuncDialect, mlir::affine::AffineDialect,
+                    mlir::tensor::TensorDialect, mlir::arith::ArithDialect, mlir::scf::SCFDialect,
+                    mlir::transform::TransformDialect>();
+    mlir::gpu::registerTransformDialectExtension(registry);
+  }
+
+  void runOnOperation() override {
+    IRRewriter rewriter(&getContext());
+    SmallVector<mlir::Operation*> matMulCandidates;
+    SmallVector<mlir::Operation*> conv2dInterfaceCandidates;
+    SmallVector<mlir::Operation*> genericCandidates;
+    getOperation().walk([&](mlir::linalg::LinalgOp op) {
+      if (mlir::isa<mlir::linalg::MatmulOp>(op)) {
+        matMulCandidates.push_back(op);
+        return;
+      }
+      if (mlir::isa<mlir::linalg::Conv2DNchwFchwOp, mlir::linalg::PoolingNchwMaxOp,
+                    mlir::linalg::PoolingNchwSumOp>(op)) {
+        conv2dInterfaceCandidates.push_back(op);
+        return;
+      }
+      if (mlir::isa<mlir::linalg::GenericOp>(op)) {
+        genericCandidates.push_back(op);
+        return;
+      }
+    });
+
+    for (auto op : matMulCandidates) {
+      auto result = tileMatMulUseScf(rewriter, op, /*forall*/ true);
+      if (failed(result)) emitTileFailedError(false, op);
+      (void)mapScfForallToBlock(rewriter, result.value(), getOperation());
+    }
+  }
 };
 
 }  // namespace

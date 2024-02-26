@@ -288,9 +288,9 @@ ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* 
 // AVX2, Vector size = 8. Static. But set Matmul Vec=4
 ModernMatMulTileOptions getMatMulTileOptions(mlir::Operation* op) {
   ModernMatMulTileOptions ret;
-  ret.tileSizes.push_back({8, 32, 0});
-  ret.tileSizes.push_back({4, 4, 0});
-  ret.tileSizes.push_back({0, 0, 4});
+  ret.tileSizes.push_back({16, 16, 0});
+  ret.tileSizes.push_back({8, 8, 0});
+  ret.tileSizes.push_back({0, 0, 8});
   ret.canForall = {true, true, false};
   return ret;
 }

@@ -18,6 +18,15 @@ void transformHoistingSubsetFunc(mlir::ImplicitLocOpBuilder& b, mlir::Value func
 
 void createTransformDecomposeLinalg(mlir::ImplicitLocOpBuilder& builder, mlir::Value v);
 
+void _createTransformMapToGpuBlock(mlir::ImplicitLocOpBuilder& builder, mlir::Value v,
+                                   int64_t blockX, int64_t blockY, int64_t blockZ,
+                                   bool genGpuLaunch);
+
+transform::TransformOpInterface createRegionTransformMapToGpuBlock(mlir::FunctionOpInterface entry,
+                                                                   int64_t blockX, int64_t blockY,
+                                                                   int64_t blockZ,
+                                                                   bool genGpuLaunch);
+
 }  // namespace nncv
 }  // namespace mlir
 

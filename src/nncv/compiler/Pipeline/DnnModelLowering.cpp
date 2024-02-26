@@ -20,6 +20,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/MLProgram/Transforms/Passes.h"
+#include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
@@ -48,6 +49,7 @@
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/LoweringScfForAllToParallel.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/ModernVec.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmCpu/PrepareModernVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernTileGpu.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/Conv2dTile.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/ConvertOptimizedConv2dToAffine.hpp"
 #include "nncv/compiler/Conversion/ConvOptimize/OptimizeConv2dUsingWinograd.hpp"
@@ -246,6 +248,11 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     // 4 High level tile And Decompose For GPU !!!
     //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernOneShotTileAllGpuPass());
+      runPmWithExit(pm, m_Module, "failed when perform gpu based tiling and map");
+    }
 
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec For GPU !!!
@@ -363,6 +370,7 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLoweringScfForAllToParallelPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopFusionPass());
       runPmSilent(pm, m_Module);
     }
 
@@ -516,7 +524,17 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9. linalg Optimization using manual method.
+    // 9. distribute scf.forall to parallel for gpu target.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLoweringScfForAllToParallelPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopFusionPass());
+      runPmSilent(pm, m_Module);
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 10. linalg Optimization using manual method.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -527,7 +545,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 10. Lowering Affine to SCF. And do some fusion
+    // 11. Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -538,7 +556,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 11. Lowering all one by one.
+    // 12. Lowering all one by one.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();

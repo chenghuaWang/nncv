@@ -121,6 +121,8 @@ If you want to enable multi thread support and eanble polymer, use:
 nncv-c -womp -wpoly -run example.aten
 ```
 
+The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. 
+
 ### 2.1 Examples
 
 #### 2.1.1 Quick Pow
@@ -221,7 +223,7 @@ func main() {
 
 ### 2.2 Parallel For Loops
 
-The nncv's compiler will do 3 stages lowering(aten-lang-->aten dialect-->mlir's dialects-->llvm ir) and use LLVM's JIT to execute it. Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
+Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
 
 ```aten
 @package = "main";

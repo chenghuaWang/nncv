@@ -1,1 +1,2 @@
 add_subdirectory(LlvmCpu)
+add_subdirectory(LlvmGpu)

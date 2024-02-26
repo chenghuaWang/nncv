@@ -137,7 +137,7 @@ endif(nncv_build_test)
 
 if(nncv_build_python_toolset)
     message(STATUS "Building NNCV Python Toolset")
-    # TODO
+    add_subdirectory(${PROJECT_SOURCE_DIR}/python)
 endif(nncv_build_python_toolset)
 
 if(nncv_build_visual_profiler)

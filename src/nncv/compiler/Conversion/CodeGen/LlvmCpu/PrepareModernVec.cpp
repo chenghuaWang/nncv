@@ -41,7 +41,7 @@ namespace mlir::nncv {
 namespace {
 
 bool vectorizeMatMul(IRRewriter& rewriter, mlir::Operation* op) {
-  llvm::SmallVector<int64_t> VectorSizes(3, 4);
+  llvm::SmallVector<int64_t> VectorSizes(3, 8);
   llvm::SmallVector<bool> ScalableVecDims(3, false);  // only for scable vec
   if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) { return false; }
   return true;
