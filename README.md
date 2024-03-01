@@ -105,7 +105,7 @@ clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_util
 
 ### 1.2 NV GPU Target
 
-
+nncv will try to use wmma intr provided by Tensor Core. Tensor Core supports tf32 type, which is quite different from fp32. For simpilify, if you want to lowering a model to NV Gpu tagret, half precision(fp16) is adopted by default.
 
 ## 2. Nncv's Lang
 

@@ -251,8 +251,11 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernOneShotTileAllGpuPass());
-      runPmWithExit(pm, m_Module, "failed when perform gpu based tiling and map");
+      runPmWithExit(pm, m_Module, "Perform gpu based tiling and map");
     }
+
+    // Remeber, In the code below, I should not use CSE pass. In order to let some memrefs exist for
+    // further analyse.
 
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec For GPU !!!
@@ -365,7 +368,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9. distribute scf.forall to parallel for gpu target.
+    // 9. distribute scf.forall to parallel for cpu target.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();

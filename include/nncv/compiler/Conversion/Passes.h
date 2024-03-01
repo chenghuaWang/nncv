@@ -37,6 +37,8 @@
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernVecGpu.hpp"
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/PrepareModernVecGpu.hpp"
 
+#include "nncv/compiler/Conversion/Transforms/RemoveSelfMemRefCopy.hpp"
+
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"

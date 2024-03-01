@@ -373,4 +373,16 @@ def LoweringScfForAllToParallel : InterfacePass<"lower-scf-forall-to-parallel",
       "mlir::nncv::createLoweringScfForAllToParallelPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// redundant memref.copy remove.
+//
+// such as memref.copy r1 to r1
+//===----------------------------------------------------------------------===//
+def RemoveSelfMemRefCopy : InterfacePass<"remove-self-memref-copy",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "remove all self memref copy";
+  let constructor =
+      "mlir::nncv::createRemoveSelfMemRefCopyPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

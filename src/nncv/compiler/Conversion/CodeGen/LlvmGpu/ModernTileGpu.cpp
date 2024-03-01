@@ -14,7 +14,9 @@
 //
 //
 #include "nncv/compiler/Conversion/CodeGen/LlvmGpu/ModernTileGpu.hpp"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/TransformOps/GPUTransformOps.h"
+#include "nncv/compiler/Conversion/CodeGen/LlvmGpu/GpuUtils.hpp"
 #include "nncv/compiler/TransformCommon/Common.hpp"
 #include "llvm/Support/ErrorHandling.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
@@ -160,16 +162,26 @@ FailureOr<Simt> tileMatMulUseScf(IRRewriter& rewriter, mlir::Operation* op, bool
 }
 
 bool mapScfForallToBlock(IRRewriter& rewriter, Simt& simt, mlir::FunctionOpInterface entry) {
-  // 1. create transform dialect
-  auto topLevelForallOp = mlir::cast<mlir::scf::ForallOp>(simt.blockLevelLoops[0]);
-  auto transOp = nncv::createRegionTransformMapToGpuBlock(entry, simt.blockDims[0],
-                                                          simt.blockDims[1], simt.blockDims[2],
-                                                          /*gen GPU Launch*/ true);
+  auto target = simt.blockLevelLoops[0];
 
-  // 2. do mapping
-  auto res = mlir::transform::applyTransforms(
-      topLevelForallOp, transOp, {}, mlir::transform::TransformOptions(), /*enforce top*/ false);
-  if (res.failed()) return false;
+  // 1. get top level forall op
+  auto topLevelForallOp = mlir::cast<mlir::scf::ForallOp>(simt.blockLevelLoops[0]);
+
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(topLevelForallOp);
+
+  // 2. create gpu.launch
+  mlir::gpu::LaunchOp gpuLaunch;
+  {
+    mlir::nncv::codegen_llvm_gpu::createGpuLaunch(rewriter, target->getLoc(), gpuLaunch);
+    rewriter.setInsertionPointToStart(&gpuLaunch.getBody().front());
+    Operation* newForallOp = rewriter.clone(*topLevelForallOp);
+    rewriter.eraseOp(topLevelForallOp);
+    topLevelForallOp = cast<scf::ForallOp>(newForallOp);
+  }
+
+  // 3. map forall to blocks
+
   return true;
 }
 
@@ -208,10 +220,14 @@ class ModernTileGpuPass final : public impl::ModernTileGpuBase<ModernTileGpuPass
       }
     });
 
+    // The distribution should not be done here. All map to block and threads should be done after
+    // bufferization. This kind of machenic make simt pattern hard to impl. :cry:
     for (auto op : matMulCandidates) {
       auto result = tileMatMulUseScf(rewriter, op, /*forall*/ true);
       if (failed(result)) emitTileFailedError(false, op);
-      (void)mapScfForallToBlock(rewriter, result.value(), getOperation());
+      // Distribution should not be done here. Sad.
+      //
+      // (void)mapScfForallToBlock(rewriter, result.value(), getOperation());
     }
   }
 };
