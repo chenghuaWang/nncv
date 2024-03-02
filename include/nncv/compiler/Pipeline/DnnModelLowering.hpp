@@ -34,7 +34,8 @@ void runPmSilent(mlir::PassManager& pm, mlir::OwningOpRef<mlir::ModuleOp>& modul
  */
 void populateOneBufferizationPassPipeline(mlir::PassManager& pm);
 
-void populateInputOptimizationPassPipeline(mlir::PassManager& pm);
+void populateInputOptimizationPassPipeline(mlir::PassManager& pm, bool enableImg2Col = false,
+                                           bool enablePaddingMatMul = false);
 
 void populateTensorOptimizationPassPipeline(mlir::PassManager& pm);
 

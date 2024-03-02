@@ -110,8 +110,9 @@ void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
   pm.addPass(mlir::createCSEPass());
 }
 
-void populateInputOptimizationPassPipeline(mlir::PassManager& pm) {
-  mlir::nncv::createNncvFrontendToNormalPipeline(pm);
+void populateInputOptimizationPassPipeline(mlir::PassManager& pm, bool enableImg2Col,
+                                           bool enablePaddingMatMul) {
+  mlir::nncv::createNncvFrontendToNormalPipeline(pm, enableImg2Col, enablePaddingMatMul);
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterLinalgOpsPass());
@@ -223,17 +224,17 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
-      populateInputOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
+      populateInputOptimizationPassPipeline(pm, /*img2col*/ false, /*padding*/ false);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
     }
 
     //===----------------------------------------------------------------------===//
-    // 2 Doing some tensor eliminate
+    // 2 Doing some tensor eliminatation
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
       populateTensorOptimizationPassPipeline(pm);
-      runPmWithExit(pm, m_Module, "Cast Away Tensor Leading One Dims");
+      runPmWithExit(pm, m_Module, "Pass Pipeline-2: Cast Away Tensor Leading One Dims");
     }
 
     //===----------------------------------------------------------------------===//
@@ -251,26 +252,66 @@ void DnnModelLowering::run() {
     {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernOneShotTileAllGpuPass());
-      runPmWithExit(pm, m_Module, "Perform gpu based tiling and map");
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTransformGenPass());
+      pm.addPass(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-3: Perform gpu based tiling and map");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 5. Prepare vec For GPU !!!
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createPrepareModernVecGpuPass());
+      pm.addPass(mlir::createConvertTensorToLinalgPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-4: Prepare Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 6. Bufferization all
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateOneBufferizationPassPipeline(pm);
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-5: Bufferization all to memref and do memref based optimization");
     }
 
     // Remeber, In the code below, I should not use CSE pass. In order to let some memrefs exist for
     // further analyse.
 
     //===----------------------------------------------------------------------===//
-    // 5. Prepare vec For GPU !!!
+    // 7. Finalize Vectorization For GPU !!!
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernVectorizationAllGpuPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-6: Finalize Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 8. Map to Blocks and Threads using builtin pass
+    // Map parallel to gpu's dimension Greedily
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLoweringScfForAllToParallelPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
+      pm.addPass(mlir::createParallelLoopToGpuPass());
+      pm.addPass(mlir::createGpuKernelOutliningPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-7: Forall to Parallel and do Mapping to device");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 9. Optimizing on gpu kernel
     //===----------------------------------------------------------------------===//
 
     //===----------------------------------------------------------------------===//
-    // 6. Bufferization all
-    //===----------------------------------------------------------------------===//
-
-    //===----------------------------------------------------------------------===//
-    // 8. Finalize Vectorization For GPU !!!
-    //===----------------------------------------------------------------------===//
-
-    //===----------------------------------------------------------------------===//
-    // 9. Lowering Affine to SCF. And do some fusion
+    // 10. Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
 
     //===----------------------------------------------------------------------===//

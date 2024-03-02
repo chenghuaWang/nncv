@@ -5,7 +5,8 @@
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Transforms/Passes.h"
 
-void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm) {
+void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm, bool enableImg2Col,
+                                                    bool enablePaddingMatMul) {
   // Erease all ml_program.global
   pm.addPass(mlir::nncv::createMLProgramBufferizePass());
 
@@ -15,11 +16,15 @@ void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm) {
   // Conv2d1x1 to MatMul
   pm.addPass(mlir::nncv::createConvertConv2D1x1ToMatmulPass());
 
-  // image 2 col
-  // pm.addPass(mlir::nncv::createConvertConv2DToImg2ColPass());
+  if (enableImg2Col) {
+    // image 2 col
+    pm.addPass(mlir::nncv::createConvertConv2DToImg2ColPass());
+  }
 
-  // Padding for MatMul and BatchMatMul.
-  // pm.addPass(mlir::nncv::createPadLinalgOpsToIntegerMultiplePass());
+  if (enablePaddingMatMul) {
+    // Padding for MatMul and BatchMatMul.
+    pm.addPass(mlir::nncv::createPadLinalgOpsToIntegerMultiplePass());
+  }
 
   // Linalg name op conversion
   pm.addPass(mlir::createLinalgNamedOpConversionPass());

@@ -38,8 +38,65 @@ namespace mlir::nncv {
 }  // namespace mlir::nncv
 
 namespace mlir::nncv {
-namespace {}
+namespace {
 
-std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>> createModernVectorizationAllGpuPass() {}
+class ModernVectorizationAllGpuPass final
+    : public impl::ModernVecGpuBase<ModernVectorizationAllGpuPass> {
+  void runOnOperation() override {
+    // clean up ir first
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
+    // no need for outer product.
+
+    // transform.apply_patterns to %f {
+    //   transform.apply_patterns.vector.transfer_permutation_patterns
+    // } : !transform.any_op
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::vector::populateVectorTransferPermutationMapLoweringPatterns(patterns);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
+    // transform.apply_patterns to %f {
+    //   transform.apply_patterns.vector.lower_multi_reduction lowering_strategy = "innerparallel"
+    // } : !transform.any_op
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      mlir::vector::populateVectorMultiReductionLoweringPatterns(
+          patterns, mlir::vector::VectorMultiReductionLowering::InnerReduction);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+
+    // transform.apply_patterns to %f {
+    //   transform.apply_patterns.vector.split_transfer_full_partial split_transfer_strategy =
+    //   "linalg-copy"
+    // } : !transform.any_op
+    {
+      mlir::RewritePatternSet patterns(&getContext());
+      vector::VectorTransformsOptions vectorTransformOptions;
+      vectorTransformOptions.setVectorTransferSplit(mlir::vector::VectorTransferSplit::LinalgCopy);
+      mlir::vector::populateVectorTransferFullPartialPatterns(patterns, vectorTransformOptions);
+      if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
+        signalPassFailure();
+      }
+    }
+  }
+};
+
+}  // namespace
+
+std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>> createModernVectorizationAllGpuPass() {
+  return std::make_unique<ModernVectorizationAllGpuPass>();
+}
 
 }  // namespace mlir::nncv

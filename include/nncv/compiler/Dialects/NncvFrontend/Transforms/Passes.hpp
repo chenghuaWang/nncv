@@ -29,7 +29,8 @@ std::unique_ptr<mlir::Pass> createDetachElementwiseFromNamedOpsPass();
 
 std::unique_ptr<mlir::Pass> createInterchangeTransposeGenericOpsPass();
 
-void createNncvFrontendToNormalPipeline(OpPassManager& pm);
+void createNncvFrontendToNormalPipeline(OpPassManager& pm, bool enableImg2Col = false,
+                                        bool enablePaddingMatMul = false);
 
 #define GEN_PASS_REGISTRATION
 #include "NncvFrontend/Transforms/Passes.h.inc"
