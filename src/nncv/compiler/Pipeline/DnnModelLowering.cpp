@@ -558,6 +558,19 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
+    // X. remove memref.global and other params. change them to built in runtime call.
+    // If m_SplitParams is set.
+    //
+    // This method is tricky and buggy. Be careful.
+    //===----------------------------------------------------------------------===//
+    if (m_SplitParams) {
+      pm.clear();
+      // TODO to binary. and Remove all to lib call.
+      runPmWithExit(pm, m_Module,
+                    "Remove memref.global and other params. change them to built in runtime call.");
+    }
+
+    //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
     //===----------------------------------------------------------------------===//
     {
@@ -641,6 +654,24 @@ void DnnModelLowering::run() {
     runPmWithExit(pm, m_Module, "Frontend Normalization Pass Pipeline");
     if (!::nncv::compiler::utils::SaveTileOpsConfigFile(m_ConfigFilePath)) {
       printf("[ Erro ] Failed when saving config file.\n");
+    }
+    return;
+  } else if (m_SplitParams) {
+    printf("[ Erro ] Split options with no target usage is droped\n");
+    return;
+    //===----------------------------------------------------------------------===//
+    // 1. Bufferization all
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateOneBufferizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Bufferization for Memref");
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
     }
     return;
   }

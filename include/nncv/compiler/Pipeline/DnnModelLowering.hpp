@@ -73,6 +73,7 @@ class DnnModelLowering {
   inline void setGenConfigFilePath(const std::string& _CurPath) { m_ConfigFilePath = _CurPath; }
   inline void setWarpC(bool flag = true) { m_WaprC = flag; }
   inline void setNumThreads(int64_t v) { m_NumThreads = v; }
+  inline void setSplitParams(bool flag = false) { m_SplitParams = flag; }
 
  private:
   bool m_GenNVPTX = false;
@@ -81,6 +82,7 @@ class DnnModelLowering {
   bool m_UsingNncvIR = false;
   bool m_GenConfigFileOnly = false;
   bool m_WaprC = false;
+  bool m_SplitParams = false;
   int64_t m_NumThreads = 4;
   std::string m_ConfigFilePath;
   mlir::MLIRContext& m_Context;

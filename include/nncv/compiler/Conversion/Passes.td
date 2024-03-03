@@ -385,4 +385,13 @@ def RemoveSelfMemRefCopy : InterfacePass<"remove-self-memref-copy",
       "mlir::nncv::createRemoveSelfMemRefCopyPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Split Params
+//===----------------------------------------------------------------------===//
+def SplitParams : Pass<"split-params"> {
+  let summary = "split all params to a binary file, and turn all memref.get_global to lib call";
+  let constructor =
+      "mlir::nncv::createSplitParamsPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

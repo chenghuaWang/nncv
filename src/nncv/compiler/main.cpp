@@ -98,6 +98,8 @@ llvm::cl::opt<std::string> GenConfigFileOnly("gen-config-file-only",
                                              llvm::cl::desc("<Just gen a config file for model>"),
                                              llvm::cl::Optional);
 llvm::cl::opt<int64_t> NumThreads("num-threads", llvm::cl::desc("<threads>"), llvm::cl::Optional);
+llvm::cl::opt<bool> SplitParams("split-params", llvm::cl::desc("<split all params to binary file>"),
+                                llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -197,7 +199,9 @@ int main(int argc, char* argv[]) {
 
     ///< Below for NNCV
     // Start to lower all
-    if (SetLowerTarget.empty() && GenConfigFileOnly.empty()) { return 0; }
+    if (SetLowerTarget.empty() && GenConfigFileOnly.empty() && !SplitParams.getValue()) {
+      return 0;
+    }
 
     mlir::PassManager pm(MlirModule.get()->getName());
 
@@ -206,6 +210,7 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------------------------------
     nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(MlirContext, MlirModule);
     dnnModelLowerPipeline.setWarpC(WarpC.getValue());
+    dnnModelLowerPipeline.setSplitParams(SplitParams.getValue());
     dnnModelLowerPipeline.setNumThreads(NumThreads.getValue() == 0 ? 4 : NumThreads.getValue());
     if (SetLowerTarget.getValue() == "HostWParallel") {
       dnnModelLowerPipeline.setGenHostWParallel();
