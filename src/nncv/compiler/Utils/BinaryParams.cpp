@@ -1,10 +1,8 @@
-#include "libnncv/DataType.hpp"
+#include "nncv/compiler/Utils/BinaryParams.hpp"
 #include <cassert>
-#include <cstdio>
 #include <fstream>
 
-namespace nncv {
-namespace rt /*runtime*/ {
+namespace nncv::utils {
 
 void MemRefFlatBuffer::addMemRefIndexer(const MemRefIndexer& indexer, void* data) {
   m_indexer.push_back(indexer);
@@ -33,7 +31,7 @@ bool MemRefFlatBuffer::read(const std::string& path) {
 
   // read all binary data
   for (auto item : m_indexer) {
-    void* tmp;
+    void* tmp = nullptr;
     size_t eleLen = 1;
     for (size_t idx = 0; idx < item.dims; ++idx) { eleLen *= item.shape[idx]; }
     inf.read(reinterpret_cast<char*>(tmp), item.eleWidth * eleLen);
@@ -71,12 +69,10 @@ bool MemRefFlatBuffer::write(const std::string& path) {
   for (size_t i = 0; i < m_indexer.size(); ++i) {
     size_t eleLen = 1;
     for (size_t idx = 0; idx < m_indexer[i].dims; ++idx) { eleLen *= m_indexer[i].shape[idx]; }
-    out.write(reinterpret_cast<const char*>(m_data[i]), m_indexer[i].eleWidth * eleLen);
+    out.write(reinterpret_cast<const char*>(m_data[i]), (m_indexer[i].eleWidth) * eleLen);
   }
 
   out.close();
   return true;
 }
-
-}  // namespace rt
-}  // namespace nncv
+}  // namespace nncv::utils

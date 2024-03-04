@@ -11,6 +11,9 @@
 
 namespace mlir {
 namespace nncv {
+
+namespace {}  // namespace
+
 std::unique_ptr<mlir::Pass> createSplitParamsPass();
 }  // namespace nncv
 }  // namespace mlir
