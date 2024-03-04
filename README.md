@@ -6,6 +6,7 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 - [1. Compiler](#1-compiler)
   - [1.1 CPU Target](#11-cpu-target)
   - [1.2 NV GPU Target](#12-nv-gpu-target)
+  - [1.3 Using external model parameters](#13-using-external-model-parameters)
 - [2. Nncv's Lang](#2-nncvs-lang)
   - [2.1 Examples](#21-examples)
     - [2.1.1 Quick Pow](#211-quick-pow)
@@ -16,6 +17,36 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
 
 
 ## 1. Compiler
+
+Before starting to compile, you need to get the mlir file for a torch model using [torch-mlir](https://github.com/llvm/torch-mlir) tool. example:
+
+
+```python
+import torch
+import torchvision
+import torch_mlir
+
+def run():
+    net = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.DEFAULT)
+    #net = net.to(memory_format=torch.channels_last)
+    a = torch.zeros([1, 3, 256, 256])
+    #a = a.to(memory_format=torch.channels_last)
+    a = a.half()
+    net.train(False)
+    net.half()
+    module = torch_mlir.compile(net, a, output_type="linalg-on-tensors")
+    with open("res18-half.mlir", "wb") as f:
+        #f.write(module.operation.get_asm(large_elements_limit=0).encode())
+        f.write(module.operation.get_asm().encode())
+
+if __name__ == "__main__":
+    run()
+```
+
+
+The torch-mlir converted file puts the model parameters in the mlir file as well, which is not conducive to model parameter updates and makes the file to be compiled extremely large.
+
+nncv provides a `-split-params` option to split model parameters and behavior. It traverses the memref.global operator in the mlir file and saves the dense attribute inside a binary file. For the original function, e.g.: `func.func(in)->out`, nncv will turn it into `func.func(in, params)->out`.
 
 ### 1.1. CPU Target
 
@@ -106,6 +137,10 @@ clang++ -O3 -Wall libres18.o RunResNet18.cpp -L{MLIR_LIB_DIR} -lmlir_runner_util
 ### 1.2 NV GPU Target
 
 nncv will try to use wmma intr provided by Tensor Core. Tensor Core supports tf32 type, which is quite different from fp32. For simpilify, if you want to lowering a model to NV Gpu tagret, half precision(fp16) is adopted by default.
+
+### 1.3 Using external model parameters
+
+If you want to use external model parameters, then you need to import an nncv runtime library.
 
 ## 2. Nncv's Lang
 
