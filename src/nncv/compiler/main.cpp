@@ -87,7 +87,7 @@ llvm::cl::opt<std::string> OutputFilename("o", llvm::cl::desc("<output file>"), 
 llvm::cl::opt<bool> VmMode("vm", llvm::cl::desc("<set nncv-c as vm>"), llvm::cl::Optional);
 llvm::cl::opt<bool> RunDirectly("run", llvm::cl::desc("<run a .aten file directly>"),
                                 llvm::cl::Optional);
-llvm::cl::opt<bool> WarpC("warp-c-interface", llvm::cl::desc("<warp c interface>"),
+llvm::cl::opt<bool> WarpC("wrap-c-interface", llvm::cl::desc("<wrap c interface>"),
                           llvm::cl::Optional);
 llvm::cl::opt<std::string> ConfigFilePathOption("config-file-path",
                                                 llvm::cl::desc("<config file path>"),

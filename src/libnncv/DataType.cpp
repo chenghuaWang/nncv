@@ -36,11 +36,18 @@ bool MemRefFlatBuffer::read(const std::string& path) {
     void* tmp;
     size_t eleLen = 1;
     for (size_t idx = 0; idx < item.dims; ++idx) { eleLen *= item.shape[idx]; }
+
+    // allocate a array for tmp
+    // TODO
+
     inf.read(reinterpret_cast<char*>(tmp), item.eleWidth * eleLen);
     m_data.push_back(tmp);
   }
 
   inf.close();
+
+  wrap();
+
   return true;
 }
 
@@ -76,6 +83,35 @@ bool MemRefFlatBuffer::write(const std::string& path) {
 
   out.close();
   return true;
+}
+
+void MemRefFlatBuffer::wrap() {
+  // 1. wrap all void* form m_data to unranked memref, such as memref<*xf32>
+  assert(m_data.size() == m_indexer.size() && "the data's size miss match the indxer's size");
+  // TODO
+  for (size_t i = 0; i < m_data.size(); ++i) {
+    void* descriptor = nullptr;
+    switch (m_dataType) {
+      case dataType::kFloat16: {
+        break;
+      }
+      case dataType::kFloat32: {
+        break;
+      }
+      case dataType::kInt16: {
+        break;
+      }
+      case dataType::kInt32: {
+        break;
+      }
+      case dataType::kUnknow: {
+      }
+    }
+  }
+}
+
+MemRefFlatBuffer::~MemRefFlatBuffer() {
+  for (auto item : m_data) { delete (char*)item; }
 }
 
 }  // namespace rt

@@ -401,6 +401,23 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
+    // X. remove memref.global and other params. change them to built in runtime call.
+    // If m_SplitParams is set.
+    //
+    // This method is tricky and buggy. Be careful.
+    //===----------------------------------------------------------------------===//
+    if (m_SplitParams) {
+      pm.clear();
+      pm.addPass(mlir::nncv::createSplitParamsPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module,
+                    "Remove memref.global and other params. change them to built in runtime call.");
+      std::string whereToSave = "model.bin";
+      ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
+    }
+
+    //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
     //===----------------------------------------------------------------------===//
     {
@@ -568,18 +585,13 @@ void DnnModelLowering::run() {
     if (m_SplitParams) {
       pm.clear();
       pm.addPass(mlir::nncv::createSplitParamsPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
                     "Remove memref.global and other params. change them to built in runtime call.");
       std::string whereToSave = "model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
-
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
 
     //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization

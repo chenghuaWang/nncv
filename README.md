@@ -7,6 +7,7 @@ Neural Networks Inference&Compile Framework for Computer Vision(NNCV).
   - [1.1 CPU Target](#11-cpu-target)
   - [1.2 NV GPU Target](#12-nv-gpu-target)
   - [1.3 Using external model parameters](#13-using-external-model-parameters)
+  - [1.4 Binary Params Data Layout](#14-binary-params-data-layout)
 - [2. Nncv's Lang](#2-nncvs-lang)
   - [2.1 Examples](#21-examples)
     - [2.1.1 Quick Pow](#211-quick-pow)
@@ -55,14 +56,14 @@ Currently, nncv supports a very simple lowering pipeline. It basicly uses tiling
 If you want to compile a DL model to cpu target(without parallel). You can use commands below to generate a object file:
 
 ```sh
-nncv-c -warp-c-interface -target HostWoParallel res18.mlir -o optimizedRes18.mlir
+nncv-c -wrap-c-interface -target HostWoParallel res18.mlir -o optimizedRes18.mlir
 mlir-translate -mlir-to-llvmir optimizedRes18.mlir -o res18.ll
 llc -filetype=object res18.ll -o libres18.o
 ```
 
 > If you want to enable multi-threads on cpu target, use `HostWParallel` option instead:
 >
-> `nncv-c -warp-c-interface -target HostWParallel res18.mlir -o optimizedRes18.mlir`
+> `nncv-c -wrap-c-interface -target HostWParallel res18.mlir -o optimizedRes18.mlir`
 
 At this point, you can write a simple piece of code to call the forward function inside libres18.o. Here I give a simple C++ implementation.
 
@@ -141,6 +142,10 @@ nncv will try to use wmma intr provided by Tensor Core. Tensor Core supports tf3
 ### 1.3 Using external model parameters
 
 If you want to use external model parameters, then you need to import an nncv runtime library.
+
+### 1.4 Binary Params Data Layout
+
+
 
 ## 2. Nncv's Lang
 

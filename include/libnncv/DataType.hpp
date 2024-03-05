@@ -11,8 +11,18 @@
 namespace nncv {
 namespace rt /*runtime*/ {
 
-typedef int16_t NoType16bType;
-typedef int32_t NoType32bType;
+enum class dataType : size_t {
+  kFloat32 = 0x1,
+  kFloat16,
+  kInt32,
+  kInt16,
+  kUnknow,
+};
+
+typedef int16_t nncvInt16;
+typedef int32_t nncvInt32;
+typedef uint32_t nncvFloat32;
+typedef uint16_t nncvFloat16;
 
 template<typename T, size_t N>
 struct MemRefDescriptor {
@@ -51,17 +61,52 @@ struct MemRefMagicHead {
 
 // write/read from file.
 struct MemRefFlatBuffer {
+  MemRefFlatBuffer() = delete;
+  MemRefFlatBuffer(const dataType& dt) : m_dataType(dt) {}
+  ~MemRefFlatBuffer();
   bool read(const std::string& path);
   bool write(const std::string& path);
-  inline void* getBuffer() { return m_unrankedBuffer; };
 
   void addMemRefIndexer(const MemRefIndexer& indexer, void* data);
 
  private:
+  void wrap();
+
+  inline void* createMemRefDescriptor(MemRefIndexer& mri, void* data) {
+    switch (m_dataType) {
+      case dataType::kFloat16: {
+        switch (mri.dims) {
+          case 1: {
+            auto _ptr = new MemRefDescriptor<nncvFloat16, 1>();
+            _ptr->allocated = (nncvFloat16*)data;
+            _ptr->aligned = nullptr;
+            _ptr->offset = 0;
+            _ptr->sizes[0] = mri.shape[0];
+            _ptr->strides[0] = 1;
+          }
+        }
+        break;
+      }
+      case dataType::kFloat32: {
+        break;
+      }
+      case dataType::kInt16: {
+        break;
+      }
+      case dataType::kInt32: {
+        break;
+      }
+      case dataType::kUnknow: {
+        return nullptr;
+      }
+    }
+    return nullptr;
+  }
+
   MemRefMagicHead m_head;
   std::vector<MemRefIndexer> m_indexer;
   std::vector<void*> m_data;
-  void* m_unrankedBuffer;
+  dataType m_dataType;
 };
 
 }  // namespace rt

@@ -170,11 +170,7 @@ void AtenBackendLoweringPipeline::run() {
         utils::ExecObject exec("polymer-opt");
         exec.pushArgs("-reg2mem");
         exec.pushArgs("-extract-scop-stmt");
-        if (m_usingOmp) {
-          exec.pushArgs("-pluto-opt=parallelize gen-parallel");
-        } else {
-          exec.pushArgs("-pluto-opt");
-        }
+        exec.pushArgs("-pluto-opt=parallelize gen-parallel");
         exec.pushArgs(".cache.air");
         exec.pushArgs("-o");
         exec.pushArgs(".cache.mlir");
@@ -196,9 +192,19 @@ void AtenBackendLoweringPipeline::run() {
       }
     }
 
+    // TODO inline the function that has scope.stmt attribute
+    {
+      pm.clear();
+      pm.addPass(mlir::createInlinerPass());
+      (void)pm.run(*m_Module);
+    }
+
+    // TODO lower all affine to scf
+
     // outline map to block and threads
     {
       pm.clear();
+      // TODO change to parallel-loops-to-gpu
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createAffineForToGPUPass());
       (void)pm.run(*m_Module);
     }
