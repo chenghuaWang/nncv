@@ -13,7 +13,7 @@ void MemRefFlatBuffer::addMemRefIndexer(const MemRefIndexer& indexer, void* data
 
 bool MemRefFlatBuffer::read(const std::string& path) {
   std::ifstream inf(path, std::ifstream::binary);
-  if (inf.good()) return false;
+  if (!inf.good()) return false;
 
   // read head
   inf.read(reinterpret_cast<char*>(&m_head), sizeof(MemRefMagicHead));
@@ -33,15 +33,15 @@ bool MemRefFlatBuffer::read(const std::string& path) {
 
   // read all binary data
   for (auto item : m_indexer) {
-    void* tmp;
+    char* tmp;
     size_t eleLen = 1;
     for (size_t idx = 0; idx < item.dims; ++idx) { eleLen *= item.shape[idx]; }
 
     // allocate a array for tmp
-    // TODO
+    tmp = new char[item.eleWidth * eleLen];
 
     inf.read(reinterpret_cast<char*>(tmp), item.eleWidth * eleLen);
-    m_data.push_back(tmp);
+    m_data.push_back((void*)tmp);
   }
 
   inf.close();
@@ -88,24 +88,35 @@ bool MemRefFlatBuffer::write(const std::string& path) {
 void MemRefFlatBuffer::wrap() {
   // 1. wrap all void* form m_data to unranked memref, such as memref<*xf32>
   assert(m_data.size() == m_indexer.size() && "the data's size miss match the indxer's size");
-  // TODO
   for (size_t i = 0; i < m_data.size(); ++i) {
-    void* descriptor = nullptr;
-    switch (m_dataType) {
-      case dataType::kFloat16: {
-        break;
-      }
-      case dataType::kFloat32: {
-        break;
-      }
-      case dataType::kInt16: {
-        break;
-      }
-      case dataType::kInt32: {
-        break;
-      }
-      case dataType::kUnknow: {
-      }
+    // get descriptor
+    void* descriptor = createMemRefDescriptor(m_indexer[i], m_data[i]);
+    // wrap to UnrankedMemRefType
+    void* _ptr_unrankedMemRef = createUnarnkedMemRef(m_indexer[i].dims, descriptor);
+    // push to Unranked wrap vector
+    m_wrapedUnrankMemRef.push_back(_ptr_unrankedMemRef);
+  }
+
+  // wrap to memref<dimsxmemref<*xtype>>
+  switch (m_dataType) {
+    case dataType::kFloat16: {
+      WRAP_ALL_TO_ONE_DIM_MEMREF(nncvFloat16)
+      break;
+    }
+    case dataType::kFloat32: {
+      WRAP_ALL_TO_ONE_DIM_MEMREF(nncvFloat32)
+      break;
+    }
+    case dataType::kInt16: {
+      WRAP_ALL_TO_ONE_DIM_MEMREF(nncvInt16)
+      break;
+    }
+    case dataType::kInt32: {
+      WRAP_ALL_TO_ONE_DIM_MEMREF(nncvInt32)
+      break;
+    }
+    case dataType::kUnknow: {
+      break;
     }
   }
 }

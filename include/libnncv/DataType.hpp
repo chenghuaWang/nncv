@@ -8,6 +8,97 @@
 #include <iostream>
 #include <vector>
 
+#define WRAPED_PARAMS_TYPE(type) MemRefDescriptor<UnrankedMemRefType<type>, 1>
+
+#define WRAP_ALL_TO_ONE_DIM_MEMREF(type)                                    \
+  auto _ptr = new MemRefDescriptor<UnrankedMemRefType<type>, 1>;            \
+  _ptr->allocated = (UnrankedMemRefType<type>*)m_wrapedUnrankMemRef.data(); \
+  _ptr->aligned = (UnrankedMemRefType<type>*)m_wrapedUnrankMemRef.data();   \
+  _ptr->offset = 0;                                                         \
+  _ptr->sizes[0] = m_indexer.size();                                        \
+  _ptr->strides[0] = 1;                                                     \
+  m_wraped = (void*)_ptr;
+
+#define ADD_DEC_TO_UNRANK_MEMREF(type)        \
+  auto _ptr = new UnrankedMemRefType<type>(); \
+  _ptr->descriptor = describe;                \
+  _ptr->rank = rank;                          \
+  return (void*)_ptr;
+
+#define ADD_SHAPES_INFER_FOR_MEMREF(type)                                           \
+  switch (mri.dims) {                                                               \
+    case 1: {                                                                       \
+      auto _ptr = new MemRefDescriptor<type, 1>();                                  \
+      _ptr->allocated = (type*)data;                                                \
+      _ptr->aligned = (type*)data;                                                  \
+      _ptr->offset = 0;                                                             \
+      _ptr->sizes[0] = mri.shape[0];                                                \
+      _ptr->strides[0] = 1;                                                         \
+      return (void*)_ptr;                                                           \
+      break;                                                                        \
+    }                                                                               \
+    case 2: {                                                                       \
+      auto _ptr = new MemRefDescriptor<type, 2>();                                  \
+      _ptr->allocated = (type*)data;                                                \
+      _ptr->aligned = (type*)data;                                                  \
+      _ptr->offset = 0;                                                             \
+      _ptr->sizes[0] = mri.shape[0];                                                \
+      _ptr->sizes[1] = mri.shape[1];                                                \
+      _ptr->strides[0] = 1;                                                         \
+      _ptr->strides[1] = mri.shape[0];                                              \
+      return (void*)_ptr;                                                           \
+      break;                                                                        \
+    }                                                                               \
+    case 3: {                                                                       \
+      auto _ptr = new MemRefDescriptor<type, 3>();                                  \
+      _ptr->allocated = (type*)data;                                                \
+      _ptr->aligned = (type*)data;                                                  \
+      _ptr->offset = 0;                                                             \
+      _ptr->sizes[0] = mri.shape[0];                                                \
+      _ptr->sizes[1] = mri.shape[1];                                                \
+      _ptr->sizes[2] = mri.shape[2];                                                \
+      _ptr->strides[0] = 1;                                                         \
+      _ptr->strides[1] = mri.shape[0];                                              \
+      _ptr->strides[2] = mri.shape[0] * mri.shape[1];                               \
+      return (void*)_ptr;                                                           \
+      break;                                                                        \
+    }                                                                               \
+    case 4: {                                                                       \
+      auto _ptr = new MemRefDescriptor<type, 4>();                                  \
+      _ptr->allocated = (type*)data;                                                \
+      _ptr->aligned = (type*)data;                                                  \
+      _ptr->offset = 0;                                                             \
+      _ptr->sizes[0] = mri.shape[0];                                                \
+      _ptr->sizes[1] = mri.shape[1];                                                \
+      _ptr->sizes[2] = mri.shape[2];                                                \
+      _ptr->sizes[3] = mri.shape[3];                                                \
+      _ptr->strides[0] = 1;                                                         \
+      _ptr->strides[1] = mri.shape[0];                                              \
+      _ptr->strides[2] = mri.shape[0] * mri.shape[1];                               \
+      _ptr->strides[3] = mri.shape[0] * mri.shape[1] * mri.shape[2];                \
+      return (void*)_ptr;                                                           \
+      break;                                                                        \
+    }                                                                               \
+    case 5: {                                                                       \
+      auto _ptr = new MemRefDescriptor<type, 5>();                                  \
+      _ptr->allocated = (type*)data;                                                \
+      _ptr->aligned = (type*)data;                                                  \
+      _ptr->offset = 0;                                                             \
+      _ptr->sizes[0] = mri.shape[0];                                                \
+      _ptr->sizes[1] = mri.shape[1];                                                \
+      _ptr->sizes[2] = mri.shape[2];                                                \
+      _ptr->sizes[3] = mri.shape[3];                                                \
+      _ptr->sizes[4] = mri.shape[4];                                                \
+      _ptr->strides[0] = 1;                                                         \
+      _ptr->strides[1] = mri.shape[0];                                              \
+      _ptr->strides[2] = mri.shape[0] * mri.shape[1];                               \
+      _ptr->strides[3] = mri.shape[0] * mri.shape[1] * mri.shape[2];                \
+      _ptr->strides[4] = mri.shape[0] * mri.shape[1] * mri.shape[2] * mri.shape[3]; \
+      return (void*)_ptr;                                                           \
+      break;                                                                        \
+    }                                                                               \
+  }
+
 namespace nncv {
 namespace rt /*runtime*/ {
 
@@ -69,31 +160,64 @@ struct MemRefFlatBuffer {
 
   void addMemRefIndexer(const MemRefIndexer& indexer, void* data);
 
+  template<typename T>
+  inline T* getWrapedData() {
+    return (T*)m_wraped;
+  }
+
+  inline void printInfo() {
+    int cnt = 0;
+    for (int iv = 0; iv < m_indexer.size(); ++iv) {
+      auto item = m_indexer[iv];
+      printf("idx: %d, shape[", cnt++);
+      for (int i = 0; i < item.dims - 1; ++i) { printf("%ld, ", item.shape[i]); }
+      printf("%ld], at %p\n", item.shape[item.dims - 1], m_data[iv]);
+    }
+  }
+
  private:
   void wrap();
+
+  inline void* createUnarnkedMemRef(int64_t rank, void* describe) {
+    switch (m_dataType) {
+      case dataType::kFloat16: {
+        ADD_DEC_TO_UNRANK_MEMREF(nncvFloat16)
+        break;
+      }
+      case dataType::kFloat32: {
+        ADD_DEC_TO_UNRANK_MEMREF(nncvFloat32)
+        break;
+      }
+      case dataType::kInt16: {
+        ADD_DEC_TO_UNRANK_MEMREF(nncvInt16)
+        break;
+      }
+      case dataType::kInt32: {
+        ADD_DEC_TO_UNRANK_MEMREF(nncvInt32)
+        break;
+      }
+      case dataType::kUnknow: {
+        return nullptr;
+      }
+    }
+  }
 
   inline void* createMemRefDescriptor(MemRefIndexer& mri, void* data) {
     switch (m_dataType) {
       case dataType::kFloat16: {
-        switch (mri.dims) {
-          case 1: {
-            auto _ptr = new MemRefDescriptor<nncvFloat16, 1>();
-            _ptr->allocated = (nncvFloat16*)data;
-            _ptr->aligned = nullptr;
-            _ptr->offset = 0;
-            _ptr->sizes[0] = mri.shape[0];
-            _ptr->strides[0] = 1;
-          }
-        }
+        ADD_SHAPES_INFER_FOR_MEMREF(nncvFloat16)
         break;
       }
       case dataType::kFloat32: {
+        ADD_SHAPES_INFER_FOR_MEMREF(nncvFloat32)
         break;
       }
       case dataType::kInt16: {
+        ADD_SHAPES_INFER_FOR_MEMREF(nncvInt16)
         break;
       }
       case dataType::kInt32: {
+        ADD_SHAPES_INFER_FOR_MEMREF(nncvInt32)
         break;
       }
       case dataType::kUnknow: {
@@ -106,7 +230,9 @@ struct MemRefFlatBuffer {
   MemRefMagicHead m_head;
   std::vector<MemRefIndexer> m_indexer;
   std::vector<void*> m_data;
+  std::vector<void*> m_wrapedUnrankMemRef;
   dataType m_dataType;
+  void* m_wraped;
 };
 
 }  // namespace rt

@@ -11,3 +11,4 @@ add_test(libnncv-test alloc_test)
 
 # Other test unit
 add_subdirectory(MemSolver)
+add_subdirectory(Rt)

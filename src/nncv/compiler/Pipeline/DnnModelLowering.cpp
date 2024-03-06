@@ -417,6 +417,13 @@ void DnnModelLowering::run() {
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
 
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+
     //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
     //===----------------------------------------------------------------------===//
