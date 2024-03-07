@@ -394,4 +394,13 @@ def SplitParams : Pass<"split-params"> {
       "mlir::nncv::createSplitParamsPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// Split Params Flat Array
+//===----------------------------------------------------------------------===//
+def SplitParamsFlatArray : Pass<"split-params-flat-array"> {
+  let summary = "split all params to a binary file, and turn all memref.get_global to lib call. Using flaty array method";
+  let constructor =
+      "mlir::nncv::createSplitParamsFlatArrayPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

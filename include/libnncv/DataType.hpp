@@ -8,6 +8,15 @@
 #include <iostream>
 #include <vector>
 
+#define WRAP_FOR_MEMREF_ARRAY(type)          \
+  auto _ptr = new MemRefDescriptor<type, 1>; \
+  _ptr->aligned = (type*)m_binaryData;       \
+  _ptr->allocated = (type*)m_binaryData;     \
+  _ptr->offset = 0;                          \
+  _ptr->strides[0] = 1;                      \
+  _ptr->sizes[0] = size_0;                   \
+  m_wraped = _ptr;
+
 #define WRAPED_PARAMS_TYPE(type) MemRefDescriptor<UnrankedMemRefType<type>, 1>
 
 #define WRAP_ALL_TO_ONE_DIM_MEMREF(type)                                    \
@@ -150,6 +159,47 @@ struct MemRefMagicHead {
   size_t numMemRefIndex;
 };
 
+class MemRefFlatArray {
+ public:
+  MemRefFlatArray() = delete;
+  MemRefFlatArray(const dataType& dt) : m_dataType(dt) {}
+  ~MemRefFlatArray();
+  bool read(const std::string& path);
+  bool write(const std::string& path);
+
+  void addMemRefIndexer(const MemRefIndexer& indexer, void* data);
+
+  template<typename T>
+  inline T* getWrapedData() {
+    return (T*)m_wraped;
+  }
+
+  inline void* get() { return m_wraped; }
+
+ private:
+  void wrap();
+
+ private:
+  // magic head
+  MemRefMagicHead m_head;
+
+  // register will use vars below
+  std::vector<MemRefIndexer> m_indexer;
+  std::vector<void*> m_data;
+  dataType m_dataType;
+
+  // read file and write to this two var.
+  void* m_wraped;
+  char* m_binaryData;
+};
+
+// The Flat Buffer uses UnrankedMemref to pass a set of memref, which is buggy now. Try to use
+// MemRefFlatArray now.
+//
+// see-discuss:
+// https://discourse.llvm.org/t/how-to-pass-a-set-of-memrefs-to-an-mlir-function-from-the-c-side/77424/1
+// see-patch: https://reviews.llvm.org/D96397#change-2RDEmSq5iVxi
+//
 // write/read from file.
 struct MemRefFlatBuffer {
   MemRefFlatBuffer() = delete;

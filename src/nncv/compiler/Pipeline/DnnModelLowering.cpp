@@ -66,6 +66,7 @@
 #include "nncv/compiler/Conversion/MatMulOptimize/MatMulOptVec.hpp"
 #include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
 #include "nncv/compiler/Conversion/Transforms/SplitParams.hpp"
+#include "nncv/compiler/Conversion/Transforms/SplitParamsFlatArray.hpp"
 #include "nncv/compiler/Conversion/Vectorization/Vec.hpp"
 #include "nncv/compiler/Dialects/LinalgExt/Transforms/Passes.hpp"
 #include "nncv/compiler/Conversion/Passes.h"
@@ -408,21 +409,14 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     if (m_SplitParams) {
       pm.clear();
-      pm.addPass(mlir::nncv::createSplitParamsPass());
+      pm.addPass(mlir::nncv::createSplitParamsFlatArrayPass());
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
-                    "Remove memref.global and other params. change them to built in runtime call.");
+                    "Remove memref.global and other params. change them to built in runtime call");
       std::string whereToSave = "model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
-
-    if (!m_OutputFilePath.empty()) {
-      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-    } else {
-      m_Module->dump();
-    }
-    return;
 
     //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
@@ -591,7 +585,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     if (m_SplitParams) {
       pm.clear();
-      pm.addPass(mlir::nncv::createSplitParamsPass());
+      pm.addPass(mlir::nncv::createSplitParamsFlatArrayPass());
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,

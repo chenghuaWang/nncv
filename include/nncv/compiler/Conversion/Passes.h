@@ -39,6 +39,7 @@
 
 #include "nncv/compiler/Conversion/Transforms/RemoveSelfMemRefCopy.hpp"
 #include "nncv/compiler/Conversion/Transforms/SplitParams.hpp"
+#include "nncv/compiler/Conversion/Transforms/SplitParamsFlatArray.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

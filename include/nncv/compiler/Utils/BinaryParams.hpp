@@ -67,7 +67,6 @@ struct MemRefFlatBuffer {
     return instance;
   }
 
- private:
   MemRefMagicHead m_head;
   std::vector<MemRefIndexer> m_indexer;
   std::vector<void*> m_data;
