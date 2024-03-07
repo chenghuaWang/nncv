@@ -9,18 +9,22 @@
 #include "mlir/Conversion/SCFToOpenMP/SCFToOpenMP.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
+#include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
+#include "mlir/Dialect/GPU/Pipelines/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
 #include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
+#include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 #include "nncv/compiler/Utils/MlirIo.hpp"
 #include "nncv/compiler/Utils/Exec.hpp"
 
@@ -192,20 +196,26 @@ void AtenBackendLoweringPipeline::run() {
       }
     }
 
-    // TODO inline the function that has scope.stmt attribute
+    // map to nvptx
     {
       pm.clear();
-      pm.addPass(mlir::createInlinerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
+      pm.addPass(mlir::createParallelLoopToGpuPass());
+      pm.addPass(mlir::createGpuKernelOutliningPass());
       (void)pm.run(*m_Module);
     }
 
-    // TODO lower all affine to scf
-
-    // outline map to block and threads
+    // lower all to llvm and nnvm
     {
       pm.clear();
-      // TODO change to parallel-loops-to-gpu
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createAffineForToGPUPass());
+      // gpu pass pipeline
+      // mlir::registerLLVMDialectTranslation(*m_Module->getContext());
+      ::nncv::compiler::pipeline::GPUToNVVMPipelineOptions options;
+      options.cubinChip = "sm_75";
+      options.cubinFeatures = "+ptx75";
+      options.optLevel = 3;
+      ::nncv::compiler::pipeline::buildLowerToNVVMPassPipeline(pm, options);
       (void)pm.run(*m_Module);
     }
 

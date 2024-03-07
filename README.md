@@ -145,7 +145,34 @@ If you want to use external model parameters, then you need to import an nncv ru
 
 ### 1.4 Binary Params Data Layout
 
-
+```txt
++--------------------+
+|      MemRefHead    |
+| int64_t magicnumber|
+| size_t offsets     |
+| size_t nums Indexer|
++--------------------+
+|     Indexer-1      |
+| char[128] name     |
+| size_t dims        |
+| size_t[8] shape    |
+| size_t eleWidth    |
+| size_t algined     |
+| size_t offset      |
++--------------------+
+|     Indexer-2      |
++--------------------+
+|     Indexer-3      |
++--------------------+
+|     Indexer-4      |
++--------------------+
+|       data-1       |
++--------------------+
+|       data-2       |
++--------------------+
+|       data-3       |
++--------------------+
+```
 
 ## 2. Nncv's Lang
 

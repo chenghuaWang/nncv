@@ -86,6 +86,8 @@ add_llvm_executable(nncv-c
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/DnnModelLowering.hpp
     ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/AtenBackendLowering.cpp
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/AtenBackendLowering.hpp
+    ${PROJECT_SOURCE_DIR}/src/nncv/compiler/Pipeline/GpuToNnvmPipeline.cpp
+    ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp
 
     # CodeGen
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Frontend/CodeGenCtx.hpp
@@ -170,6 +172,13 @@ set(LinkedLibs
     MLIRTransformDialect
     MLIRTransformDialectTransforms
     MLIRLinalgTransformOps
+    MLIRNVVMToLLVMIRTranslation
+    MLIRNVVMDialect
+    MLIRNVVMToLLVM
+    MLIRGPUToLLVMIRTranslation
+    MLIRSPIRVToLLVMIRTranslation
+    MLIRLLVMToLLVMIRTranslation
+    
 
     # NNCV Libs
     # dialect itself
