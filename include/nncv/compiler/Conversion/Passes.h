@@ -40,6 +40,7 @@
 #include "nncv/compiler/Conversion/Transforms/RemoveSelfMemRefCopy.hpp"
 #include "nncv/compiler/Conversion/Transforms/SplitParams.hpp"
 #include "nncv/compiler/Conversion/Transforms/SplitParamsFlatArray.hpp"
+#include "nncv/compiler/Conversion/Transforms/RegisterMemToGpu.hpp"
 
 namespace mlir {
 #define GEN_PASS_REGISTRATION

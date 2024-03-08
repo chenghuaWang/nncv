@@ -403,4 +403,14 @@ def SplitParamsFlatArray : Pass<"split-params-flat-array"> {
       "mlir::nncv::createSplitParamsFlatArrayPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// register memref to gpu func
+//===----------------------------------------------------------------------===//
+def RegisterMemToGpu : InterfacePass<"register-memref-to-gpu",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "find gpu call and register all memref needed to gpu, using gpu.register";
+  let constructor =
+      "mlir::nncv::createRegisterMemToGpuPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

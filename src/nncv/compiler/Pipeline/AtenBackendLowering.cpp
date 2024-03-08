@@ -19,10 +19,13 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target//LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
 #include "nncv/compiler/Conversion/AtenToMlir/AtenMlirToLlvm.hpp"
 
+#include "nncv/compiler/Conversion/Transforms/RegisterMemToGpu.hpp"
 #include "nncv/compiler/Dialects/AutoTen/Transforms/Passes.hpp"
 #include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 #include "nncv/compiler/Utils/MlirIo.hpp"
@@ -153,7 +156,7 @@ void AtenBackendLoweringPipeline::run() {
     }
   } else if (m_isNVPTX && !m_isNative) {
     if (m_usingPoly) {
-      printf("[ Warn ] When lowering to gpu target, functions will be inlined by default\n");
+      printf("[ Warn ] Polymer is for CPU, using this flag will have performance issues\n");
       // Raise memref.load and memref.store to affine.load and affine.store
       // if memref is in affine scope.
       {
@@ -194,6 +197,16 @@ void AtenBackendLoweringPipeline::run() {
           compiler::utils::ImportMlirModuleFromFile(m_Module, &m_Context, ".cache.mlir");
         }
       }
+    } else {
+      // try to make parallel greedily
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineParallelizePass());
+      mlir::affine::AffineVectorizeOptions options;
+      options.vectorSizes = 128;
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize(options));
+      (void)pm.run(*m_Module);
     }
 
     // map to nvptx
@@ -203,19 +216,57 @@ void AtenBackendLoweringPipeline::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
       pm.addPass(mlir::createParallelLoopToGpuPass());
       pm.addPass(mlir::createGpuKernelOutliningPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuAsyncRegionPass());
       (void)pm.run(*m_Module);
     }
+
+    // register memref
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterMemToGpuPass());
+      (void)pm.run(*m_Module);
+    }
+
+    if (m_ShowLlvmIR) {
+      if (!m_OutputFilePath.empty()) {
+        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+      } else {
+        m_Module->dump();
+      }
+      exit(0);
+    } else {
+      if (!m_DierctlyRun) {
+        if (!m_OutputFilePath.empty()) {
+          compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+        } else {
+          std::string filePath = "a.nvm";
+          compiler::utils::SaveMlirModuleToFile(m_Module, filePath);
+        }
+      }
+    }
+    return;
 
     // lower all to llvm and nnvm
     {
       pm.clear();
       // gpu pass pipeline
-      // mlir::registerLLVMDialectTranslation(*m_Module->getContext());
+      mlir::registerLLVMDialectTranslation(*m_Module->getContext());
+      mlir::registerGPUDialectTranslation(*m_Module->getContext());
+      mlir::registerNVVMDialectTranslation(*m_Module->getContext());
       ::nncv::compiler::pipeline::GPUToNVVMPipelineOptions options;
       options.cubinChip = "sm_75";
       options.cubinFeatures = "+ptx75";
       options.optLevel = 3;
       ::nncv::compiler::pipeline::buildLowerToNVVMPassPipeline(pm, options);
+      (void)pm.run(*m_Module);
+    }
+
+    // clean up ip
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createReconcileUnrealizedCastsPass());
       (void)pm.run(*m_Module);
     }
 

@@ -6,6 +6,8 @@
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 
+#include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "nncv/compiler/Utils/MlirIo.hpp"
 
@@ -20,6 +22,8 @@ bool NncvJit::init() {
   // translation from MLIR to LLVM.
   mlir::registerBuiltinDialectTranslation(*m_Module->getContext());
   mlir::registerLLVMDialectTranslation(*m_Module->getContext());
+  mlir::registerGPUDialectTranslation(*(*m_DirectlyRunModule)->getContext());
+  mlir::registerNVVMDialectTranslation(*(*m_DirectlyRunModule)->getContext());
 
   return true;
 }
@@ -34,10 +38,27 @@ bool NncvJit::run(const std::string& entry_point) {
     mlir::registerBuiltinDialectTranslation(*(*m_DirectlyRunModule)->getContext());
     mlir::registerLLVMDialectTranslation(*(*m_DirectlyRunModule)->getContext());
     mlir::registerOpenMPDialectTranslation(*(*m_DirectlyRunModule)->getContext());
+    mlir::registerGPUDialectTranslation(*(*m_DirectlyRunModule)->getContext());
+    mlir::registerNVVMDialectTranslation(*(*m_DirectlyRunModule)->getContext());
+
+    auto tmBuilderOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
+    if (!tmBuilderOrError) {
+      llvm::errs() << "Failed to create a JITTargetMachineBuilder for the host\n";
+      return false;
+    }
+
+    llvm::SubtargetFeatures features;
+    features.AddFeature("avx2");
+    tmBuilderOrError->addFeatures(features.getFeatures());
+    auto tmOrError = tmBuilderOrError->createTargetMachine();
+    if (!tmOrError) {
+      llvm::errs() << "Failed to create a TargetMachine for the host\n";
+      return false;
+    }
 
     // set optimize pipline.
     auto optPipeline = mlir::makeOptimizingTransformer(/*optimized level*/ 3, /*size levl*/ 0,
-                                                       /*target machine*/ nullptr);
+                                                       /*target machine*/ tmOrError->get());
 
     // create execution engine.
     mlir::ExecutionEngineOptions engineOptions;
@@ -50,7 +71,8 @@ bool NncvJit::run(const std::string& entry_point) {
     engineOptions.sharedLibPaths = libPath;
 
     // create Engine on this Module.
-    auto maybeEngine = mlir::ExecutionEngine::create(*(*m_DirectlyRunModule), engineOptions);
+    auto maybeEngine = mlir::ExecutionEngine::create(*(*m_DirectlyRunModule), engineOptions,
+                                                     std::move(tmOrError.get()));
     if (!maybeEngine) {
       // FIXME throw error
       return false;

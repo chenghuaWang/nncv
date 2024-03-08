@@ -1,0 +1,26 @@
+/**
+ * author: chenghua.wang (chenghua.wang.edu@gmail.com)
+ * brief: test parallel element wise for GPU
+ */
+@package = "main";
+
+import "io";
+
+func add(lhs Tensor<1024, 1024, float32>, rhs Tensor<1024, 1024, float32>, dst Tensor<1024, 1024, float32>) {
+    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/1024; /*step*/ 1) {
+        pfor (j := 0; 1024; 1) {
+            dst[i, j] = lhs[i, j] + rhs[i, j]; // do 
+        };
+    };
+};
+
+func main() -> void {
+    var lhs Tensor<1024, 1024, float32>;
+    var rhs Tensor<1024, 1024, float32>;
+    var dst Tensor<1024, 1024, float32>;
+    start := io.clock();
+    add(lhs, rhs, dst);
+    end := io.clock();
+    io.print(end - start);
+    io.newLine();
+};
