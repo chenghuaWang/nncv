@@ -177,7 +177,7 @@ void AtenBackendLoweringPipeline::run() {
         utils::ExecObject exec("polymer-opt");
         exec.pushArgs("-reg2mem");
         exec.pushArgs("-extract-scop-stmt");
-        exec.pushArgs("-pluto-opt=parallelize gen-parallel");
+        exec.pushArgs("-pluto-opt=parallelize gen-parallel diamond-tiling");
         exec.pushArgs(".cache.air");
         exec.pushArgs("-o");
         exec.pushArgs(".cache.mlir");
@@ -226,25 +226,6 @@ void AtenBackendLoweringPipeline::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterMemToGpuPass());
       (void)pm.run(*m_Module);
     }
-
-    if (m_ShowLlvmIR) {
-      if (!m_OutputFilePath.empty()) {
-        compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-      } else {
-        m_Module->dump();
-      }
-      exit(0);
-    } else {
-      if (!m_DierctlyRun) {
-        if (!m_OutputFilePath.empty()) {
-          compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
-        } else {
-          std::string filePath = "a.nvm";
-          compiler::utils::SaveMlirModuleToFile(m_Module, filePath);
-        }
-      }
-    }
-    return;
 
     // lower all to llvm and nnvm
     {

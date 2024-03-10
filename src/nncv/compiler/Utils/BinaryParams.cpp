@@ -70,6 +70,7 @@ bool MemRefFlatBuffer::write(const std::string& path) {
     size_t eleLen = 1;
     for (size_t idx = 0; idx < m_indexer[i].dims; ++idx) { eleLen *= m_indexer[i].shape[idx]; }
     out.write(reinterpret_cast<const char*>(m_data[i]), (m_indexer[i].eleWidth) * eleLen);
+    delete (char*)m_data[i];
   }
 
   out.close();

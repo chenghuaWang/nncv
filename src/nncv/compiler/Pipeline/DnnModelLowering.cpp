@@ -306,8 +306,8 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
       pm.addPass(mlir::createParallelLoopToGpuPass());
       pm.addPass(mlir::createGpuKernelOutliningPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-7: Forall to Parallel and do Mapping to device");
     }
 
@@ -591,7 +591,7 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
-                    "Remove memref.global and other params. change them to built in runtime call.");
+                    "Remove memref.global and other params. change them to built in runtime call");
       std::string whereToSave = "model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }

@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -37,6 +38,10 @@ void replaceGetGlobalWithParams(IRRewriter& rewriter, mlir::func::FuncOp op,
                                 std::unordered_map<std::string, int64_t /*uuid*/>& mapIndexing,
                                 std::unordered_map<std::string, mlir::Type>& typeIndexing,
                                 std::vector<::nncv::utils::MemRefIndexer>& memrefIndexer) {
+  // check indexer size
+  if (!memrefIndexer.size())
+    printf("[ Erro ] The MemRefIndexer size is 0. This error may occured becauce of "
+           "dense_resource<__elided__>, which means thers is no data.\n");
   // get params in func op
   mlir::Value params = op.getArguments()[paramsIdxInArgList];
 
@@ -144,11 +149,33 @@ class SplitParamsFlatArrayPass : public impl::SplitParamsFlatArrayBase<SplitPara
       // get the dense attribute
       if (!mlir::isa<mlir::DenseElementsAttr>(op.getInitialValue().value())) continue;
       auto dense = op.getInitialValue().value().cast<mlir::DenseElementsAttr>();
-      printf("[ info ] Parameter of %s, Raw Data = %ld B \n", indexer.name,
-             dense.getRawData().size());
+      auto denseEleType = dense.getElementType();
 
-      // save to instance
-      MemRefFlatBufferInstancePtr->addMemRefIndexer(indexer, (void*)dense.getRawData().data());
+      // TODO modified the code below, add a raw data fetch method.
+      if (denseEleType.isa<mlir::Float16Type>()) {
+        printf("[ info ] Parameter of %s, Raw Data = %ld elements with [f16] type \n", indexer.name,
+               dense.getValues<llvm::APFloat>().size());
+        // TODO half is different.
+      } else if (denseEleType.isa<mlir::Float32Type>()) {
+        auto denseArray = dense.getValues<float>();
+        auto flattenSize = denseArray.size();
+        printf("[ info ] Parameter of %s, Raw Data = %ld elements with [f32] type \n", indexer.name,
+               flattenSize);
+        float* ptr = new float[flattenSize];
+        for (size_t i = 0; i < flattenSize; ++i) { ptr[i] = denseArray[i]; }
+        MemRefFlatBufferInstancePtr->addMemRefIndexer(indexer, ptr);
+      } else if (denseEleType.isa<mlir::IntegerType>()
+                 && denseEleType.getIntOrFloatBitWidth() != 32) {
+        auto denseArray = dense.getValues<int32_t>();
+        auto flattenSize = denseArray.size();
+        printf("[ info ] Parameter of %s, Raw Data = %ld elements with [i32] type \n", indexer.name,
+               dense.getValues<int32_t>().size());
+        int32_t* ptr = new int32_t[flattenSize];
+        for (size_t i = 0; i < flattenSize; ++i) { ptr[i] = denseArray[i]; }
+        MemRefFlatBufferInstancePtr->addMemRefIndexer(indexer, ptr);
+      } else {
+        llvm_unreachable("can't handle type not in [f32, f16, i32]");
+      }
     }
 
     // get all sizes
