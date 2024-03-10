@@ -241,5 +241,15 @@ MemRefFlatBuffer::~MemRefFlatBuffer() {
   for (auto item : m_data) { delete (char*)item; }
 }
 
+// memref printer. ref from
+// https://github.com/llvm/llvm-project/blob/9d3bf9b639eafeded82c6be295031262735d1dac/mlir/include/mlir/ExecutionEngine/RunnerUtils.h
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+extern "C" void _printMemrefF32(UnrankedMemRefType<float>* M) { impl::printMemRef(*M); }
+
+extern "C" void printMemrefF32(int64_t rank, void* ptr) {
+  UnrankedMemRefType<float> descriptor = {rank, ptr};
+  impl::_printMemrefF32(&descriptor);
+}
+
 }  // namespace rt
 }  // namespace nncv
