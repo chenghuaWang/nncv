@@ -5,6 +5,11 @@ module @__main {
   Aten.func private @printMemrefI64(memref<*xi64>)
   Aten.func private @printMemrefI32(memref<*xi32>)
   Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @printI64(!Aten.int<s, 64>)
+  Aten.func private @printF32(f32)
+  Aten.func private @printF64(f32)
+  Aten.func private @_mlir_ciface_nanoTime() -> !Aten.int<s, 64>
+  Aten.func private @printNewline()
   Aten.func private @matmul(%arg0: memref<6x6xf32>, %arg1: memref<6x6xf32>, %arg2: memref<6x6xf32>) {
     affine.for %arg3 = 0 to 6 {
       affine.for %arg4 = 0 to 6 {

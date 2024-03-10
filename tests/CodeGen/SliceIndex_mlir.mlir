@@ -8,14 +8,14 @@ module @__main {
     memref.store %c0_i32, %alloca[] : memref<i32>
     scf.while : () -> () {
       %0 = memref.load %alloca[] : memref<i32>
-      %1 = arith.cmpi ult, %0, %c128_i32 : i32
+      %1 = arith.cmpi slt, %0, %c128_i32 : i32
       scf.condition(%1)
     } do {
       %alloca_0 = memref.alloca() {alignment = 4 : i64} : memref<i32>
       memref.store %c0_i32, %alloca_0[] : memref<i32>
       scf.while : () -> () {
         %2 = memref.load %alloca_0[] : memref<i32>
-        %3 = arith.cmpi ult, %2, %c128_i32 : i32
+        %3 = arith.cmpi slt, %2, %c128_i32 : i32
         scf.condition(%3)
       } do {
         %2 = memref.load %alloca[] : memref<i32>

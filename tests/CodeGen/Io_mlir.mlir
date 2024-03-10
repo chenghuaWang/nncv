@@ -5,6 +5,11 @@ module @__main {
   func.func private @printMemrefI64(memref<*xi64>)
   func.func private @printMemrefI32(memref<*xi32>)
   func.func private @printMemrefI16(memref<*xi16>)
+  func.func private @printI64(i64)
+  func.func private @printF32(f32)
+  func.func private @printF64(f32)
+  func.func private @_mlir_ciface_nanoTime() -> i64
+  func.func private @printNewline()
   func.func private @matmul(%arg0: memref<6x6xf32>, %arg1: memref<6x6xf32>, %arg2: memref<6x6xf32>) {
     affine.for %arg3 = 0 to 6 {
       affine.for %arg4 = 0 to 6 {
@@ -68,10 +73,13 @@ module @__main {
     call @initEyeTensor(%alloc_2, %cst_0) : (memref<6x6xf32>, f32) -> ()
     call @initTensor(%alloc_3) : (memref<6x6xf32>) -> ()
     call @matmul(%alloc, %alloc_2, %alloc_3) : (memref<6x6xf32>, memref<6x6xf32>, memref<6x6xf32>) -> ()
+    memref.dealloc %alloc_2 : memref<6x6xf32>
+    memref.dealloc %alloc : memref<6x6xf32>
     %cast = memref.cast %alloc_3 : memref<6x6xf32> to memref<*xf32>
     call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
     call @fillTensor(%alloc_3, %cst) : (memref<6x6xf32>, f32) -> ()
     call @printMemrefF32(%cast) : (memref<*xf32>) -> ()
+    memref.dealloc %alloc_3 : memref<6x6xf32>
     return
   }
 }

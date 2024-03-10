@@ -143,6 +143,18 @@ nncv will try to use wmma intr provided by Tensor Core. Tensor Core supports tf3
 
 If you want to use external model parameters, then you need to import an nncv runtime library.
 
+```c++
+#include "libnncv/DataType.hpp"
+#include "libnncv/SystemIo.hpp"
+
+using namespace nncv::rt;
+
+MemRefFlatArray params(dataType::kFloat32);
+params.read("model.bin")
+
+_mlir_ciface_forward(..., ..., params.get());
+```
+
 ### 1.4 Binary Params Data Layout
 
 ```txt

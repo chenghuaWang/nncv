@@ -9,6 +9,7 @@ module @__main {
     %0 = call @add(%c8_i32, %c8_i32) : (i32, i32) -> i32
     %alloc = memref.alloc() : memref<1x1xf32>
     call @_lib_nncv_do_something(%alloc) : (memref<1x1xf32>) -> ()
+    memref.dealloc %alloc : memref<1x1xf32>
     return
   }
 }

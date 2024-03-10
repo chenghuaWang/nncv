@@ -10,10 +10,10 @@ if __name__ == "__main__":
     print("[ info ] Run Aten-lang Grammar Parse Test")
     for item in testFiles:
         completed = subprocess.run(
-            ['../../build/bin/nncv-c', '-aten-ir', item, '-o', item[:-5] + '_aten_ir.air'])
+            ['../../build/bin/nncv-c', '-aten-ir', item, '-o', item[:-5] + '_aten_ir.air', "-config-file-path", "../../build/bin/config.json"])
         boolStr = "success" if completed.returncode == 0 else "failure"
         print("[ info ] running on file: ", item, boolStr)
         completed = subprocess.run(
-            ['../../build/bin/nncv-c', '-built-in-mlir', item, '-o', item[:-5] + '_mlir.mlir'])
+            ['../../build/bin/nncv-c', '-built-in-mlir', item, '-o', item[:-5] + '_mlir.mlir', "-config-file-path", "../../build/bin/config.json"])
         boolStr = "success" if completed.returncode == 0 else "failure"
         print("[ info ] running on file: ", item, boolStr)

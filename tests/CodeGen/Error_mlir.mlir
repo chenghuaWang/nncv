@@ -7,7 +7,7 @@ module @__main {
     memref.store %c0_i32, %alloca[] : memref<i32>
     scf.while : () -> () {
       %0 = memref.load %alloca[] : memref<i32>
-      %1 = arith.cmpi ult, %0, %c128_i32 : i32
+      %1 = arith.cmpi slt, %0, %c128_i32 : i32
       scf.condition(%1)
     } do {
       %0 = memref.load %alloca[] : memref<i32>

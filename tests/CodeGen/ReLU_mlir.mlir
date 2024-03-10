@@ -5,7 +5,7 @@ module @__main {
     affine.for %arg2 = 0 to 192 {
       affine.for %arg3 = 0 to 192 {
         %0 = memref.load %arg0[%arg2, %arg3] : memref<192x192xf32>
-        %1 = arith.cmpf ugt, %0, %cst : f32
+        %1 = arith.cmpf ogt, %0, %cst : f32
         %2 = arith.extui %1 : i1 to i8
         %3 = arith.cmpi ugt, %2, %c0_i8 : i8
         scf.if %3 {

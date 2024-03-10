@@ -19,7 +19,7 @@ module @__main {
     return %0 : f64
   }
   func.func @testBoolExpr(%arg0: i32, %arg1: i32) -> i8 {
-    %0 = arith.cmpi ult, %arg0, %arg1 : i32
+    %0 = arith.cmpi slt, %arg0, %arg1 : i32
     %1 = arith.extui %0 : i1 to i8
     return %1 : i8
   }
