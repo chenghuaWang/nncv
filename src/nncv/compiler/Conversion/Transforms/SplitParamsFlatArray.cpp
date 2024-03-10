@@ -68,22 +68,6 @@ void replaceGetGlobalWithParams(IRRewriter& rewriter, mlir::func::FuncOp op,
     mlir::OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(ggop);  // insert after ggop
 
-    // subview Op
-    llvm::SmallVector<int64_t> offsetsAttr{uuidToOffset[uuid]};
-    int64_t _sizes = 1;
-    for (size_t i = 0; i < indexer.dims; ++i) _sizes *= indexer.shape[i];
-    llvm::SmallVector<int64_t> sizesAttr{_sizes};
-    llvm::SmallVector<int64_t> strideAttr{1};
-    auto subviewStirdeAttr =
-        mlir::StridedLayoutAttr::get(rewriter.getContext(), uuidToOffset[uuid], {1});
-    auto subviewType = mlir::MemRefType::get(
-        sizesAttr, params.getType().cast<mlir::MemRefType>().getElementType(), subviewStirdeAttr);
-    mlir::Value subview = rewriter.create<mlir::memref::SubViewOp>(
-        op->getLoc(), /*result type*/
-        subviewType,
-        /*base ptr*/ params, /*offset*/ offsetsAttr, /*sizes*/ sizesAttr,
-        /*stride*/ strideAttr);
-
     // reinterpret cast Op
     auto toType = typeIndexing[symbolName];
     llvm::SmallVector<int64_t> reshapedSizes;
@@ -97,9 +81,14 @@ void replaceGetGlobalWithParams(IRRewriter& rewriter, mlir::func::FuncOp op,
     }
     std::reverse(__reshapedStrides.begin(), __reshapedStrides.end());
     for (auto item : __reshapedStrides) reshapedStrides.push_back(item);
+    auto reinterpretTypeLayoutAttr =
+        mlir::StridedLayoutAttr::get(rewriter.getContext(), uuidToOffset[uuid], reshapedStrides);
+    auto reinterpretType = mlir::MemRefType::get(toType.cast<mlir::MemRefType>().getShape(),
+                                                 toType.cast<mlir::MemRefType>().getElementType(),
+                                                 reinterpretTypeLayoutAttr);
     auto reshaped = rewriter.create<mlir::memref::ReinterpretCastOp>(
-        op->getLoc(), /*result type*/ toType.cast<mlir::MemRefType>(), /*source*/ subview,
-        /*offset*/ 0,
+        op->getLoc(), /*result type*/ reinterpretType, /*source*/ params,
+        /*offset*/ uuidToOffset[uuid],
         /*shape*/ reshapedSizes, /*strides*/ reshapedStrides);
 
     // erase All
