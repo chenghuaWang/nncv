@@ -697,6 +697,11 @@ extern "C" void _printMemrefF32(UnrankedMemRefType<float>* m);
 
 extern "C" void printMemrefF32(int64_t rank, void* ptr);
 
+// image class
+class Image {};
+
+// utils for create image and memref. Alloc and Dealloc.
+
 }  // namespace rt
 }  // namespace nncv
 
