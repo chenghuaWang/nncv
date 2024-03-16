@@ -70,7 +70,7 @@ bool vectorizeGeneric(IRRewriter& rewriter, mlir::Operation* op) {
   };
 
   if (isGenericStyleMatMul(op)) {
-    llvm::SmallVector<int64_t> VectorSizes = {/*parallel*/ 4, /*parallel*/ 4, /*reduction*/ 1};
+    llvm::SmallVector<int64_t> VectorSizes = {/*parallel*/ 8, /*parallel*/ 8, /*reduction*/ 8};
     llvm::SmallVector<bool> ScalableVecDims{/*parallel*/ false, /*parallel*/ false,
                                             /*reduction*/ false};
     if (failed(linalg::vectorize(rewriter, op, VectorSizes, ScalableVecDims))) { return false; }
@@ -91,7 +91,7 @@ bool vectorizeGeneric(IRRewriter& rewriter, mlir::Operation* op) {
 
 void emitErrorWhenFailed(bool isOk, mlir::Operation* op) {
   if (!isOk) {
-    printf("[ Warn ] When tiling %s op, failed.\n", op->getName().getStringRef().str().c_str());
+    printf("[ Warn ] When vectorize %s op, failed.\n", op->getName().getStringRef().str().c_str());
   }
 }
 

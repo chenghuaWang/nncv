@@ -354,7 +354,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateWinogradOrImg2ColPassPipeline(pm);
+      populateWinogradOrImg2ColPassPipeline(pm, /*winograd*/ false, /*img2col*/ false);
       runPmSilent(pm, m_Module);
     }
 
@@ -530,7 +530,8 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateWinogradOrImg2ColPassPipeline(pm);
+      populateWinogradOrImg2ColPassPipeline(pm, /*winograd*/ false, /*img2col*/ false);
+      populateTensorOptimizationPassPipeline(pm);
       runPmSilent(pm, m_Module);
     }
 
@@ -607,7 +608,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 9. distribute scf.forall to parallel for gpu target.
+    // 9. distribute scf.forall to parallel for cpu target.
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
