@@ -1,0 +1,11 @@
+@package = "main";
+
+type Image struct {
+    h int32;
+    w int32;
+    c int32;
+};
+
+func main() {
+    var a int32;
+};

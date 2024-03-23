@@ -1,11 +1,9 @@
-
-#include "mlir/IR/ValueRange.h"
 #ifdef NNCV_ENABLE_ANTLR
 
 #include <string>
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/SymbolTable.h"
-
+#include "mlir/IR/ValueRange.h"
 #include "llvm/ADT/SmallVector.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -943,6 +941,7 @@ std::any AutoTen2MlirVisitor::visitFunctionDecl(AutoTenV1Parser::FunctionDeclCon
 std::any AutoTen2MlirVisitor::visitBlock(AutoTenV1Parser::BlockContext* ctx) {
   visit(ctx->LeftBrace());
 
+  if (!ctx->statementList()) return VisitorParserReturn();
   for (auto item : ctx->statementList()->statement()) { visit(item); }
 
   visit(ctx->RightBrace());
@@ -2515,7 +2514,7 @@ std::any AutoTen2MlirVisitor::visitQualifiedIdent(AutoTenV1Parser::QualifiedIden
 std::any AutoTen2MlirVisitor::visitType_(AutoTenV1Parser::Type_Context* ctx) {
   if (ctx->typeName()) {
     llvm::SmallVector<llvm::StringRef, 2> symbolName =
-        std::any_cast<llvm::SmallVector<llvm::StringRef, 2>>(ctx->typeName());
+        std::any_cast<llvm::SmallVector<llvm::StringRef, 2>>(visit(ctx->typeName()));
     // NOTE: case 1. recursive struct ref. No need to check symbol table. Just create a StructSelf
     // class.
     if (symbolName.size() == 1 && symbolName[0] == m_curParsingTypeDeclName) {
