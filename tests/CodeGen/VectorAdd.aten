@@ -1,0 +1,20 @@
+@package = "main";
+
+import "io";
+
+func VecAdd(lhs Tensor<128, float32>, rhs Tensor<128, float32>, dst Tensor<128, float32>) {
+    pfor(i := 0; 128; 1) {
+        dst[i] = lhs[i] + rhs[i];
+    };
+};
+
+func main() -> void {
+    var a Tensor<128, float32>;
+    var b Tensor<128, float32>;
+    var c Tensor<128, float32>;
+    start := io.clock();
+    VecAdd(a, b, c);
+    end := io.clock();
+    io.print(end - start);
+    io.newLine();
+};

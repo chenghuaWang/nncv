@@ -27,9 +27,14 @@ class MemrefLoadToAffineLoardPattern final : public mlir::OpRewritePattern<mlir:
   mlir::LogicalResult matchAndRewrite(mlir::memref::LoadOp op,
                                       mlir::PatternRewriter& rewriter) const override {
     if (isInAffineForScope(op)) {
-      rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
-                                                              /*memref*/ op.getMemRef(),
-                                                              /*indicies*/ op.getIndices());
+      if (op.getIndices().empty()) {
+        rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
+                                                                /*memref*/ op.getMemRef());
+      } else {
+        rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
+                                                                /*memref*/ op.getMemRef(),
+                                                                /*indicies*/ op.getIndices());
+      }
       return mlir::LogicalResult::success();
     } else {
       return mlir::LogicalResult::failure();

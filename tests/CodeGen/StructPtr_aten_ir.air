@@ -1,0 +1,5 @@
+module @__main {
+  Aten.func private @main() {
+    Aten.return
+  }
+}
