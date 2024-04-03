@@ -9,6 +9,7 @@
  *
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+#include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 
 #include "mlir/Conversion/MathToLibm/MathToLibm.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
@@ -22,6 +23,9 @@
 #include "mlir/Dialect/MLProgram/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target//LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -222,7 +226,7 @@ void DnnModelLowering::run() {
   mlir::PassManager pm(m_Module.get()->getName());
   if (m_GenNVPTX) {
     //===----------------------------------------------------------------------===//
-    // 1 Finalize all input
+    // 1. Finalize all input
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -232,7 +236,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 2 Doing some tensor eliminatation
+    // 2. Doing some tensor eliminatation
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -241,7 +245,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 3 Using winograd method before lowering MatMul
+    // 3. Using winograd method before lowering MatMul
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -250,7 +254,7 @@ void DnnModelLowering::run() {
     }
 
     //===----------------------------------------------------------------------===//
-    // 4 High level tile And Decompose For GPU !!!
+    // 4. High level tile And Decompose For GPU !!!
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
@@ -287,6 +291,23 @@ void DnnModelLowering::run() {
     // further analyse.
 
     //===----------------------------------------------------------------------===//
+    // X. remove memref.global and other params. change them to built in runtime call.
+    // If m_SplitParams is set.
+    //
+    // This method is tricky and buggy. Be careful.
+    //===----------------------------------------------------------------------===//
+    if (m_SplitParams) {
+      pm.clear();
+      pm.addPass(mlir::nncv::createSplitParamsFlatArrayPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module,
+                    "Remove memref.global and other params. change them to built in runtime call");
+      std::string whereToSave = "model.bin";
+      ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
+    }
+
+    //===----------------------------------------------------------------------===//
     // 7. Finalize Vectorization For GPU !!!
     //===----------------------------------------------------------------------===//
     {
@@ -295,6 +316,19 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-6: Finalize Modern Vectorization");
     }
+
+    //===----------------------------------------------------------------------===//
+    // 11. Lowering vector dialect to nvgpu or gpu
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToGPUPass(/*use nvgpu*/ false));
+      runPmWithExit(
+          pm, m_Module,
+          "xxxxxxxxxxxxxxxxxxxx: Lowering all vector dialect to gpu or tensor core directly");
+    }
+
+    goto nv_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 8. Map to Blocks and Threads using builtin pass
@@ -306,23 +340,56 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
       pm.addPass(mlir::createParallelLoopToGpuPass());
       pm.addPass(mlir::createGpuKernelOutliningPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // register host memory to device side.
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterMemToGpuPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-7: Forall to Parallel and do Mapping to device");
     }
 
     //===----------------------------------------------------------------------===//
     // 9. Optimizing on gpu kernel
     //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      // async all device side kernel
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuAsyncRegionPass());
+      // eliminate barriers
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuEliminateBarriers());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-8: Optimize gpu kernel");
+    }
 
     //===----------------------------------------------------------------------===//
     // 10. Lowering Affine to SCF. And do some fusion
     //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateLoopFusionAndNormalizationPassPipeline(pm);
+      populateAffineToSCFPassPipeline(pm);
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
+    }
 
     //===----------------------------------------------------------------------===//
-    // 10. Lowering all one by one
+    // 12. Lowering all one by one
     //===----------------------------------------------------------------------===//
-
+    {
+      pm.clear();
+      // gpu pass pipeline
+      mlir::registerLLVMDialectTranslation(*m_Module->getContext());
+      mlir::registerGPUDialectTranslation(*m_Module->getContext());
+      mlir::registerNVVMDialectTranslation(*m_Module->getContext());
+      ::nncv::compiler::pipeline::GPUToNVVMPipelineOptions options;
+      options.cubinChip = "sm_75";
+      options.cubinFeatures = "+ptx75";
+      options.optLevel = 3;
+      ::nncv::compiler::pipeline::buildLowerToNVVMPassPipeline(pm, options);
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering to nvvm target");
+    }
+  nv_pipeline_exit:
     if (!m_OutputFilePath.empty()) {
       nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
     } else {
