@@ -220,6 +220,8 @@ int main(int argc, char* argv[]) {
       dnnModelLowerPipeline.setGenHostWoParallel();
     } else if (SetLowerTarget.getValue() == "NVPTX") {
       dnnModelLowerPipeline.setGenNVPTX();
+    } else if (SetLowerTarget.getValue() == "Native") {
+      dnnModelLowerPipeline.setGenNative();
     }
     if (!OutputFilename.getValue().empty()) {
       dnnModelLowerPipeline.setOutputFilePath(OutputFilename.getValue());

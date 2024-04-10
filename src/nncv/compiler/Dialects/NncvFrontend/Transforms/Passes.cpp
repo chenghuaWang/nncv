@@ -14,7 +14,7 @@ void mlir::nncv::createNncvFrontendToNormalPipeline(OpPassManager& pm, bool enab
   pm.addPass(mlir::nncv::createDetachElementwiseFromNamedOpsPass());
 
   // Conv2d1x1 to MatMul
-  pm.addPass(mlir::nncv::createConvertConv2D1x1ToMatmulPass());
+  // pm.addPass(mlir::nncv::createConvertConv2D1x1ToMatmulPass());
 
   if (enableImg2Col) {
     // image 2 col
