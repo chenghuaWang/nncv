@@ -413,4 +413,11 @@ def RegisterMemToGpu : InterfacePass<"register-memref-to-gpu",
       "mlir::nncv::createRegisterMemToGpuPass()";
 }
 
+def DecomposeTensorConcat : InterfacePass<"decompose-tenosr-concat",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "decompose all concat to tenosr.empty and tensor.slice";
+  let constructor =
+      "mlir::nncv::createDecomposeTensorConcatPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES

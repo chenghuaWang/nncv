@@ -9,6 +9,7 @@
  *
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTensorConcat.hpp"
 #include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 
 #include "mlir/Conversion/MathToLibm/MathToLibm.h"
@@ -79,8 +80,15 @@
 #include "nncv/compiler/Utils/BinaryParams.hpp"
 #include "nncv/compiler/Utils/MlirIo.hpp"
 
+#include <filesystem>
+
 namespace nncv {
 namespace pipeline {
+
+std::string getDir(std::string& path) {
+  std::filesystem::path p(path);
+  return p.parent_path().string();
+}
 
 void populateOneBufferizationPassPipeline(mlir::PassManager& pm) {
   // empty tensor
@@ -402,7 +410,8 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
+      // decompose concat
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTensorConcatPass());
       populateInputOptimizationPassPipeline(pm);
       runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
     }
@@ -470,6 +479,8 @@ void DnnModelLowering::run() {
           "Pass Pipeline-6: Bufferization all to memref and do memref based optimization");
     }
 
+    // TODO Peel loops
+
     //===----------------------------------------------------------------------===//
     // X. remove memref.global and other params. change them to built in runtime call.
     // If m_SplitParams is set.
@@ -483,7 +494,9 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
                     "Remove memref.global and other params. change them to built in runtime call");
-      std::string whereToSave = "model.bin";
+      std::string rp = "";
+      if (!m_OutputFilePath.empty()) rp = getDir(m_OutputFilePath);
+      std::string whereToSave = rp + "/model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
 
@@ -578,7 +591,8 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
+      // decompose concat
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTensorConcatPass());
       populateInputOptimizationPassPipeline(pm);
       runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
     }
@@ -660,7 +674,9 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
                     "Remove memref.global and other params. change them to built in runtime call");
-      std::string whereToSave = "model.bin";
+      std::string rp = "";
+      if (!m_OutputFilePath.empty()) rp = getDir(m_OutputFilePath);
+      std::string whereToSave = rp + "/model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
 
@@ -756,6 +772,8 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
+      // decompose concat
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTensorConcatPass());
       populateInputOptimizationPassPipeline(pm);
       pm.addPass(mlir::createLinalgElementwiseOpFusionPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
@@ -787,7 +805,9 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module,
                     "Remove memref.global and other params. change them to built in runtime call");
-      std::string whereToSave = "model.bin";
+      std::string rp = "";
+      if (!m_OutputFilePath.empty()) rp = getDir(m_OutputFilePath);
+      std::string whereToSave = rp + "/model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
 
@@ -818,7 +838,6 @@ void DnnModelLowering::run() {
       // mlir::affine::AffineVectorizeOptions options;
       // options.vectorizeReductions = true;
       // options.vectorSizes = {8};
-      // options.fastestVaryingPattern = {0};
       // pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineVectorize());
 
       runPmWithExit(pm, m_Module, "Pass Pipeline-3: lowering all to affine loops");

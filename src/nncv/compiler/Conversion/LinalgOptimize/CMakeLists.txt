@@ -5,6 +5,7 @@ add_mlir_conversion_library(NncvLinalgOptimizeConversion
     RegisterLinalgOps.cpp
     OneShotTiling.cpp
     DecomposeTransGen.cpp
+    DecomposeTensorConcat.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/nncv/compiler/Conversion/LinalgOptimize

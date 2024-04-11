@@ -22,6 +22,7 @@
 #include "nncv/compiler/Conversion/LinalgOptimize/RegisterLinalgOps.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/OneShotTiling.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTransGen.hpp"
+#include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTensorConcat.hpp"
 
 #include "nncv/compiler/Conversion/Transforms/NestedTransformErasePass.hpp"
 #include "nncv/compiler/Conversion/Vectorization/VectorizePad.hpp"
