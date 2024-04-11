@@ -43,6 +43,11 @@
 #include "nncv/compiler/Conversion/Transforms/SplitParamsFlatArray.hpp"
 #include "nncv/compiler/Conversion/Transforms/RegisterMemToGpu.hpp"
 
+#include "nncv/compiler/Conversion/CodeGen/Advance/FinalVec.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/TileAndDispatch.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/PeelDispatched.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/VecDispatched.hpp"
+
 namespace mlir {
 #define GEN_PASS_REGISTRATION
 #include "Conversion/Passes.h.inc"

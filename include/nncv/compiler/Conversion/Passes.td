@@ -420,4 +420,32 @@ def DecomposeTensorConcat : InterfacePass<"decompose-tenosr-concat",
       "mlir::nncv::createDecomposeTensorConcatPass()";
 }
 
+def AdvancedTileAndDispatch : InterfacePass<"advanced-tile-and-dispatch",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "tile and dispatch all";
+  let constructor =
+      "mlir::nncv::createAdvancedTileAndDispatchPass()";
+}
+
+def AdvancedPeelDispatched : InterfacePass<"advanced-peel-dispatched",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "peel dispatched op";
+  let constructor =
+      "mlir::nncv::createAdvancedPeelDispatchedPass()";
+}
+
+def AdvancedVecDispatched : InterfacePass<"advanced-vec-dispatched",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "vectorize all dispatchedn op";
+  let constructor =
+      "mlir::nncv::createAdvancedVecDispatchedPass()";
+}
+
+def AdvancedFinalVec : InterfacePass<"advanced-final-vec",
+                    "mlir::FunctionOpInterface"> {
+  let summary = "final vectorize all dispatchedn op";
+  let constructor =
+      "mlir::nncv::createAdvancedFinalVecPass()";
+}
+
 #endif //! ATEN_CONVERSION_PASSES
