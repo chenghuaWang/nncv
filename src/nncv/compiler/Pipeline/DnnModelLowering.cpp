@@ -868,6 +868,9 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
       pm.addPass(mlir::createConvertVectorToLLVMPass());
+      // significant. expand arith ops inorder to make it legalizable.
+      pm.addPass(mlir::arith::createArithExpandOpsPass());
+      pm.addPass(mlir::createArithToLLVMConversionPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       pm.addPass(mlir::createConvertMathToLLVMPass());

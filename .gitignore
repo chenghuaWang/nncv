@@ -22,3 +22,4 @@ deps/
 third_party/glfw/
 a.nvm
 Pfor_mlir.mlir
+tests/ExportTorch/yolov5s.pt
