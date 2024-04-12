@@ -11,4 +11,4 @@ module = torch_mlir.compile(net, torch.ones(
     1, 3, 256, 256, dtype=torch.float32), output_type="linalg-on-tensors")
 with open("m.mlir", "w") as f:
     # large_elements_limit=0
-    f.write(module.operation.get_asm())
+    f.write(module.operation.get_asm(large_elements_limit=0))

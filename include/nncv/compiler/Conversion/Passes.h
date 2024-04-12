@@ -45,7 +45,7 @@
 
 #include "nncv/compiler/Conversion/CodeGen/Advance/FinalVec.hpp"
 #include "nncv/compiler/Conversion/CodeGen/Advance/TileAndDispatch.hpp"
-#include "nncv/compiler/Conversion/CodeGen/Advance/PeelDispatched.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/PeeledDispatchedToParallel.hpp"
 #include "nncv/compiler/Conversion/CodeGen/Advance/VecDispatched.hpp"
 
 namespace mlir {

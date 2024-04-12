@@ -6,14 +6,15 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#define GEN_PASS_DECL_ADVANCEDPEELDISPATCHED
+#define GEN_PASS_DECL_ADVANCEDPEELEDDISPATCHEDTOPARALLEL
 #include "Conversion/Passes.h.inc"
 
 namespace mlir::nncv {
 
 namespace {}
 
-std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>> createAdvancedPeelDispatchedPass();
+std::unique_ptr<InterfacePass<mlir::FunctionOpInterface>>
+createAdvancedPeeledDispatchedToParallelPass();
 
 }  // namespace mlir::nncv
 

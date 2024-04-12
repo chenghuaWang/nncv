@@ -222,6 +222,8 @@ int main(int argc, char* argv[]) {
       dnnModelLowerPipeline.setGenNVPTX();
     } else if (SetLowerTarget.getValue() == "Native") {
       dnnModelLowerPipeline.setGenNative();
+    } else if (SetLowerTarget.getValue() == "AdvX86") {
+      dnnModelLowerPipeline.setAdvX86();
     }
     if (!OutputFilename.getValue().empty()) {
       dnnModelLowerPipeline.setOutputFilePath(OutputFilename.getValue());

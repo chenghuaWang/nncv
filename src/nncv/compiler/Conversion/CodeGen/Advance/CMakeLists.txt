@@ -1,6 +1,6 @@
 add_mlir_conversion_library(NncvCodeGenAdvanceConversion
     FinalVec.cpp
-    PeelDispatched.cpp
+    PeeledDispatchedToParallel.cpp
     TileAndDispatch.cpp
     VecDispatched.cpp
 

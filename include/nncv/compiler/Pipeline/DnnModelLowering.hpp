@@ -62,6 +62,7 @@ class DnnModelLowering {
   inline void setGenHostWParallel() { m_GenHostWParallel = true; }
   inline void setUsingNncvIR() { m_UsingNncvIR = true; }
   inline void setGenNative() { m_Native = true; }
+  inline void setAdvX86() { m_AdvanceX86 = true; }
   inline void setOutputFilePath(const std::string& _CurPath) { m_OutputFilePath = _CurPath; }
   inline void setGenConfigFileOnly(bool flag) {
     m_GenConfigFileOnly = flag;
@@ -85,6 +86,7 @@ class DnnModelLowering {
   bool m_WaprC = false;
   bool m_SplitParams = false;
   bool m_Native = false;
+  bool m_AdvanceX86 = false;
   int64_t m_NumThreads = 4;
   std::string m_ConfigFilePath;
   mlir::MLIRContext& m_Context;

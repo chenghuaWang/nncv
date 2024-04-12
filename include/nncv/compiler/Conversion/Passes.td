@@ -427,11 +427,11 @@ def AdvancedTileAndDispatch : InterfacePass<"advanced-tile-and-dispatch",
       "mlir::nncv::createAdvancedTileAndDispatchPass()";
 }
 
-def AdvancedPeelDispatched : InterfacePass<"advanced-peel-dispatched",
+def AdvancedPeeledDispatchedToParallel : InterfacePass<"advanced-peeled-dispatched-to-parallel",
                     "mlir::FunctionOpInterface"> {
   let summary = "peel dispatched op";
   let constructor =
-      "mlir::nncv::createAdvancedPeelDispatchedPass()";
+      "mlir::nncv::createAdvancedPeeledDispatchedToParallelPass()";
 }
 
 def AdvancedVecDispatched : InterfacePass<"advanced-vec-dispatched",

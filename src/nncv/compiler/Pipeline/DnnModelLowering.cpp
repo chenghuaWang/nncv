@@ -9,6 +9,8 @@
  *
  */
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/PeeledDispatchedToParallel.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/TileAndDispatch.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTensorConcat.hpp"
 #include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 
@@ -879,6 +881,89 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createReconcileUnrealizedCastsPass());
       pm.addPass(mlir::nncv::createNestedTransformErasePass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-4: lowering all");
+    }
+
+    if (!m_OutputFilePath.empty()) {
+      nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
+    } else {
+      m_Module->dump();
+    }
+    return;
+  } else if (m_AdvanceX86) {
+    //===----------------------------------------------------------------------===//
+    // 1 Finalize all input
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      // decompose concat
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTensorConcatPass());
+
+      // normal input optimization
+      populateInputOptimizationPassPipeline(pm);
+
+      // fuse element-wise op
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLinalgElementwiseOpFusionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLinalgFoldUnitExtentDimsPass());
+
+      // clear and cano
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+
+      runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 2 Doing some tensor eliminate
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateTensorOptimizationPassPipeline(pm);
+      runPmWithExit(pm, m_Module, "Pass Pipeline-2: Cast Away Tensor Leading One Dims");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 3 Using winograd method before lowering MatMul
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateWinogradOrImg2ColPassPipeline(pm, /*winograd*/ false, /*img2col*/ true);
+      runPmSilent(pm, m_Module);
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 4 Tile and dispatch ops
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createAdvancedTileAndDispatchPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLinalgFoldUnitExtentDimsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-3: High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 5 Peel scf.for and lift up those for loops that marked as parallel.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      // peel
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createForLoopPeelingPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+
+      // lift up normall loops with parallel tag to scf.parallel.
+      // only keep the outmost scf.for to parallel
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::nncv::createAdvancedPeeledDispatchedToParallelPass());
+
+      runPmWithExit(pm, m_Module, "Pass Pipeline-4: Peel all for loops. And dispatch to threads");
+    }
+
+    {
+      // to memref and infer types;
     }
 
     if (!m_OutputFilePath.empty()) {
