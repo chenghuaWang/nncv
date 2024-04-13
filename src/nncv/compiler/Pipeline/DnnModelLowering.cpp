@@ -11,6 +11,7 @@
 #include "nncv/compiler/Pipeline/DnnModelLowering.hpp"
 #include "nncv/compiler/Conversion/CodeGen/Advance/PeeledDispatchedToParallel.hpp"
 #include "nncv/compiler/Conversion/CodeGen/Advance/TileAndDispatch.hpp"
+#include "nncv/compiler/Conversion/CodeGen/Advance/VecDispatched.hpp"
 #include "nncv/compiler/Conversion/LinalgOptimize/DecomposeTensorConcat.hpp"
 #include "nncv/compiler/Pipeline/GpuToNnvmPipeline.hpp"
 
@@ -959,14 +960,130 @@ void DnnModelLowering::run() {
 
       // lift up normall loops with parallel tag to scf.parallel.
       // only keep the outmost scf.for to parallel
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::nncv::createAdvancedPeeledDispatchedToParallelPass());
-
+      // pm.addNestedPass<mlir::func::FuncOp>(
+      //     mlir::nncv::createAdvancedPeeledDispatchedToParallelPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-4: Peel all for loops. And dispatch to threads");
     }
 
+    //===----------------------------------------------------------------------===//
+    // 6 Bufferization all
+    //===----------------------------------------------------------------------===//
     {
-      // to memref and infer types;
+      pm.clear();
+      populateOneBufferizationPassPipeline(pm);
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::memref::createResolveShapedTypeResultDimsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::memref::createResolveRankedShapeTypeResultDimsPass());
+      runPmWithExit(
+          pm, m_Module,
+          "Pass Pipeline-5: Bufferization all to memref and do memref based optimization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 7 Prepare vec
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createAdvancedVecDispatchedPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-6: Prepare Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 8 Convert Tensor To linalg
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::createConvertTensorToLinalgPass());
+      pm.addPass(mlir::createConvertLinalgToLoopsPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-7: Convert Tensor To Linalg");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 9 Finalize Vectorization
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createModernVectorizationAllPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      runPmWithExit(pm, m_Module, "Pass Pipeline-8: Finalize Modern Vectorization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // X. remove memref.global and other params. change them to built in runtime call.
+    // If m_SplitParams is set.
+    //
+    // This method is tricky and buggy. Be careful.
+    //===----------------------------------------------------------------------===//
+    if (m_SplitParams) {
+      pm.clear();
+      pm.addPass(mlir::nncv::createSplitParamsFlatArrayPass());
+      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(mlir::createCSEPass());
+      runPmWithExit(pm, m_Module,
+                    "Remove memref.global and other params. change them to built in runtime call");
+      std::string rp = "";
+      if (!m_OutputFilePath.empty()) rp = getDir(m_OutputFilePath);
+      std::string whereToSave = rp + "/model.bin";
+      ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 10 distribute scf.forall to parallel for cpu target.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLoweringScfForAllToParallelPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopFusionPass());
+      runPmSilent(pm, m_Module);
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 11. Lowering Affine to SCF. And do some fusion
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      populateLoopFusionAndNormalizationPassPipeline(pm);
+      populateAffineToSCFPassPipeline(pm);
+      runPmWithExit(pm, m_Module,
+                    "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
+    }
+
+    //===----------------------------------------------------------------------===//
+    // 12. Lowering all one by one.
+    //===----------------------------------------------------------------------===//
+    {
+      pm.clear();
+      pm.addPass(mlir::createConvertLinalgToLoopsPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      if (m_WaprC) {
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::LLVM::createRequestCWrappersPass());
+      }
+      pm.addPass(mlir::memref::createExpandStridedMetadataPass());
+      {
+        mlir::ConvertSCFToOpenMPPassOptions options;
+        printf("[ Warn ] Set num thread to %ld\n", m_NumThreads);
+        options.numThreads = m_NumThreads;
+        pm.addPass(mlir::createConvertSCFToOpenMPPass(options));
+      }
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertVectorToSCFPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+      pm.addPass(mlir::createConvertVectorToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createConvertMathToLLVMPass());
+      pm.addPass(mlir::createConvertMathToLibmPass());
+      pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createConvertSCFToCFPass());
+      pm.addPass(mlir::createConvertOpenMPToLLVMPass());
+      pm.addPass(mlir::createConvertFuncToLLVMPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      pm.addPass(mlir::createReconcileUnrealizedCastsPass());
+      pm.addPass(mlir::nncv::createNestedTransformErasePass());
+      // run
+      runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
     }
 
     if (!m_OutputFilePath.empty()) {
