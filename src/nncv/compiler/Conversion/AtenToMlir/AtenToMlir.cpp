@@ -226,7 +226,7 @@ class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
 
     switch (op.getPredicate()) {
       case mlir::aten::BinOpPredicate::Mul: {
-        if (newType.isa<mlir::IntegerType>()) {
+        if (newType.isa<mlir::IntegerType>() || newType.isa<mlir::IndexType>()) {
           rewriter.replaceOpWithNewOp<mlir::arith::MulIOp>(op, newType, adaptor.getLhs(),
                                                            adaptor.getRhs());
         } else if (newType.isa<mlir::FloatType>()) {
@@ -236,7 +236,7 @@ class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
         break;
       }
       case mlir::aten::BinOpPredicate::Div: {
-        if (newType.isa<mlir::IntegerType>()) {
+        if (newType.isa<mlir::IntegerType>() || newType.isa<mlir::IndexType>()) {
           if (newType.isSignlessInteger()) {
             rewriter.replaceOpWithNewOp<mlir::arith::DivUIOp>(op, newType, adaptor.getLhs(),
                                                               adaptor.getRhs());
@@ -248,7 +248,7 @@ class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
         break;
       }
       case mlir::aten::BinOpPredicate::Mod: {
-        if (newType.isa<mlir::IntegerType>()) {
+        if (newType.isa<mlir::IntegerType>() || newType.isa<mlir::IndexType>()) {
           if (newType.isSignlessInteger()) {
             rewriter.replaceOpWithNewOp<mlir::arith::RemUIOp>(op, newType, adaptor.getLhs(),
                                                               adaptor.getRhs());
@@ -260,20 +260,20 @@ class AtenBinOpLowering : public OpConversionPattern<aten::BinOp> {
         break;
       }
       case mlir::aten::BinOpPredicate::Add: {
-        if (newType.isa<mlir::IntegerType>()) {
+        if (newType.isa<mlir::IntegerType>() || newType.isa<mlir::IndexType>()) {
           rewriter.replaceOpWithNewOp<mlir::arith::AddIOp>(op, newType, adaptor.getLhs(),
                                                            adaptor.getRhs());
-        } else {
+        } else if (newType.isa<mlir::FloatType>()) {
           rewriter.replaceOpWithNewOp<mlir::arith::AddFOp>(op, newType, adaptor.getLhs(),
                                                            adaptor.getRhs());
         }
         break;
       }
       case mlir::aten::BinOpPredicate::Sub: {
-        if (newType.isa<mlir::IntegerType>()) {
+        if (newType.isa<mlir::IntegerType>() || newType.isa<mlir::IndexType>()) {
           rewriter.replaceOpWithNewOp<mlir::arith::SubIOp>(op, newType, adaptor.getLhs(),
                                                            adaptor.getRhs());
-        } else {
+        } else if (newType.isa<mlir::FloatType>()) {
           rewriter.replaceOpWithNewOp<mlir::arith::SubFOp>(op, newType, adaptor.getLhs(),
                                                            adaptor.getRhs());
         }

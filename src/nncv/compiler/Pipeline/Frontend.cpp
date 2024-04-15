@@ -1,5 +1,6 @@
 #include "nncv/compiler/Pipeline/Frontend.hpp"
 #include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/Passes.h"
@@ -116,6 +117,19 @@ void FrontendPipeline::run() {
         exit(-1);
       }
     }
+
+    // fuse affine
+    {
+      pm.clear();
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createLoopFusionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLoopInvariantCodeMotionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createPipelineDataTransferPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineScalarReplacementPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass(true));
+      (void)pm.run(*m_Module);
+    }
+
     if (m_genBuiltinMlir) {
       if (!m_OutputFilePath.empty()) {
         compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);

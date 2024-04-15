@@ -1,0 +1,34 @@
+@package = "main";
+
+import "io";
+
+// D = A * B + C
+pub func MulAdd(A Tensor<2048, 2048, float32>,
+                B Tensor<2048, 2048, float32>,
+                C Tensor<2048, 2048, float32>,
+                D Tensor<2048, 2048, float32>) {
+    pfor (i := 0; 2048; 1) {
+        pfor (j := 0; 2048; 1) {
+            D[i, j] = A[i, j] * B[i, j];
+        };
+    };
+    pfor (i := 0; 2048; 1) {
+        pfor (j := 0; 2048; 1) {
+            D[i, j] = D[i, j] + C[i, j];
+        };
+    };
+};
+
+func main() {
+    var A Tensor<2048, 2048, float32>;
+    var B Tensor<2048, 2048, float32>;
+    var C Tensor<2048, 2048, float32>;
+    var D Tensor<2048, 2048, float32>;
+    start := io.clock();
+    MulAdd(A, B, C ,D);
+    end := io.clock();
+    io.print(D[0, 0]);
+    io.newLine();
+    io.print(end - start);
+    io.newLine();
+};

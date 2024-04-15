@@ -88,6 +88,8 @@ struct ModernConv2dInterfaceTileOptions {
   SmallVector<bool> canForall;
 };
 
+// FIXME: Change to fit GPU SIMT loops.
+
 ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* op) {
   // A method enum all sizes for selecting a output batch size.
   auto mathedOutputBatchSize = [](int64_t a) -> int64_t {

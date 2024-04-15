@@ -1,8 +1,10 @@
 @package = "main";
 
-pub func ReLU(input Tensor<192, 192, float32>, output Tensor<192, 192, float32>) {
-    pfor(i := 0; 192; 1) {
-        pfor(j := 0; 192; 1) {
+import "io";
+
+pub func ReLU(input Tensor<2048, 2048, float32>, output Tensor<2048, 2048, float32>) {
+    pfor(i := 0; 2048; 1) {
+        pfor(j := 0; 2048; 1) {
             if (input[i, j] > 0.0){
                 output[i, j] = input[i, j];
             } else {
@@ -10,4 +12,14 @@ pub func ReLU(input Tensor<192, 192, float32>, output Tensor<192, 192, float32>)
             };
         };
     };
+};
+
+func main() {
+    var a Tensor<2048, 2048, float32>;
+    var b Tensor<2048, 2048, float32>;
+    s := io.clock();
+    ReLU(a, b);
+    e := io.clock();
+    io.print(e - s);
+    io.newLine();
 };

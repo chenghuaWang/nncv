@@ -36,16 +36,6 @@ void AtenBackendLoweringPipeline::run() {
   mlir::PassManager pm(m_Module.get()->getName());
   bool isPollyOk = false;
 
-  {
-    pm.clear();
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::createLoopInvariantCodeMotionPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopInvariantCodeMotionPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createPipelineDataTransferPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineScalarReplacementPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::affine::createAffineLoopNormalizePass(true));
-    (void)pm.run(*m_Module);
-  }
-
   if (m_isNative && !m_isNVPTX) {
     if (m_usingPoly) {
       // Raise memref.load and memref.store to affine.load and affine.store
@@ -100,6 +90,7 @@ void AtenBackendLoweringPipeline::run() {
         pm.addNestedPass<mlir::func::FuncOp>(
             mlir::nncv::aten::createRaiseMemerefLSInAffineToAffineLSPass());
         pm.addNestedPass<mlir::func::FuncOp>(mlir::createLowerAffinePass());
+        pm.addNestedPass<mlir::func::FuncOp>(mlir::createParallelLoopFusionPass());
         (void)pm.run(*m_Module);
       }
       {

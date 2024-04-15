@@ -6,21 +6,33 @@
 
 import "io";
 
-func add(lhs Tensor<1024, 1024, float32>, rhs Tensor<1024, 1024, float32>, dst Tensor<1024, 1024, float32>) {
-    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/1024; /*step*/ 1) {
-        pfor (j := 0; 1024; 1) {
+func add(lhs Tensor<2048, 2048, float32>, rhs Tensor<2048, 2048, float32>, dst Tensor<2048, 2048, float32>) {
+    pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/2048; /*step*/ 1) {
+        pfor (j := 0; 2048; 1) {
             dst[i, j] = lhs[i, j] + rhs[i, j]; // do 
         };
     };
 };
 
+func init(src Tensor<2048, 2048, float32>, v float32) {
+    for (i := 0; i  < 2048; i++) {
+        for (j := 0; j < 2048; j++) {
+            src[i, j] = v;
+        };
+    };
+};
+
 func main() -> void {
-    var lhs Tensor<1024, 1024, float32>;
-    var rhs Tensor<1024, 1024, float32>;
-    var dst Tensor<1024, 1024, float32>;
+    var lhs Tensor<2048, 2048, float32>;
+    var rhs Tensor<2048, 2048, float32>;
+    var dst Tensor<2048, 2048, float32>;
+    init(lhs, 1.0);
+    init(rhs, 2.0);
     start := io.clock();
     add(lhs, rhs, dst);
     end := io.clock();
     io.print(end - start);
+    io.newLine();
+    io.print(dst[0, 0]);
     io.newLine();
 };

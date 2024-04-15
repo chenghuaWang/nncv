@@ -241,8 +241,20 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      pm.addPass(mlir::bufferization::createEmptyTensorToAllocTensorPass());
-      populateInputOptimizationPassPipeline(pm, /*img2col*/ false, /*padding*/ false);
+      // decompose concat
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createDecomposeTensorConcatPass());
+
+      // normal input optimization
+      populateInputOptimizationPassPipeline(pm);
+
+      // fuse element-wise op
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLinalgElementwiseOpFusionPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createLinalgFoldUnitExtentDimsPass());
+
+      // clear and cano
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+
       runPmWithExit(pm, m_Module, "Pass Pipeline-1: Frontend Normalization Pass Pipeline");
     }
 
@@ -260,7 +272,7 @@ void DnnModelLowering::run() {
     //===----------------------------------------------------------------------===//
     {
       pm.clear();
-      populateWinogradOrImg2ColPassPipeline(pm);
+      populateWinogradOrImg2ColPassPipeline(pm, /*winograd*/ false, /*img2col*/ true);
       runPmSilent(pm, m_Module);
     }
 
@@ -275,6 +287,8 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-3: Perform gpu based tiling and map");
     }
+
+    goto nv_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec For GPU !!!
@@ -357,6 +371,8 @@ void DnnModelLowering::run() {
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-7: Forall to Parallel and do Mapping to device");
     }
+
+    goto nv_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 9. Optimizing on gpu kernel
