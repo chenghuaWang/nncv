@@ -10,12 +10,14 @@
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/Pipelines/Passes.h"
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
@@ -101,6 +103,8 @@ void AtenBackendLoweringPipeline::run() {
         pm.addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
         pm.addPass(mlir::memref::createExpandStridedMetadataPass());
         pm.addPass(mlir::arith::createArithExpandOpsPass());
+        pm.addPass(mlir::math::createMathUpliftToFMA());
+        pm.addPass(mlir::createConvertMathToLLVMPass());
         pm.addPass(mlir::createArithToLLVMConversionPass());
         pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
         pm.addPass(mlir::createConvertSCFToCFPass());

@@ -3,7 +3,103 @@
 import "io";
 import "math";
 
-func Softmax(a float32) -> float32 {
-    res := math.exp(a);
-    return res;
+func Linear(input Tensor<1024, 2048, float32>, weight Tensor<2048, 2048, float32>, dst Tensor<1024, 2048, float32>) {
+    pfor (i := 0; 1024; 1) {
+        pfor (j := 0; 2048; 1) {
+            pfor (k := 0; 2048; 1) {
+                dst[i, j] = dst[i, j] + input[i, k] * weight[k, j];
+            };
+        };
+    };
+};
+
+func DivideEleWise(input Tensor<1024, 1024, float32>, value float32) {
+    pfor (i := 0; 1024; 1) {
+        pfor (j := 0; 1024; 1) {
+            input[i, j] = input[i, j] / value;
+        };
+    };
+};
+
+func Transpose(input Tensor<1024, 2048, float32>, output Tensor<2048, 1024, float32>) {
+    pfor (i := 0; 1024; 1) {
+        pfor (j := 0; 2048; 1) {
+            output[j, i] = input[i, j];
+        };
+    };
+};
+
+func CalAttentionWeight(q Tensor<1024, 2048, float32>, kt Tensor<2048, 1024, float32>, atten Tensor<1024, 1024, float32>) {
+    pfor (i := 0; 1024; 1) {
+        pfor (j := 0; 1024; 1) {
+            pfor (k := 0; 2048; 1) {
+                atten[i, j] = atten[i, j] + q[i, k] * kt[k, j];
+            };
+        };
+    };
+};
+
+func CalAttenedValue(atten Tensor<1024, 1024, float32>, v Tensor<1024, 2048, float32>, out Tensor<1024, 2048, float32>) {
+    pfor (i := 0; 1024; 1) {
+        pfor (j := 0; 2048; 1) {
+            pfor (k := 0; 1024; 1) {
+                out[i, j] = out[i, j] + atten[i, k] * v[k, j];
+            };
+        };
+    };
+};
+
+func Softmax(input Tensor<1024, 1024, float32>) {
+    pfor (i := 0; 1024; 1) {
+        expsum := 0.0;
+        pfor (j := 0; 1024; 1) {
+            expsum = expsum + math.exp(input[i, j]);
+        };
+        pfor (j := 0; 1024; 1) {
+            input[i, j] = math.exp(input[i, j]) / expsum;
+        };
+    };
+};
+
+func main() -> void {
+    start_time := io.clock();
+    // Batch:1, Head: 1, Seq: 1024, HeadDim: 2048
+    var x Tensor<1024, 2048, float32>;
+    var q_weight Tensor<2048, 2048, float32>;
+    var k_weight Tensor<2048, 2048, float32>;
+    var v_weight Tensor<2048, 2048, float32>;
+
+    // get Q, K, V
+    var Q Tensor<1024, 2048, float32>;
+    var K Tensor<1024, 2048, float32>;
+    var V Tensor<1024, 2048, float32>;
+    Linear(x, q_weight, Q);
+    Linear(x, k_weight, K);
+    Linear(x, v_weight, V);
+
+    // get Attention
+    var KT Tensor<2048, 1024, float32>;
+    var atten_weight Tensor<1024, 1024, float32>;
+    Transpose(K, KT);
+    CalAttentionWeight(Q, KT, atten_weight);
+
+    // norm
+    DivideEleWise(atten_weight, 64.0);
+
+    // calculate Softmax
+    Softmax(atten_weight);
+
+    // attention to V
+    var hidden_out Tensor<1024, 2048, float32>;
+    CalAttenedValue(atten_weight, V, hidden_out);
+
+    // hidden layer for output
+    var hidden_weight Tensor<2048, 2048, float32>;
+    var out Tensor<1024, 2048, float32>;
+    Linear(hidden_out, hidden_weight, out);
+    end_time := io.clock();
+    io.print(out[0, 0]);
+    io.newLine();
+    io.print(end_time - start_time);
+    io.newLine();
 };
