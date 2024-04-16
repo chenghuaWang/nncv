@@ -39,6 +39,8 @@ namespace nncv {
 namespace compiler {
 namespace frontend {
 
+mlir::Value buildMathOp(mlir::ModuleOp& module, mlir::OpBuilder& builder,
+                        const std::string& mathFuncType, mlir::Location& loc, mlir::ValueRange& vr);
 void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc);
 void buildIoPrintCallOp(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc,
                         mlir::ValueRange& vr);
@@ -68,6 +70,7 @@ class AutoTen2MlirVisitor : public AutoTenV1ParserBaseVisitor {
   ParserState Ps;
 
  private:
+  bool m_useBuiltinMathFunction = false;
   AutoTenV1Lexer m_Lexer;
   mlir::ModuleOp m_TheModule;
   mlir::OpBuilder m_OpBuilder;

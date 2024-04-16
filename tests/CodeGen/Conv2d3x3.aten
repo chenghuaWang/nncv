@@ -2,13 +2,13 @@
 
 import "io";
 
-func Conv2d(input Tensor<1, 3, 256, 256, float32>,
+func Conv2d(input Tensor<1, 3, 2048, 2048, float32>,
             kernel Tensor<16, 3, 3, 3, float32>,
-            output Tensor<1, 16, 254, 254, float32>) {
+            output Tensor<1, 16, 2046, 2046, float32>) {
     pfor (n := 0; 1; 1) {
         pfor (k := 0; 16; 1) {
-            pfor (oh := 0; 254; 1) {
-                pfor (ow := 0; 254; 1) {
+            pfor (oh := 0; 2046; 1) {
+                pfor (ow := 0; 2046; 1) {
                     pfor (c := 0; 3; 1) {
                         pfor (r := 0; 3; 1) {
                             pfor (s := 0; 3; 1) {
@@ -24,10 +24,16 @@ func Conv2d(input Tensor<1, 3, 256, 256, float32>,
 
 func main() {
     // NCHW
-    var input Tensor<1, 3, 256, 256, float32>;
+    var input Tensor<1, 3, 2048, 2048, float32>;
     // KCRS
     var kernel Tensor<16, 3, 3, 3, float32>;
     // padding = 0, stride = 1
-    var output Tensor<1, 16, 254, 254, float32>;
+    var output Tensor<1, 16, 2046, 2046, float32>;
+
+    // timing.
+    start := io.clock();
     Conv2d(input, kernel, output);
+    end := io.clock();
+    io.print(end - start);
+    io.newLine();
 };

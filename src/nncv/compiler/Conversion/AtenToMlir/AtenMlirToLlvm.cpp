@@ -7,6 +7,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 
@@ -20,6 +21,7 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -51,6 +53,10 @@ class ConvertAtenMlirToLlvmPass
 
     // Arith
     mlir::arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
+
+    // math to libcall
+    mlir::populateMathAlgebraicSimplificationPatterns(patterns);
+    mlir::populateMathToLLVMConversionPatterns(typeConverter, patterns);
 
     // Scf to CF
     mlir::populateSCFToControlFlowConversionPatterns(patterns);

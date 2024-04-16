@@ -1,6 +1,8 @@
+#include <queue>
 #include <stack>
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -22,6 +24,12 @@ bool isInAffineForScope(mlir::Operation* op) {
   }
   return false;
 }
+
+struct ForOpValueMap {
+  void insertOp(mlir::affine::AffineForOp op) { forOp.push_back(op); }
+
+  llvm::SmallVector<mlir::affine::AffineForOp> forOp;
+};
 
 struct MapValueAndPosition {
   bool hasValue(mlir::Value v) {
@@ -68,7 +76,7 @@ mlir::AffineExpr buildTree(mlir::PatternRewriter& rewriter, mlir::Operation* op,
 
   if (isConstantIndexExpr(op)) {
     return rewriter.getAffineConstantExpr(
-        mlir::cast<arith::ConstantOp>(op).getValueAttr().cast<mlir::IntegerAttr>().getUInt());
+        mlir::cast<arith::ConstantOp>(op).getValueAttr().cast<mlir::IntegerAttr>().getInt());
   }
 
   auto lhs = op->getOperand(0);
@@ -78,13 +86,13 @@ mlir::AffineExpr buildTree(mlir::PatternRewriter& rewriter, mlir::Operation* op,
   mlir::AffineExpr rhsExpr;
 
   //  process lhs
-  if (isArithExpr(lhs.getDefiningOp())) {
+  if (lhs.getDefiningOp() && isArithExpr(lhs.getDefiningOp())) {
     lhsExpr = buildTree(rewriter, lhs.getDefiningOp(), allNewOperand, curPos);
-  } else if (isConstantIndexExpr(lhs.getDefiningOp())) {
+  } else if (lhs.getDefiningOp() && isConstantIndexExpr(lhs.getDefiningOp())) {
     lhsExpr = rewriter.getAffineConstantExpr(mlir::cast<arith::ConstantOp>(lhs.getDefiningOp())
                                                  .getValueAttr()
                                                  .cast<mlir::IntegerAttr>()
-                                                 .getUInt());
+                                                 .getInt());
   } else {
     // check is in current Operand or not.
     if (!allNewOperand.hasValue(lhs)) { allNewOperand.set(lhs, curPos++); }
@@ -92,13 +100,13 @@ mlir::AffineExpr buildTree(mlir::PatternRewriter& rewriter, mlir::Operation* op,
   }
 
   // process rhs
-  if (isArithExpr(rhs.getDefiningOp())) {
+  if (rhs.getDefiningOp() && isArithExpr(rhs.getDefiningOp())) {
     rhsExpr = buildTree(rewriter, rhs.getDefiningOp(), allNewOperand, curPos);
-  } else if (isConstantIndexExpr(rhs.getDefiningOp())) {
+  } else if (rhs.getDefiningOp() && isConstantIndexExpr(rhs.getDefiningOp())) {
     rhsExpr = rewriter.getAffineConstantExpr(mlir::cast<arith::ConstantOp>(rhs.getDefiningOp())
                                                  .getValueAttr()
                                                  .cast<mlir::IntegerAttr>()
-                                                 .getUInt());
+                                                 .getInt());
   } else {
     // check is in current Operand or not.
     if (!allNewOperand.hasValue(rhs)) { allNewOperand.set(rhs, curPos++); }
@@ -155,10 +163,10 @@ std::pair<mlir::AffineMap, mlir::ValueRange> traceIndicesAndTurnItToMapExpr(
   }
 
   // turn allNewOperand to mlir::ValueRange
-  // TODO buggy
   retRange.resize(allNewOperand.data.size());
   for (auto& item : allNewOperand.data) { retRange[item.second] = item.first; }
-  auto amp = mlir::AffineMap::get(retRange.size(), retRange.size(), exprs, rewriter.getContext());
+  auto amp = mlir::AffineMap::get(/*dim count*/ retRange.size(), /*symbol count*/ 0,
+                                  /*affine expression*/ exprs, /*contex*/ rewriter.getContext());
 
   return std::make_pair(amp, retRange);
 }
@@ -169,12 +177,45 @@ class MemrefLoadToAffineLoardPattern final : public mlir::OpRewritePattern<mlir:
   mlir::LogicalResult matchAndRewrite(mlir::memref::LoadOp op,
                                       mlir::PatternRewriter& rewriter) const override {
     if (isInAffineForScope(op)) {
+      // trace all affine for op at top affine
+      llvm::SmallVector<mlir::affine::AffineForOp> AffineForOps;
+      {
+        // find the top affine.for
+        mlir::Operation* top = op->getParentOp();
+        mlir::affine::AffineForOp topAffineForOp;
+        while (top) {
+          if (mlir::isa<mlir::affine::AffineForOp>(top)) {
+            topAffineForOp = mlir::cast<mlir::affine::AffineForOp>(top);
+          }
+          top = top->getParentOp();
+        }
+
+        // using the top affine for to get all affine for ops in this scope
+        // NOTICE: The walk function will include the topAffineForOp. Which means it will walk
+        // through the top level op.
+        topAffineForOp.walk([&](mlir::affine::AffineForOp op) { AffineForOps.push_back(op); });
+      }
+
+      // process all affine symbols and values.
       if (op.getIndices().empty()) {
         rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
                                                                 /*memref*/ op.getMemRef());
       } else {
         // trace op.getIndices and build
         auto [_map, _vr] = traceIndicesAndTurnItToMapExpr(rewriter, op.getIndices());
+
+        // check forops, and reget all indicies
+        llvm::SmallVector<mlir::Value> indicies;
+        for (size_t i = 0; i < _vr.size(); ++i) {
+          for (size_t j = 0; j < AffineForOps.size(); ++j) {
+            if (_vr[i] == AffineForOps[j].getInductionVar()) {
+              indicies.push_back(AffineForOps[j].getInductionVar());
+            }
+          }
+        }
+
+        assert(_vr.size() == indicies.size());
+
         if (_map.isEmpty()) {
           rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
                                                                   /*memref*/ op.getMemRef(),
@@ -183,7 +224,7 @@ class MemrefLoadToAffineLoardPattern final : public mlir::OpRewritePattern<mlir:
           rewriter.replaceOpWithNewOp<mlir::affine::AffineLoadOp>(op,
                                                                   /*memref*/ op.getMemRef(),
                                                                   /*map*/ _map,
-                                                                  /*operand*/ _vr);
+                                                                  /*operand*/ indicies);
         }
       }
       return mlir::LogicalResult::success();
@@ -200,10 +241,61 @@ class MemrefStoreToAffineStorePattern final : public mlir::OpRewritePattern<mlir
   mlir::LogicalResult matchAndRewrite(mlir::memref::StoreOp op,
                                       mlir::PatternRewriter& rewriter) const override {
     if (isInAffineForScope(op)) {
-      rewriter.replaceOpWithNewOp<mlir::affine::AffineStoreOp>(
-          op,
-          /*value to store*/ op.getValueToStore(), /*Memref*/ op.getMemRef(),
-          /*indicies*/ op.getIndices());
+      // trace all affine for op at top affine
+      llvm::SmallVector<mlir::affine::AffineForOp> AffineForOps;
+      {
+        // find the top affine.for
+        mlir::Operation* top = op->getParentOp();
+        mlir::affine::AffineForOp topAffineForOp;
+        while (top) {
+          if (mlir::isa<mlir::affine::AffineForOp>(top)) {
+            topAffineForOp = mlir::cast<mlir::affine::AffineForOp>(top);
+          }
+          top = top->getParentOp();
+        }
+
+        // using the top affine for to get all affine for ops in this scope
+        // NOTICE: The walk function will include the topAffineForOp. Which means it will walk
+        // through the top level op.
+        topAffineForOp.walk([&](mlir::affine::AffineForOp op) { AffineForOps.push_back(op); });
+      }
+
+      // process all affine symbols and values.
+      if (op.getIndices().empty()) {
+        rewriter.replaceOpWithNewOp<mlir::affine::AffineStoreOp>(
+            op,
+            /*value to store*/ op.getValueToStore(), /*Memref*/ op.getMemRef(),
+            /*indicies*/ op.getIndices());
+      } else {
+        // trace op.getIndices and build
+        auto [_map, _vr] = traceIndicesAndTurnItToMapExpr(rewriter, op.getIndices());
+
+        // check forops, and reget all indicies
+        llvm::SmallVector<mlir::Value> indicies;
+        for (size_t i = 0; i < _vr.size(); ++i) {
+          for (size_t j = 0; j < AffineForOps.size(); ++j) {
+            if (_vr[i] == AffineForOps[j].getInductionVar()) {
+              indicies.push_back(AffineForOps[j].getInductionVar());
+            }
+          }
+        }
+
+        assert(_vr.size() == indicies.size());
+
+        if (_map.isEmpty()) {
+          rewriter.replaceOpWithNewOp<mlir::affine::AffineStoreOp>(
+              op,
+              /*value to store*/ op.getValueToStore(), /*Memref*/ op.getMemRef(),
+              /*indicies*/ op.getIndices());
+        } else {
+          rewriter.replaceOpWithNewOp<mlir::affine::AffineStoreOp>(
+              op,
+              /*value to store*/ op.getValueToStore(), /*Memref*/ op.getMemRef(),
+              /*map*/ _map,
+              /*indicies*/ indicies);
+        }
+      }
+
       return mlir::LogicalResult::success();
     } else {
       return mlir::LogicalResult::failure();

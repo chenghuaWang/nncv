@@ -1,6 +1,7 @@
 #ifdef NNCV_ENABLE_ANTLR
 
 #include <string>
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/ValueRange.h"
@@ -20,6 +21,67 @@
 namespace nncv {
 namespace compiler {
 namespace frontend {
+
+mlir::Value buildMathOp(mlir::ModuleOp& module, mlir::OpBuilder& builder,
+                        const std::string& mathFuncType, mlir::Location& loc,
+                        mlir::ValueRange& vr) {
+  // Base-e exponential of the specified value.
+  // The exp operation takes one operand of floating point type (i.e., scalar, tensor or vector) and
+  // returns one result of the same type. It has no standard attributes.
+  if (mathFuncType == "exp") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::ExpOp>(loc, value);
+    return ret;
+  }
+
+  //  Base-2 exponential of the specified value
+  if (mathFuncType == "exp2") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::Exp2Op>(loc, value);
+    return ret;
+  }
+
+  // expm1(x) := exp(x) - 1
+  if (mathFuncType == "expm1") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::ExpM1Op>(loc, value);
+    return ret;
+  }
+
+  // floor
+  if (mathFuncType == "floor") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::FloorOp>(loc, value);
+    return ret;
+  }
+
+  // fma
+  if (mathFuncType == "fma") {
+    assert(vr.size() == 3);
+    mlir::Value ret = builder.create<mlir::math::FmaOp>(loc, vr[0], vr[1], vr[2]);
+    return ret;
+  }
+
+  // abs
+  if (mathFuncType == "absf") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::AbsFOp>(loc, value);
+    return ret;
+  } else if (mathFuncType == "absi") {
+    assert(vr.size() == 1);
+    auto value = vr[0];
+    mlir::Value ret = builder.create<mlir::math::AbsIOp>(loc, value);
+    return ret;
+  }
+
+  printf("[ Erro ] math built in lib has no function named: %s\n", mathFuncType.c_str());
+  exit(-1);
+}
 
 void insertAllIoMethods(mlir::ModuleOp& module, mlir::OpBuilder& builder, mlir::Location& loc) {
   nncv::compiler::frontend::FuncCompilerFlag funcFlags;
@@ -517,6 +579,26 @@ VisitorParserReturn AutoTen2MlirVisitor::parseArgument(AutoTenV1Parser::Argument
       return VisitorParserReturn(v);
     } else if (packageName == "io" && methodName == "newLine") {
       buildIoPrintNewLineOp(m_TheModule, m_OpBuilder, location);
+    }
+
+    // math
+    if (packageName == "math") {
+      if (!m_useBuiltinMathFunction) {
+        printf("[ Erro ] You should import 'math' before using math utilities\n");
+        exit(-1);
+      }
+    }
+    if (packageName == "math") {
+      llvm::SmallVector<mlir::Value, 4> args;
+      if (ctx->expressionList()) {
+        for (const auto item : ctx->expressionList()->expression()) {
+          auto ret = std::any_cast<VisitorParserReturn>(visit(item)).getValue<mlir::Value>();
+          args.emplace_back(ret);
+        }
+      }
+      auto vr = mlir::ValueRange{args};
+      auto ret = buildMathOp(m_TheModule, m_OpBuilder, methodName, location, vr);
+      return VisitorParserReturn(ret);
     }
 
     return VisitorParserReturn();
@@ -1292,7 +1374,7 @@ std::any AutoTen2MlirVisitor::visitIfStmt(AutoTenV1Parser::IfStmtContext* ctx) {
                                                 mlir::aten::CmpOpPredicate::ne),
             atenMaybeBoolValue, cmpValue);
       } else {
-        printf("[ Error ] If loop conditon scope get value type is not [bool/int/float]\n");
+        printf("[ Erro ] If loop conditon scope get value type is not [bool/int/float]\n");
         exit(-1);
       }
     }
@@ -1638,6 +1720,8 @@ std::any AutoTen2MlirVisitor::visitImportClasue(AutoTenV1Parser::ImportClasueCon
   if (packageName == "\"io\"") {
     // build all symbols.
     insertAllIoMethods(m_TheModule, m_OpBuilder, location);
+  } else if (packageName == "\"math\"") {
+    m_useBuiltinMathFunction = true;
   }
 
   return VisitorParserReturn();
@@ -2188,7 +2272,7 @@ std::any AutoTen2MlirVisitor::visitOperandName(AutoTenV1Parser::OperandNameConte
   auto _value = m_curSymbolTable->getVarValueSymbol(ctx->Identifier()->getText());
   if (!_value.has_value()) {
     if (Ps.IsInVarDecl() || m_TheModule.lookupSymbol(ctx->Identifier()->getText())
-        || ctx->Identifier()->getText() == "io")
+        || ctx->Identifier()->getText() == "io" || ctx->Identifier()->getText() == "math")
       return VisitorParserReturn(ctx->Identifier()->getText());
     else {
       printf("[ Erro ] Symbol [%s] is not defined!\n", ctx->Identifier()->getText().c_str());
@@ -2261,7 +2345,29 @@ std::any AutoTen2MlirVisitor::visitExpression(AutoTenV1Parser::ExpressionContext
   }
   // unary_op = (Plus | Minus | Not | Caret | Star | And) expression
   else if (ctx->unary_op) {
-    // TODO
+    auto UnaryOpType = ctx->unary_op->getType();
+    mlir::Value singleValue =
+        std::any_cast<VisitorParserReturn>(visit(ctx->expression()[0])).getValue<mlir::Value>();
+    mlir::Location location = loc(ctx->unary_op->getLine(), ctx->unary_op->getCharPositionInLine());
+
+    if (UnaryOpType == m_Lexer.Minus) {
+      mlir::Value _0;
+      if (singleValue.getType().isa<mlir::FloatType>()) {
+        _0 = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, singleValue.getType(), mlir::FloatAttr::get(singleValue.getType(), 0.0));
+      } else if (singleValue.getType().isa<mlir::aten::IntType>()) {
+        _0 = m_OpBuilder.create<mlir::aten::ConstantOp>(
+            location, singleValue.getType(), mlir::aten::IntAttr::get(singleValue.getType(), 0));
+      }
+      mlir::Value retValue = m_OpBuilder.create<mlir::aten::BinOp>(
+          location,
+          mlir::aten::BinOpPredicateAttr::get(m_OpBuilder.getContext(),
+                                              mlir::aten::BinOpPredicate::Sub),
+          _0, singleValue);
+      return VisitorParserReturn(retValue);
+    } else {
+      printf("[ Erro ] Unary Op not supported yet, op: %s\n", ctx->unary_op->getText().c_str());
+    }
   }
   // expression mul_op = (Star|Div|Mod|LeftShift|RightShift|And)expression
   else if (ctx->mul_op) {

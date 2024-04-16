@@ -1,0 +1,33 @@
+@package = "main";
+
+import "io";
+import "math";
+
+func main() {
+    a := 1.0;
+    b := 2.0;
+    c := 3.0;
+    d := -1.0;
+
+    // abs
+    io.print(math.absf(d));
+    io.newLine();
+
+    // exp
+    io.print(math.exp(a));
+    io.newLine();
+    io.print(math.exp(b));
+    io.newLine();
+    io.print(math.exp(d));
+    io.newLine();
+
+    // exp2
+    io.print(math.exp2(a));
+    io.newLine();
+    io.print(math.exp2(c));
+    io.newLine();
+
+    // fma
+    io.print(math.fma(1.0, 2.0, 3.0));
+    io.newLine();
+};
