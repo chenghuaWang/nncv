@@ -1,0 +1,9 @@
+@package = "main";
+
+import "io";
+import "math";
+
+func Softmax(a float32) -> float32 {
+    res := math.exp(a);
+    return res;
+};
