@@ -1,0 +1,141 @@
+module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @printI64(!Aten.int<s, 64>)
+  Aten.func private @printF32(f32)
+  Aten.func private @printF64(f32)
+  Aten.func private @_mlir_ciface_nanoTime() -> !Aten.int<s, 64>
+  Aten.func private @printNewline()
+  Aten.func private @Linear(%arg0: memref<1024x2048xf32>, %arg1: memref<2048x2048xf32>, %arg2: memref<1024x2048xf32>) {
+    affine.for %arg3 = 0 to 1024 {
+      affine.for %arg4 = 0 to 2048 {
+        affine.for %arg5 = 0 to 2048 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<1024x2048xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<1024x2048xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<2048x2048xf32>
+          %3 = Aten.binop(mul, %1, %2) : f32
+          %4 = Aten.binop(add, %0, %3) : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<1024x2048xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @DivideEleWise(%arg0: memref<1024x1024xf32>, %arg1: f32) {
+    affine.for %arg2 = 0 to 1024 {
+      affine.for %arg3 = 0 to 1024 {
+        %0 = memref.load %arg0[%arg2, %arg3] : memref<1024x1024xf32>
+        %1 = Aten.binop(div, %0, %arg1) : f32
+        memref.store %1, %arg0[%arg2, %arg3] : memref<1024x1024xf32>
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @Transpose(%arg0: memref<1024x2048xf32>, %arg1: memref<2048x1024xf32>) {
+    affine.for %arg2 = 0 to 1024 {
+      affine.for %arg3 = 0 to 2048 {
+        %0 = memref.load %arg0[%arg2, %arg3] : memref<1024x2048xf32>
+        memref.store %0, %arg1[%arg3, %arg2] : memref<2048x1024xf32>
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @CalAttentionWeight(%arg0: memref<1024x2048xf32>, %arg1: memref<2048x1024xf32>, %arg2: memref<1024x1024xf32>) {
+    affine.for %arg3 = 0 to 1024 {
+      affine.for %arg4 = 0 to 1024 {
+        affine.for %arg5 = 0 to 2048 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<1024x1024xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<1024x2048xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<2048x1024xf32>
+          %3 = Aten.binop(mul, %1, %2) : f32
+          %4 = Aten.binop(add, %0, %3) : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<1024x1024xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @CalAttenedValue(%arg0: memref<1024x1024xf32>, %arg1: memref<1024x2048xf32>, %arg2: memref<1024x2048xf32>) {
+    affine.for %arg3 = 0 to 1024 {
+      affine.for %arg4 = 0 to 2048 {
+        affine.for %arg5 = 0 to 1024 {
+          %0 = memref.load %arg2[%arg3, %arg4] : memref<1024x2048xf32>
+          %1 = memref.load %arg0[%arg3, %arg5] : memref<1024x1024xf32>
+          %2 = memref.load %arg1[%arg5, %arg4] : memref<1024x2048xf32>
+          %3 = Aten.binop(mul, %1, %2) : f32
+          %4 = Aten.binop(add, %0, %3) : f32
+          memref.store %4, %arg2[%arg3, %arg4] : memref<1024x2048xf32>
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @Softmax(%arg0: memref<1024x1024xf32>) {
+    %0 = Aten.const(0.000000e+00 : f32) : f32
+    affine.for %arg1 = 0 to 1024 {
+      %1 = Aten.alloca f32, aten.ptr <f32>, ["expsum"] {alignment = 4 : i64}
+      Aten.store %0, %1 : f32, aten.ptr <f32>
+      affine.for %arg2 = 0 to 1024 {
+        %2 = Aten.load %1 : aten.ptr <f32>, f32
+        %3 = memref.load %arg0[%arg1, %arg2] : memref<1024x1024xf32>
+        %4 = math.exp %3 : f32
+        %5 = Aten.binop(add, %2, %4) : f32
+        Aten.store %5, %1 : f32, aten.ptr <f32>
+      }
+      affine.for %arg2 = 0 to 1024 {
+        %2 = memref.load %arg0[%arg1, %arg2] : memref<1024x1024xf32>
+        %3 = math.exp %2 : f32
+        %4 = Aten.load %1 : aten.ptr <f32>, f32
+        %5 = Aten.binop(div, %3, %4) : f32
+        memref.store %5, %arg0[%arg1, %arg2] : memref<1024x1024xf32>
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @main() {
+    %0 = Aten.const(#Aten.int<0> : !Aten.int<s, 32>) : !Aten.int<s, 32>
+    %1 = Aten.const(6.400000e+01 : f32) : f32
+    %2 = Aten.call @_mlir_ciface_nanoTime() : () -> !Aten.int<s, 64>
+    %3 = Aten.alloca !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>, ["start_time"] {alignment = 8 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>
+    %alloc = memref.alloc() : memref<1024x2048xf32>
+    %alloc_0 = memref.alloc() : memref<2048x2048xf32>
+    %alloc_1 = memref.alloc() : memref<2048x2048xf32>
+    %alloc_2 = memref.alloc() : memref<2048x2048xf32>
+    %alloc_3 = memref.alloc() : memref<1024x2048xf32>
+    %alloc_4 = memref.alloc() : memref<1024x2048xf32>
+    %alloc_5 = memref.alloc() : memref<1024x2048xf32>
+    Aten.call @Linear(%alloc, %alloc_0, %alloc_3) : (memref<1024x2048xf32>, memref<2048x2048xf32>, memref<1024x2048xf32>) -> ()
+    Aten.call @Linear(%alloc, %alloc_1, %alloc_4) : (memref<1024x2048xf32>, memref<2048x2048xf32>, memref<1024x2048xf32>) -> ()
+    Aten.call @Linear(%alloc, %alloc_2, %alloc_5) : (memref<1024x2048xf32>, memref<2048x2048xf32>, memref<1024x2048xf32>) -> ()
+    %alloc_6 = memref.alloc() : memref<2048x1024xf32>
+    %alloc_7 = memref.alloc() : memref<1024x1024xf32>
+    Aten.call @Transpose(%alloc_4, %alloc_6) : (memref<1024x2048xf32>, memref<2048x1024xf32>) -> ()
+    Aten.call @CalAttentionWeight(%alloc_3, %alloc_6, %alloc_7) : (memref<1024x2048xf32>, memref<2048x1024xf32>, memref<1024x1024xf32>) -> ()
+    Aten.call @DivideEleWise(%alloc_7, %1) : (memref<1024x1024xf32>, f32) -> ()
+    Aten.call @Softmax(%alloc_7) : (memref<1024x1024xf32>) -> ()
+    %alloc_8 = memref.alloc() : memref<1024x2048xf32>
+    Aten.call @CalAttenedValue(%alloc_7, %alloc_5, %alloc_8) : (memref<1024x1024xf32>, memref<1024x2048xf32>, memref<1024x2048xf32>) -> ()
+    %alloc_9 = memref.alloc() : memref<2048x2048xf32>
+    %alloc_10 = memref.alloc() : memref<1024x2048xf32>
+    Aten.call @Linear(%alloc_8, %alloc_9, %alloc_10) : (memref<1024x2048xf32>, memref<2048x2048xf32>, memref<1024x2048xf32>) -> ()
+    %4 = Aten.call @_mlir_ciface_nanoTime() : () -> !Aten.int<s, 64>
+    %5 = Aten.alloca !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>, ["end_time"] {alignment = 8 : i64}
+    Aten.store %4, %5 : !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>
+    %6 = Aten.cast(int_to_mlir_index, %0 : !Aten.int<s, 32>), index
+    %7 = memref.load %alloc_10[%6, %6] : memref<1024x2048xf32>
+    Aten.call @printF32(%7) : (f32) -> ()
+    Aten.call @printNewline() : () -> ()
+    %8 = Aten.load %5 : aten.ptr <!Aten.int<s, 64>>, !Aten.int<s, 64>
+    %9 = Aten.load %3 : aten.ptr <!Aten.int<s, 64>>, !Aten.int<s, 64>
+    %10 = Aten.binop(sub, %8, %9) : !Aten.int<s, 64>
+    %11 = Aten.cast(integral, %10 : !Aten.int<s, 64>), !Aten.int<s, 64>
+    Aten.call @printI64(%11) : (!Aten.int<s, 64>) -> ()
+    Aten.call @printNewline() : () -> ()
+    Aten.return
+  }
+}

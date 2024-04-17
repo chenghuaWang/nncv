@@ -1,0 +1,57 @@
+module @__main {
+  Aten.func private @printMemrefF64(memref<*xf64>)
+  Aten.func private @printMemrefF32(memref<*xf32>)
+  Aten.func private @printMemrefF16(memref<*xf16>)
+  Aten.func private @printMemrefI64(memref<*xi64>)
+  Aten.func private @printMemrefI32(memref<*xi32>)
+  Aten.func private @printMemrefI16(memref<*xi16>)
+  Aten.func private @printI64(!Aten.int<s, 64>)
+  Aten.func private @printF32(f32)
+  Aten.func private @printF64(f32)
+  Aten.func private @_mlir_ciface_nanoTime() -> !Aten.int<s, 64>
+  Aten.func private @printNewline()
+  Aten.func private @Conv2d(%arg0: memref<1x3x2048x2048xf32>, %arg1: memref<16x3x3x3xf32>, %arg2: memref<1x16x2046x2046xf32>) {
+    affine.for %arg3 = 0 to 1 {
+      affine.for %arg4 = 0 to 16 {
+        affine.for %arg5 = 0 to 2046 {
+          affine.for %arg6 = 0 to 2046 {
+            affine.for %arg7 = 0 to 3 {
+              affine.for %arg8 = 0 to 3 {
+                affine.for %arg9 = 0 to 3 {
+                  %0 = memref.load %arg2[%arg3, %arg4, %arg5, %arg6] : memref<1x16x2046x2046xf32>
+                  %1 = Aten.binop(add, %arg5, %arg8) : index
+                  %2 = Aten.binop(add, %arg6, %arg9) : index
+                  %3 = memref.load %arg0[%arg3, %arg7, %1, %2] : memref<1x3x2048x2048xf32>
+                  %4 = memref.load %arg1[%arg4, %arg7, %arg8, %arg9] : memref<16x3x3x3xf32>
+                  %5 = Aten.binop(mul, %3, %4) : f32
+                  %6 = Aten.binop(add, %0, %5) : f32
+                  memref.store %6, %arg2[%arg3, %arg4, %arg5, %arg6] : memref<1x16x2046x2046xf32>
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    Aten.return
+  }
+  Aten.func private @main() {
+    %alloc = memref.alloc() : memref<1x3x2048x2048xf32>
+    %alloc_0 = memref.alloc() : memref<16x3x3x3xf32>
+    %alloc_1 = memref.alloc() : memref<1x16x2046x2046xf32>
+    %0 = Aten.call @_mlir_ciface_nanoTime() : () -> !Aten.int<s, 64>
+    %1 = Aten.alloca !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>, ["start"] {alignment = 8 : i64}
+    Aten.store %0, %1 : !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>
+    Aten.call @Conv2d(%alloc, %alloc_0, %alloc_1) : (memref<1x3x2048x2048xf32>, memref<16x3x3x3xf32>, memref<1x16x2046x2046xf32>) -> ()
+    %2 = Aten.call @_mlir_ciface_nanoTime() : () -> !Aten.int<s, 64>
+    %3 = Aten.alloca !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>, ["end"] {alignment = 8 : i64}
+    Aten.store %2, %3 : !Aten.int<s, 64>, aten.ptr <!Aten.int<s, 64>>
+    %4 = Aten.load %3 : aten.ptr <!Aten.int<s, 64>>, !Aten.int<s, 64>
+    %5 = Aten.load %1 : aten.ptr <!Aten.int<s, 64>>, !Aten.int<s, 64>
+    %6 = Aten.binop(sub, %4, %5) : !Aten.int<s, 64>
+    %7 = Aten.cast(integral, %6 : !Aten.int<s, 64>), !Aten.int<s, 64>
+    Aten.call @printI64(%7) : (!Aten.int<s, 64>) -> ()
+    Aten.call @printNewline() : () -> ()
+    Aten.return
+  }
+}
