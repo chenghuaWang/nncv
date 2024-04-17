@@ -288,8 +288,6 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Pass Pipeline-3: Perform gpu based tiling and map");
     }
 
-    goto nv_pipeline_exit;
-
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec For GPU !!!
     //===----------------------------------------------------------------------===//
@@ -353,8 +351,6 @@ void DnnModelLowering::run() {
           "xxxxxxxxxxxxxxxxxxxx: Lowering all vector dialect to gpu or tensor core directly");
     }
 
-    goto nv_pipeline_exit;
-
     //===----------------------------------------------------------------------===//
     // 8. Map to Blocks and Threads using builtin pass
     // Map parallel to gpu's dimension Greedily
@@ -363,12 +359,12 @@ void DnnModelLowering::run() {
       pm.clear();
       pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createLoweringScfForAllToParallelPass());
       pm.addNestedPass<mlir::func::FuncOp>(mlir::createGpuMapParallelLoopsPass());
-      pm.addPass(mlir::createParallelLoopToGpuPass());
-      pm.addPass(mlir::createGpuKernelOutliningPass());
-      // register host memory to device side.
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterMemToGpuPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
-      pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
+      // pm.addPass(mlir::createParallelLoopToGpuPass());
+      // pm.addPass(mlir::createGpuKernelOutliningPass());
+      // // register host memory to device side.
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::nncv::createRegisterMemToGpuPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+      // pm.addNestedPass<mlir::func::FuncOp>(mlir::createCSEPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-7: Forall to Parallel and do Mapping to device");
     }
 

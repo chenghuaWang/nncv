@@ -300,6 +300,56 @@ func main() {
 
 </details>
 
+
+#### 2.1.3 Conv2d 3x3
+
+<details>
+<summary>[Conv2d 3x3 in nncv's lang(click to expand)]</summary>
+
+```aten
+@package = "main";
+
+import "io";
+
+func Conv2d(input Tensor<1, 3, 2048, 2048, float32>,
+            kernel Tensor<16, 3, 3, 3, float32>,
+            output Tensor<1, 16, 2046, 2046, float32>) {
+    pfor (n := 0; 1; 1) {
+        pfor (k := 0; 16; 1) {
+            pfor (oh := 0; 2046; 1) {
+                pfor (ow := 0; 2046; 1) {
+                    pfor (c := 0; 3; 1) {
+                        pfor (r := 0; 3; 1) {
+                            pfor (s := 0; 3; 1) {
+                                output[n, k, oh, ow] = output[n, k, oh, ow] + input[n, c, oh + r, ow + s] * kernel[k, c, r, s];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+};
+
+func main() {
+    // NCHW
+    var input Tensor<1, 3, 2048, 2048, float32>;
+    // KCRS
+    var kernel Tensor<16, 3, 3, 3, float32>;
+    // padding = 0, stride = 1
+    var output Tensor<1, 16, 2046, 2046, float32>;
+
+    // timing.
+    start := io.clock();
+    Conv2d(input, kernel, output);
+    end := io.clock();
+    io.print(end - start);
+    io.newLine();
+};
+```
+
+</details>
+
 ### 2.2 Parallel For Loops
 
 Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pfor` scopes to `affine.for` in mlir. Such as:
@@ -309,7 +359,7 @@ Aten-lang provides a `pfor`(parallel-for) mechanism, which will lowering all `pf
 
 import "io";
 
-func matmul(lhs Tensor<6, 6, float32>, rhs Tensor<6, 6, float32>, dst Tensor<6, 6, float32>) {
+func matmul(lhs Tensor<512, 512, float32>, rhs Tensor<512, 512, float32>, dst Tensor<512, 512, float32>) {
     pfor(/*lower bound, set axis name*/i := 0; /*upper bound*/6; /*step*/ 1) {
         pfor (j := 0; 6; 1) {
             pfor (k := 0; 6; 1) {
@@ -320,9 +370,9 @@ func matmul(lhs Tensor<6, 6, float32>, rhs Tensor<6, 6, float32>, dst Tensor<6, 
 };
 
 func main() -> void {
-    var lhs Tensor<6, 6, float32>;
-    var rhs Tensor<6, 6, float32>;
-    var dst Tensor<6, 6, float32>;
+    var lhs Tensor<512, 512, float32>;
+    var rhs Tensor<512, 512, float32>;
+    var dst Tensor<512, 512, float32>;
 
     matmul(lhs, rhs, dst);
 

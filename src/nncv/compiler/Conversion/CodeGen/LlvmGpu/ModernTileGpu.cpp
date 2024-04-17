@@ -73,6 +73,11 @@ struct Simt {
   SmallVector<mlir::Operation*> loopsInEachThreads;
 };
 
+struct TileOps {
+  SmallVector<SmallVector<int64_t>> tileSizes;
+  SmallVector<bool> canForall;
+};
+
 struct ModernMatMulTileOptions {
   SmallVector<SmallVector<int64_t>> tileSizes;
   SmallVector<bool> canForall;
@@ -89,6 +94,23 @@ struct ModernConv2dInterfaceTileOptions {
 };
 
 // FIXME: Change to fit GPU SIMT loops.
+TileOps Solver(mlir::Operation* op) {
+  mlir::linalg::LinalgOp linalgOp = mlir::cast<mlir::linalg::LinalgOp>(op);
+  TileOps ret;
+  // if generic op
+  if (mlir::isa<mlir::linalg::GenericOp>(linalgOp)) {
+    auto genericOp = mlir::cast<mlir::linalg::GenericOp>(op);
+    // TODO
+  }
+
+  // if matmul op
+  if (mlir::isa<mlir::linalg::MatmulOp>(linalgOp)) {
+    // TODO
+  }
+
+  printf("[ Erro ] Op: %s is not support yet\n", linalgOp->getName().getStringRef().str().c_str());
+  return ret;
+}
 
 ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* op) {
   // A method enum all sizes for selecting a output batch size.
@@ -254,15 +276,31 @@ ModernConv2dInterfaceTileOptions getConv2dInterfaceTileOptions(mlir::Operation* 
   return res;
 }
 
-bool isGenericStyleMatMul(mlir::Operation* op) {
+bool isOneReductionAtLast(mlir::Operation* op) {
   auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
   auto iterTypes = linalgOp.getIteratorTypesArray();
-  if (iterTypes.size() != 3) return false;
   for (size_t i = 0; i < iterTypes.size() - 1; ++i) {
-    if (iterTypes[i] != utils::IteratorType::parallel) { return false; }
+    if (iterTypes[i] == utils::IteratorType::reduction) return false;
   }
-  if (iterTypes[iterTypes.size() - 1] != utils::IteratorType::reduction) return false;
-  return true;
+  if (iterTypes[iterTypes.size() - 1] == utils::IteratorType::reduction) return true;
+  return false;
+}
+
+std::pair<bool, int> isAllParallelBeforeReduction(mlir::Operation* op) {
+  bool meetR = false;
+  int pos = 0;
+  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+  auto iterTypes = linalgOp.getIteratorTypesArray();
+  int cnt = 0;
+  for (auto& item : iterTypes) {
+    if (item == utils::IteratorType::reduction && !meetR) {
+      meetR = true;
+      pos = cnt;
+    }
+    if (meetR && item == utils::IteratorType::parallel) return std::make_pair(false, pos);
+    cnt++;
+  }
+  return std::make_pair(true, pos);
 }
 
 bool isGenericAllParallel(mlir::Operation* op) {
@@ -276,45 +314,80 @@ bool isGenericAllParallel(mlir::Operation* op) {
 
 ModernGenericTileOptions getGenericTileOptions(mlir::Operation* op) {
   ModernGenericTileOptions ret;
-  // check if is MatMul
-  if (isGenericStyleMatMul(op)) {
-    ret.tileSizes.push_back({8, 32, 0});
-    ret.tileSizes.push_back({4, 4, 0});
-    ret.tileSizes.push_back({0, 0, 4});
-    ret.canForall = {true, true, false};
+
+  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
+  auto iterTypes = linalgOp.getIteratorTypesArray();
+
+  // case 1. all parallel
+  if (isGenericAllParallel(op)) {
+    if (iterTypes.size() == 4) {
+      // block level
+      ret.tileSizes.push_back({4, 4, 0, 0});
+
+      // thread level
+      ret.tileSizes.push_back({0, 0, 4, 4});
+    }
+    // same as size() for 3, 2, 1
+    if (iterTypes.size() == 3) {
+      // block level
+      ret.tileSizes.push_back({4, 0, 0});
+
+      // thread level
+      ret.tileSizes.push_back({0, 0, 4});
+    }
+    if (iterTypes.size() == 2) {
+      // block level
+      ret.tileSizes.push_back({4, 4});
+
+      // thread level
+      ret.tileSizes.push_back({4, 4});
+    }
+    if (iterTypes.size() == 1) {
+      // block level
+      ret.tileSizes.push_back({4});
+
+      // thread level
+      ret.tileSizes.push_back({4});
+    }
+
+    // all loops can be made parallel
+    ret.canForall = SmallVector<bool>(2, true);
+
     return ret;
   }
 
-  // other types generic
-  // mark forall to true if parallel.
-  auto linalgOp = mlir::cast<mlir::linalg::GenericOp>(op);
-  auto iterTypes = linalgOp.getIteratorTypesArray();
-  for (auto item : iterTypes) {
-    if (item == utils::IteratorType::parallel)
-      ret.canForall.push_back(true);
-    else
-      ret.canForall.push_back(false);
+  // case 2. Has reduction and reduction is all behind parallel
+  auto _isReductionAtEnd = isOneReductionAtLast(op);
+  auto [_isAllParallelBeforeReduction, _pos] = isAllParallelBeforeReduction(op);
+  if (!_isAllParallelBeforeReduction) {
+    // all loops can't be parallized
+    ret.canForall = SmallVector<bool>(iterTypes.size(), false);
+    return ret;
   }
 
-  // if all parallel, check the parallel dims
-  if (isGenericAllParallel(op)) {
-    // iter types 4 is for normall generic op which has batch, channel, h, w. But remember that,
-    // there has a pass will eliminatate batch=1 tensor, so size()==4 actually for batch!=1.
-    // However, I will not make batch level parallel, due to this kind of full parallels op is
-    // element-wise, iterate through all batch is ok and has no performance drop.
-    //
-    // In brief, I will just tile the innor most parallel, because every element will just be
-    // visited only once, the vector size is set to 8 for AVX2.
-    if (iterTypes.size() == 4) { ret.tileSizes.push_back({1, 1, 1, 8}); }
-    // same as size() for 3, 2, 1
-    if (iterTypes.size() == 3) { ret.tileSizes.push_back({1, 1, 8}); }
-    if (iterTypes.size() == 2) { ret.tileSizes.push_back({1, 8}); }
-    if (iterTypes.size() == 1) { ret.tileSizes.push_back({8}); }
+  // reduction is tiled with length = 8 too!
+  if (_isReductionAtEnd) {
+    if (iterTypes.size() == 1) {
+      ret.tileSizes.push_back({8});
+      ret.canForall = {false};
+    } else if (iterTypes.size() == 2) {
+      ret.tileSizes.push_back({8, 8});
+      ret.canForall = {true, false};
+    } else if (iterTypes.size() == 3) {
+      ret.tileSizes.push_back({8, 8, 8});
+      ret.canForall = {true, true, false};
+    } else if (iterTypes.size() == 4) {
+      ret.tileSizes.push_back({8, 8, 8, 8});
+      ret.canForall = {true, true, true, false};
+    }
+
+    return ret;
   }
 
-  // if has reduction inside parallel, see ['parallel', 'reduction', 'parallel']. It is not supposed
-  // to happen. Before tiling, there has a pass interchange the reduction loop to the innermost for
-  // loops.
+  if (_isAllParallelBeforeReduction) {
+    printf("[ Erro ] The Multi Reduction op is not supportted yet\n");
+    std::exit(-1);
+  }
 
   return ret;
 }
