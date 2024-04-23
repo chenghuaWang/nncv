@@ -101,6 +101,16 @@ llvm::cl::opt<std::string> GenConfigFileOnly("gen-config-file-only",
 llvm::cl::opt<int64_t> NumThreads("num-threads", llvm::cl::desc("<threads>"), llvm::cl::Optional);
 llvm::cl::opt<bool> SplitParams("split-params", llvm::cl::desc("<split all params to binary file>"),
                                 llvm::cl::Optional);
+llvm::cl::opt<bool> DlcStageInput("dlc-stage-input", llvm::cl::desc("<Input stage in DLC>"),
+                                  llvm::cl::Optional);
+llvm::cl::opt<bool> DlcStageTiled("dlc-stage-tiled", llvm::cl::desc("<Tiled stage in DLC>"),
+                                  llvm::cl::Optional);
+llvm::cl::opt<bool> DlcStageVeced1("dlc-stage-vec1", llvm::cl::desc("<vec1 stage in DLC>"),
+                                   llvm::cl::Optional);
+llvm::cl::opt<bool> DlcStageBufferized("dlc-stage-buffer", llvm::cl::desc("<buffer stage in DLC>"),
+                                       llvm::cl::Optional);
+llvm::cl::opt<bool> DlcStageVeced2("dlc-stage-vec2", llvm::cl::desc("<vec2 stage in DLC>"),
+                                   llvm::cl::Optional);
 
 void LoadMLIRDialects(mlir::MLIRContext& context) {
   context
@@ -211,6 +221,11 @@ int main(int argc, char* argv[]) {
     //  Middle end. Register Some Pass for optimize and lowering.
     // ---------------------------------------------------------------------
     nncv::pipeline::DnnModelLowering dnnModelLowerPipeline(MlirContext, MlirModule);
+    dnnModelLowerPipeline.setStageInput(DlcStageInput.getValue());
+    dnnModelLowerPipeline.setStageTiled(DlcStageTiled.getValue());
+    dnnModelLowerPipeline.setStageVec1(DlcStageVeced1.getValue());
+    dnnModelLowerPipeline.setStageVec2(DlcStageVeced2.getValue());
+    dnnModelLowerPipeline.setStageBufferized(DlcStageBufferized.getValue());
     dnnModelLowerPipeline.setWarpC(WarpC.getValue());
     dnnModelLowerPipeline.setSplitParams(SplitParams.getValue());
     dnnModelLowerPipeline.setNumThreads(NumThreads.getValue() == 0 ? 4 : NumThreads.getValue());

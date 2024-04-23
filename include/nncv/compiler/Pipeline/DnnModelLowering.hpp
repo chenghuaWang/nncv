@@ -77,6 +77,12 @@ class DnnModelLowering {
   inline void setNumThreads(int64_t v) { m_NumThreads = v; }
   inline void setSplitParams(bool flag = false) { m_SplitParams = flag; }
 
+  inline void setStageInput(bool flag) { m_StageInput = flag; }
+  inline void setStageTiled(bool flag) { m_StageTiled = flag; }
+  inline void setStageVec1(bool flag) { m_StageVec1 = flag; }
+  inline void setStageVec2(bool flag) { m_StageVec2 = flag; }
+  inline void setStageBufferized(bool flag) { m_StageBufferized = flag; }
+
  private:
   bool m_GenNVPTX = false;
   bool m_GenHostWoParallel = false;
@@ -87,6 +93,11 @@ class DnnModelLowering {
   bool m_SplitParams = false;
   bool m_Native = false;
   bool m_AdvanceX86 = false;
+  bool m_StageInput = false;
+  bool m_StageTiled = false;
+  bool m_StageVec1 = false;
+  bool m_StageVec2 = false;
+  bool m_StageBufferized = false;
   int64_t m_NumThreads = 4;
   std::string m_ConfigFilePath;
   mlir::MLIRContext& m_Context;

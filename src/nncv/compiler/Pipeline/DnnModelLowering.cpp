@@ -449,6 +449,8 @@ void DnnModelLowering::run() {
       runPmSilent(pm, m_Module);
     }
 
+    if (m_StageInput) goto host_with_parallel_pipeline_exit;
+
     //===----------------------------------------------------------------------===//
     // 4 High level tile And Decompose
     //===----------------------------------------------------------------------===//
@@ -461,6 +463,8 @@ void DnnModelLowering::run() {
           pm, m_Module,
           "Pass Pipeline-3: High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
     }
+
+    if (m_StageTiled) goto host_with_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec
@@ -482,6 +486,8 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createConvertTensorToLinalgPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-5: Convert Tensor To Linalg");
     }
+
+    if (m_StageVec1) goto host_with_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 7. Bufferization all
@@ -514,6 +520,8 @@ void DnnModelLowering::run() {
       std::string whereToSave = rp + "/model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
+
+    if (m_StageBufferized) goto host_with_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
@@ -556,6 +564,8 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module,
                     "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
     }
+
+    if (m_StageVec2) goto host_with_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 12. Lowering all one by one.
@@ -594,6 +604,7 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
     }
 
+  host_with_parallel_pipeline_exit:
     if (!m_OutputFilePath.empty()) {
       nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
     } else {
@@ -631,6 +642,8 @@ void DnnModelLowering::run() {
       runPmSilent(pm, m_Module);
     }
 
+    if (m_StageInput) goto host_without_parallel_pipeline_exit;
+
     //===----------------------------------------------------------------------===//
     // 4 High level tile And Decompose
     //===----------------------------------------------------------------------===//
@@ -643,6 +656,8 @@ void DnnModelLowering::run() {
           pm, m_Module,
           "Pass Pipeline-3: High Level Tiling [Matmul/Conv/Pool/Generic/Pad] And Decompose");
     }
+
+    if (m_StageTiled) goto host_without_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 5. Prepare vec
@@ -664,6 +679,8 @@ void DnnModelLowering::run() {
       pm.addPass(mlir::createConvertTensorToLinalgPass());
       runPmWithExit(pm, m_Module, "Pass Pipeline-5: Convert Tensor To Linalg");
     }
+
+    if (m_StageVec1) goto host_without_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 7. Bufferization all
@@ -694,6 +711,8 @@ void DnnModelLowering::run() {
       std::string whereToSave = rp + "/model.bin";
       ::nncv::utils::MemRefFlatBuffer::getInstance().write(whereToSave);
     }
+
+    if (m_StageBufferized) goto host_without_parallel_pipeline_exit;
 
     //===----------------------------------------------------------------------===//
     // 8. Finalize Vectorization
@@ -737,6 +756,8 @@ void DnnModelLowering::run() {
                     "Pass Pipeline-9: Affine Lowering to SCF and Loop fusion/normalization");
     }
 
+    if (m_StageVec2) goto host_without_parallel_pipeline_exit;
+
     //===----------------------------------------------------------------------===//
     // 12. Lowering all one by one.
     //===----------------------------------------------------------------------===//
@@ -767,6 +788,7 @@ void DnnModelLowering::run() {
       runPmWithExit(pm, m_Module, "Pass Pipeline-10: Lowering all to llvm and libs call");
     }
 
+  host_without_parallel_pipeline_exit:
     if (!m_OutputFilePath.empty()) {
       nncv::compiler::utils::SaveMlirModuleToFile(m_Module, m_OutputFilePath);
     } else {
