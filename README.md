@@ -158,32 +158,32 @@ _mlir_ciface_forward(..., ..., params.get());
 ### 1.4 Binary Params Data Layout
 
 ```txt
-+--------------------+
-|      MemRefHead    |
-| int64_t magicnumber|
-| size_t offsets     |
-| size_t nums Indexer|
-+--------------------+
-|     Indexer-1      |
-| char[128] name     |
-| size_t dims        |
-| size_t[8] shape    |
-| size_t eleWidth    |
-| size_t algined     |
-| size_t offset      |
-+--------------------+
-|     Indexer-2      |
-+--------------------+
-|     Indexer-3      |
-+--------------------+
-|     Indexer-4      |
-+--------------------+
-|       data-1       |
-+--------------------+
-|       data-2       |
-+--------------------+
-|       data-3       |
-+--------------------+
++---------------------+
+|      MemRefHead     |
+| int64_t Magic Number|
+| size_t  Offset      |
+| size_t Nums Indexer |
++---------------------+
+|     Indexer-1       |
+| char[128] Name      |
+| size_t Dims         |
+| size_t[8] Shape     |
+| size_t EleWidth     |
+| size_t Aligned      |
+| size_t Offset       |
++---------------------+
+|     Indexer-2       |
++---------------------+
+|     Indexer-3       |
++---------------------+
+|     Indexer-4       |
++---------------------+
+|       data-1        |
++---------------------+
+|       data-2        |
++---------------------+
+|       data-3        |
++---------------------+
 ```
 
 ## 2. Nncv's Lang
