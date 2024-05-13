@@ -697,6 +697,14 @@ extern "C" void _printMemrefF32(UnrankedMemRefType<float>* m);
 
 extern "C" void printMemrefF32(int64_t rank, void* ptr);
 
+template<typename T>
+DynamicMemRefType<T> wrapToIndexableTensor(int64_t rank, void* ptr) {
+  UnrankedMemRefType<float> descriptor = {rank, ptr};
+  return DynamicMemRefType<float>(descriptor);
+}
+
+typedef std::initializer_list<int> At;
+
 // image class
 class Image {};
 
